@@ -1,6 +1,8 @@
 "use client";
 
-import { Shield, Eye, Settings, Zap, ArrowRight, Star, Check } from "lucide-react";
+import { Shield, Eye, Settings, Zap, ArrowRight, Star, Check, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 const specialists = [
   {
@@ -39,6 +41,42 @@ const specialists = [
 ];
 
 export default function SpecialistStore() {
+  const { user } = useAuth();
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const handleUpgrade = async (specialistId: string) => {
+    if (!user) {
+      window.location.href = "/login";
+      return;
+    }
+
+    setLoadingId(specialistId);
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.uid,
+          email: user.email,
+          plan: "specialist",
+          metadata: { specialistId },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Failed to initiate checkout");
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-12">
       <div className="text-center space-y-4 max-w-2xl mx-auto">
@@ -84,19 +122,34 @@ export default function SpecialistStore() {
               ))}
             </div>
 
-            <button className={`w-full py-4 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-2 group ${specialist.buttonColor}`}>
-              <span>Hire Specialist</span>
-              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+            <button 
+              disabled={loadingId === specialist.id}
+              onClick={() => handleUpgrade(specialist.id)}
+              className={`w-full py-4 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-2 ${
+                loadingId === specialist.id ? 'bg-gray-400 cursor-not-allowed' : specialist.buttonColor
+              } shadow-lg shadow-slate-200 hover:scale-[1.02] active:scale-[0.98]`}
+            >
+              {loadingId === specialist.id ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <span>UPGRADE NOW</span>
+                  <Zap size={16} fill="currentColor" />
+                </>
+              )}
             </button>
           </div>
         ))}
       </div>
 
-      <div className="bg-slate-900 rounded-3xl p-12 text-center text-white relative overflow-hidden">
-        <div className="relative z-10 space-y-6 max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">
-            <Zap size={16} className="text-yellow-400" />
-            <span className="text-xs font-bold uppercase tracking-widest">Enterprise Access</span>
+      <div className="bg-slate-900 rounded-[40px] p-12 text-white relative overflow-hidden">
+        <div className="relative z-10 space-y-6 max-w-xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold uppercase tracking-widest text-blue-400 border border-white/10">
+            <Zap size={12} />
+            <span>Custom Builds</span>
           </div>
           <h2 className="text-3xl font-bold">Custom AI Workforce</h2>
           <p className="text-slate-400 text-lg">Need a custom specialist trained on your company's data and workflows? We build bespoke AI employees for high-growth teams.</p>
@@ -105,7 +158,6 @@ export default function SpecialistStore() {
           </button>
         </div>
         
-        {/* Background blobs */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/20 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600/20 blur-[120px] rounded-full translate-y-1/2 -translate-x-1/2"></div>
       </div>
