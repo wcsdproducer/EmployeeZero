@@ -3,21 +3,21 @@ import { storeMemory, searchMemories } from "@/lib/memory";
 
 export async function POST(req: Request) {
   try {
-    const { userId, content, action, query } = await req.json();
+    const { tenantId, agentId, content, action, query } = await req.json();
 
     if (action === "store") {
-      if (!userId || !content) {
+      if (!tenantId || !agentId || !content) {
         return NextResponse.json({ error: "Missing fields" }, { status: 400 });
       }
-      await storeMemory(userId, content);
+      await storeMemory(tenantId, agentId, content);
       return NextResponse.json({ success: true, message: "Memory stored." });
     }
 
     if (action === "search") {
-      if (!userId || !query) {
+      if (!tenantId || !agentId || !query) {
         return NextResponse.json({ error: "Missing fields" }, { status: 400 });
       }
-      const results = await searchMemories(userId, query);
+      const results = await searchMemories(tenantId, agentId, query);
       return NextResponse.json({ results });
     }
 

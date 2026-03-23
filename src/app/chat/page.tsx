@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
@@ -18,13 +18,22 @@ interface Mission {
   createdAt: any;
   steps?: string[];
   userId: string;
+  workspace: string;
 }
+
+const agents = [
+    { id: "gravityclaw", name: "Gravity Claw", icon: <Zap size={14} />, color: "text-blue-400" },
+    { id: "argos", name: "Argos", icon: <Eye size={14} />, color: "text-purple-400" },
+    { id: "spectre", name: "SPECTRE", icon: <Shield size={14} />, color: "text-emerald-400" },
+    { id: "fixer", name: "FIXER", icon: <Settings size={14} />, color: "text-orange-400" },
+];
 
 export default function ChatPage() {
   const { user, loading: authLoading } = useAuth();
   const [input, setInput] = useState("");
   const [missions, setMissions] = useState<Mission[]>([]);
   const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState(agents[0]);
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -68,7 +77,7 @@ export default function ChatPage() {
         task,
         status: "queued",
         createdAt: Timestamp.now(),
-        workspace: "gravityclaw",
+        workspace: selectedAgent.id,
       });
       setActiveMissionId(docRef.id);
     } catch (err) {
@@ -87,7 +96,7 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen bg-[#0d0d0d] text-white selection:bg-white selection:text-black overflow-hidden font-sans">
       
-      {/* Sidebar - ChatGPT Style */}
+      {/* Sidebar */}
       <AnimatePresence initial={false}>
         {isSidebarOpen && (
           <motion.aside 
@@ -96,7 +105,7 @@ export default function ChatPage() {
             exit={{ width: 0, opacity: 0 }}
             className="flex-shrink-0 bg-[#000000] flex flex-col border-r border-white/5"
           >
-            <div className="p-3">
+            <div className="p-3 space-y-4">
               <Button 
                 variant="ghost" 
                 className="w-full justify-between gap-2 border border-white/10 hover:bg-white/5 rounded-lg px-3 py-6 group"
@@ -108,224 +117,213 @@ export default function ChatPage() {
                   </div>
                   New Mission
                 </div>
-                <PanelLeftOpen size={16} className="text-neutral-500 group-hover:text-white" />
               </Button>
+
+              <div className="space-y-1">
+                <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Active Workforce</p>
+                {agents.map((agent) => (
+                    <button
+                        key={agent.id}
+                        onClick={() => setSelectedAgent(agent)}
+                        className={cn(
+                            "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group",
+                            selectedAgent.id === agent.id ? "bg-white/10 text-white" : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
+                        )}
+                    >
+                        <div className={cn("p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors", agent.color)}>
+                            {agent.icon}
+                        </div>
+                        <span className="font-medium">{agent.name}</span>
+                        {selectedAgent.id === agent.id && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                        )}
+                    </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 custom-scrollbar">
-              <div className="text-[11px] font-bold text-neutral-500 px-3 py-2 uppercase tracking-widest">Recent Missions</div>
-              {missions.map((mission) => (
-                <button
-                  key={mission.id}
-                  onClick={() => setActiveMissionId(mission.id)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 group flex items-center justify-between",
-                    activeMissionId === mission.id ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
-                  )}
-                >
-                  <span className="truncate flex-1">{mission.task}</span>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <MoreHorizontal size={14} className="text-neutral-500" />
-                  </div>
-                </button>
-              ))}
+            <div className="flex-1 overflow-y-auto p-3 pt-0">
+              <div className="space-y-1 mt-4">
+                <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Recent Missions</p>
+                {missions.slice(0, 15).map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setActiveMissionId(m.id)}
+                    className={cn(
+                      "w-full text-left px-3 py-2.5 rounded-lg text-[13px] truncate transition-all",
+                      activeMissionId === m.id ? "bg-white/5 text-white" : "text-neutral-500 hover:text-neutral-300"
+                    )}
+                  >
+                    {m.task}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="p-3 mt-auto border-t border-white/5">
-              <Button variant="ghost" className="w-full justify-start gap-3 text-neutral-400 hover:text-white hover:bg-white/5 rounded-lg px-3 py-6">
+            <div className="p-3 border-t border-white/5">
+              <div className="flex items-center gap-3 px-3 py-2">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-500 flex items-center justify-center text-[10px] font-bold">
-                  {user.email?.[0].toUpperCase() || "U"}
+                  {user.email?.[0].toUpperCase()}
                 </div>
-                <div className="flex flex-col items-start overflow-hidden">
-                  <span className="text-sm font-medium truncate w-full">{user.email}</span>
-                  <span className="text-[10px] text-neutral-600 font-mono">Founding Member</span>
+                <div className="flex-1 truncate">
+                  <p className="text-[13px] font-medium truncate">{user.email}</p>
                 </div>
-              </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500">
+                    <MoreHorizontal size={14} />
+                </Button>
+              </div>
             </div>
           </motion.aside>
         )}
       </AnimatePresence>
 
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col relative bg-[#0d0d0d]">
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 bg-[#0d0d0d] relative">
         
         {/* Header */}
-        <header className="h-14 flex items-center justify-between px-4 border-b border-white/5 bg-[#0d0d0d]/80 backdrop-blur-md z-10">
-          <div className="flex items-center gap-2">
-            {!isSidebarOpen && (
-              <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)} className="text-neutral-400 hover:text-white">
-                <PanelLeftOpen size={18} />
-              </Button>
-            )}
-            <div className="text-sm font-semibold text-neutral-400 flex items-center gap-2">
-              <span className="text-white">Employee Zero</span>
-              <span className="px-1.5 py-0.5 rounded-md border border-white/10 bg-white/5 text-[10px] uppercase tracking-tighter">v0.1</span>
+        <header className="h-14 border-b border-white/5 flex items-center justify-between px-4 z-20 bg-[#0d0d0d]/80 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+                {!isSidebarOpen && (
+                    <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)} className="text-neutral-500">
+                        <PanelLeftOpen size={18} />
+                    </Button>
+                )}
+                <div className="flex items-center gap-2">
+                    <div className={cn("p-1.5 rounded-md bg-white/5", selectedAgent.color)}>
+                        {selectedAgent.icon}
+                    </div>
+                    <h2 className="text-sm font-semibold tracking-tight">{selectedAgent.name}</h2>
+                </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-             <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-white">
-                <Settings size={18} />
-             </Button>
-          </div>
+            <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="text-[12px] text-neutral-500 font-medium">Share</Button>
+                <div className="h-4 w-px bg-white/10 mx-1" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500">
+                    <Settings size={16} />
+                </Button>
+            </div>
         </header>
 
-        {/* Messages */}
-        <div 
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto py-10 flex flex-col items-center custom-scrollbar"
-        >
-          <div className="w-full max-w-3xl px-4 space-y-12">
-            {!activeMissionId && !submitting && missions.length === 0 && (
-              <div className="h-[60vh] flex flex-col items-center justify-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-2xl shadow-white/10 animate-float">
-                    <Bot size={32} strokeWidth={2.5} className="text-black" />
+        {/* Chat Area */}
+        <div className="flex-1 overflow-y-auto" ref={scrollRef}>
+          <div className="max-w-3xl mx-auto px-6 py-10">
+            {activeMissionId ? (
+              <div className="space-y-8">
+                {/* User Message */}
+                <div className="flex gap-4 group">
+                    <div className="w-8 h-8 rounded-full bg-neutral-800 flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1">
+                        U
+                    </div>
+                    <div className="space-y-2 flex-1">
+                        <p className="text-sm font-semibold text-neutral-400">You</p>
+                        <div className="text-[16px] leading-relaxed text-neutral-200">
+                            {activeMission?.task}
+                        </div>
+                    </div>
                 </div>
-                <h2 className="text-3xl font-bold tracking-tight text-center">What shall we build today?</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-xl">
-                    {["Research competitors for my AI SaaS", "Design a content strategy for X", "Automate my lead follow-ups", "Summarize recent PDF reports"].map((tip) => (
-                        <button key={tip} onClick={() => setInput(tip)} className="p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/5 text-sm text-neutral-400 hover:text-white transition-all text-left">
-                            {tip}
+
+                {/* Agent Response */}
+                <div className="flex gap-4 pt-4">
+                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1", selectedAgent.color, "bg-white/5 border border-white/5")}>
+                        {selectedAgent.icon}
+                    </div>
+                    <div className="space-y-4 flex-1">
+                        <p className="text-sm font-semibold text-neutral-400">{selectedAgent.name}</p>
+                        <div className="text-[16px] leading-relaxed text-neutral-100 min-h-[100px]">
+                            {activeMission?.status === "completed" ? (
+                                <motion.div 
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="whitespace-pre-wrap prose prose-invert max-w-none"
+                                >
+                                    {activeMission.result}
+                                </motion.div>
+                            ) : (
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex items-center gap-3 text-neutral-500 italic text-sm">
+                                        <Loader2 size={14} className="animate-spin" />
+                                        {activeMission?.status === "queued" ? "Waiting for deployment..." : "Executing strategic operations..."}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="h-3 bg-white/5 rounded-full w-3/4 animate-pulse" />
+                                        <div className="h-3 bg-white/5 rounded-full w-1/2 animate-pulse" />
+                                        <div className="h-3 bg-white/5 rounded-full w-2/3 animate-pulse" />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center space-y-8 pt-20">
+                <div className="relative">
+                    <div className={cn("w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl relative z-10", selectedAgent.color, "bg-white/5 border border-white/10")}>
+                        {selectedAgent.id === "gravityclaw" ? <Zap size={40} className="fill-current" /> : selectedAgent.icon}
+                    </div>
+                    <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full -z-10" />
+                </div>
+                <div className="space-y-3">
+                    <h1 className="text-3xl font-bold tracking-tight">How can {selectedAgent.name} help you today?</h1>
+                    <p className="text-neutral-500 max-w-sm mx-auto text-sm">Deploy an autonomous mission to scale your tactical operations.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 w-full max-w-2xl pt-4">
+                    {[
+                        "Audit my competitor's latest viral campaign",
+                        "Scout for emerging trends in AI agents",
+                        "Optimize my automation pipeline for throughput",
+                        "Draft a strategic roadmap for Q3 operations"
+                    ].map((suggestion, i) => (
+                        <button 
+                            key={i}
+                            onClick={() => setInput(suggestion)}
+                            className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all text-[13px] text-neutral-400 hover:text-neutral-200"
+                        >
+                            {suggestion}
                         </button>
                     ))}
                 </div>
-              </div>
-            )}
-
-            {/* Displaying Active Mission Chat Style */}
-            {activeMission && (
-              <div className="space-y-10">
-                 {/* User Message */}
-                 <div className="flex gap-4 items-start group">
-                    <div className="w-9 h-9 rounded-lg bg-neutral-800 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        {user.email?.[0].toUpperCase() || "U"}
-                    </div>
-                    <div className="flex-1 pt-1.5 space-y-2">
-                        <div className="font-bold text-sm">You</div>
-                        <div className="text-neutral-300 leading-relaxed whitespace-pre-wrap">{activeMission.task}</div>
-                    </div>
-                 </div>
-
-                 {/* Bot Response / Thinking */}
-                 <div className="flex gap-4 items-start group">
-                    <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-black flex-shrink-0">
-                        <Bot size={18} />
-                    </div>
-                    <div className="flex-1 pt-1.5 space-y-6">
-                        <div className="font-bold text-sm flex items-center gap-2">
-                            Employee Zero
-                            {["running", "processing", "queued"].includes(activeMission.status) && (
-                                <Loader2 size={12} className="animate-spin text-neutral-500" />
-                            )}
-                        </div>
-                        
-                        <div className="space-y-4">
-                            {activeMission.status === "completed" ? (
-                                <div className="prose prose-invert max-w-none text-neutral-300">
-                                    {activeMission.result || "Mission accomplished. All systems operational."}
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="h-2 w-full max-w-md bg-white/5 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: "60%" }}
-                                            transition={{ duration: 10, repeat: Infinity }}
-                                            className="h-full bg-white/40"
-                                        />
-                                    </div>
-                                    <div className="text-sm font-mono text-neutral-500 uppercase tracking-widest animate-pulse">
-                                        Executing: {activeMission.status}...
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Autonomous Steps Visualization */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-8">
-                                {[
-                                    { label: "Trend Scouting", status: activeMission.status !== "queued" },
-                                    { label: "Strategy Analysis", status: ["processing", "completed"].includes(activeMission.status) },
-                                    { label: "Asset Generation", status: ["processing", "completed"].includes(activeMission.status) },
-                                    { label: "Deployment", status: activeMission.status === "completed" },
-                                ].map((step, idx) => (
-                                    <div key={idx} className={cn(
-                                        "flex items-center gap-3 p-3 rounded-lg border text-xs font-medium transition-all",
-                                        step.status ? "border-white/20 bg-white/5 text-white" : "border-white/5 text-neutral-600"
-                                    )}>
-                                        {step.status ? <CheckCircle2 size={14} className="text-green-500" /> : <Circle size={14} />}
-                                        {step.label}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                 </div>
               </div>
             )}
           </div>
         </div>
 
         {/* Input Area */}
-        <div className="p-4 pb-8 flex flex-col items-center">
-          <form 
-            onSubmit={handleSubmit}
-            className="w-full max-w-3xl relative"
-          >
-            <div className="relative flex items-end w-full rounded-2xl border border-white/10 bg-[#171717] shadow-2xl focus-within:border-white/20 transition-all p-2">
+        <div className="p-6 pt-0">
+          <div className="max-w-3xl mx-auto relative group">
+            <form onSubmit={handleSubmit} className="relative">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Message Employee Zero..."
-                rows={1}
                 onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
                         handleSubmit();
                     }
                 }}
-                className="w-full bg-transparent border-none focus:ring-0 text-sm text-white placeholder-neutral-500 py-3 px-4 resize-none overflow-hidden min-h-[52px] max-h-[200px]"
-                style={{ height: 'auto' }}
-                onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    target.style.height = 'auto';
-                    target.style.height = `${target.scrollHeight}px`;
-                }}
+                placeholder={`Message ${selectedAgent.name}...`}
+                className="w-full bg-[#171717] border border-white/10 rounded-2xl py-4 pl-4 pr-14 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-transparent transition-all min-h-[60px] max-h-[200px] resize-none text-[15px] placeholder:text-neutral-600 shadow-2xl"
               />
-              <div className="pb-2 pr-2">
+              <div className="absolute right-3 bottom-3">
                 <Button 
                     type="submit" 
-                    size="icon" 
                     disabled={!input.trim() || submitting}
+                    size="icon"
                     className={cn(
-                        "w-8 h-8 rounded-lg transition-all",
-                        input.trim() ? "bg-white text-black" : "bg-neutral-800 text-neutral-500"
+                        "h-8 w-8 rounded-xl transition-all",
+                        input.trim() ? "bg-white text-black hover:bg-neutral-200" : "bg-white/5 text-neutral-600"
                     )}
                 >
                     {submitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={18} strokeWidth={2.5} />}
                 </Button>
               </div>
-            </div>
-            <div className="mt-2 text-[10px] text-center text-neutral-600 font-medium">
-                Employee Zero can make mistakes. Consider checking important information.
-            </div>
-          </form>
+            </form>
+            <p className="mt-3 text-[11px] text-neutral-600 text-center flex items-center justify-center gap-1.5 font-medium">
+                <Sparkles size={10} /> {selectedAgent.name} can provide tactical intelligence but should be verified.
+            </p>
+          </div>
         </div>
       </main>
-
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #262626;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #333;
-        }
-      `}</style>
     </div>
   );
 }
