@@ -18,14 +18,13 @@ export interface MemoryResult {
  * 
  * @param userId - The user who owns this memory.
  * @param content - The text content to remember.
- * @param embedding - The pre-calculated vector embedding (e.g., from Gemini).
  */
-export async function storeMemory(userId: string, content: string, embedding: number[]) {
-  const storeFn = httpsCallable<{ userId: string; content: string; embedding: number[] }, { id: string }>(
+export async function storeMemory(userId: string, content: string) {
+  const storeFn = httpsCallable<{ userId: string; content: string }, { id: string }>(
     functions, 
     "storeMemory"
   );
-  const result = await storeFn({ userId, content, embedding });
+  const result = await storeFn({ userId, content });
   return result.data;
 }
 
@@ -34,14 +33,14 @@ export async function storeMemory(userId: string, content: string, embedding: nu
  * Performs the heavy lifting in a Cloud Function to support Native Firestore Vector Search.
  * 
  * @param userId - The user whose memories to search.
- * @param queryVector - The embedding of the search query.
- * @param limit - Max results (default: 10).
+ * @param query - The text of the search query.
+ * @param limitCount - Max results (default: 10).
  */
-export async function searchMemories(userId: string, queryVector: number[], limitCount: number = 10) {
-  const searchFn = httpsCallable<{ userId: string; queryVector: number[]; limit?: number }, { results: MemoryResult[] }>(
+export async function searchMemories(userId: string, query: string, limitCount: number = 10) {
+  const searchFn = httpsCallable<{ userId: string; query: string; limit?: number }, { results: MemoryResult[] }>(
     functions, 
     "searchMemories"
   );
-  const result = await searchFn({ userId, queryVector, limit: limitCount });
+  const result = await searchFn({ userId, query, limit: limitCount });
   return result.data.results;
 }
