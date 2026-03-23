@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-static";
+
 /**
  * Mission API — proxies all mission operations to the GravityClaw bridge server.
  *

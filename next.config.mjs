@@ -3,6 +3,7 @@ const nextConfig = {
   images: { unoptimized: true },
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: false },
-  output: 'standalone',
+  output: 'export',
+  trailingSlash: true,
 };
 export default nextConfig;
