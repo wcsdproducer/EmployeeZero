@@ -11,13 +11,21 @@ export async function POST(request: Request) {
   }
 
   const stripe = new Stripe(key, { apiVersion: "2025-02-24.acacia" as any });
-  const { userId, email, plan } = await request.json();
+  const { userId, email, plan, metadata: clientMetadata } = await request.json();
 
   let priceId = "";
   if (plan === "founding-100") {
     priceId = process.env.NEXT_PUBLIC_STRIPE_FOUNDING_100_PRICE_ID || "";
   } else if (plan === "specialist") {
-    priceId = process.env.NEXT_PUBLIC_STRIPE_SPECIALIST_PRICE_ID || "";
+    const specialistId = clientMetadata?.specialistId;
+    if (specialistId === "argos") priceId = process.env.STRIPE_ARGOS_PRICE_ID || "";
+    if (specialistId === "spectre") priceId = process.env.STRIPE_SPECTRE_PRICE_ID || "";
+    if (specialistId === "fixer") priceId = process.env.STRIPE_FIXER_PRICE_ID || "";
+
+    // Fallback to generic specialist price ID
+    if (!priceId) {
+      priceId = process.env.NEXT_PUBLIC_STRIPE_SPECIALIST_PRICE_ID || "";
+    }
   }
 
   if (!priceId) {
@@ -36,7 +44,11 @@ export async function POST(request: Request) {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${request.headers.get("origin")}/dashboard?success=true`,
       cancel_url: `${request.headers.get("origin")}${plan === "founding-100" ? "/hiring-hall" : "/specialists"}`,
-      metadata: { userId, plan },
+      metadata: { 
+        userId, 
+        plan,
+        specialistId: clientMetadata?.specialistId || "" 
+      },
     });
 
     return NextResponse.json({ url: session.url });
