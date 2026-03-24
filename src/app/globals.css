@@ -3,31 +3,50 @@
 @tailwind utilities;
 
 :root {
-  --background: #050505;
-  --foreground: #ffffff;
-  --primary: #ffffff;
-  --secondary: #1a1a1a;
-  --muted: #737373;
-  --accent: #ffffff;
+  --background: 222 47% 6%;
+  --foreground: 0 0% 100%;
+  --primary: 166 100% 42%;
+  --primary-foreground: 222 47% 6%;
+  --secondary: 222 30% 12%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 222 20% 20%;
+  --muted-foreground: 220 10% 55%;
+  --accent: 166 100% 42%;
+  --accent-foreground: 222 47% 6%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 222 20% 18%;
+  --input: 222 20% 18%;
+  --ring: 166 100% 42%;
+  --popover: 222 35% 10%;
+  --popover-foreground: 0 0% 100%;
+  --card: 222 35% 10%;
+  --card-foreground: 0 0% 100%;
+  --radius: 0.75rem;
 }
 
 @layer base {
   body {
-    @apply bg-background text-foreground selection:bg-white selection:text-black antialiased;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   }
 }
 
-.glass {
-  @apply bg-white/5 backdrop-blur-xl border border-white/10;
+/* Utility classes */
+.glass-card {
+  @apply bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-2xl;
 }
 
 .glow {
-  box-shadow: 0 0 80px -20px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 80px -20px rgba(0, 212, 170, 0.15);
 }
 
 .text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-b from-white to-neutral-500;
+  @apply bg-clip-text text-transparent bg-gradient-to-b from-white to-neutral-400;
+}
+
+.text-gradient-hero {
+  @apply bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-white/40;
 }
 
 @keyframes float {
@@ -39,3 +58,18 @@
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--muted)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }

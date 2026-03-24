@@ -15,6 +15,7 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-6">
           <Link href="/chat" className="text-sm text-neutral-500 hover:text-black transition-colors">Chat</Link>
           <Link href="/specialists" className="text-sm text-neutral-500 hover:text-black transition-colors">Specialists</Link>
+          <Link href="/setup" className="text-sm text-neutral-500 hover:text-black transition-colors">Setup</Link>
           <Link href="/settings" className="text-sm text-neutral-500 hover:text-black transition-colors">Settings</Link>
         </div>
       </div>
