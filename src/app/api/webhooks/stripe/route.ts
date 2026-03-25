@@ -1,17 +1,23 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-import Database from "better-sqlite3";
-import path from "path";
 
-// Initialize the Stripe instance
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia" as any,
-});
-
-// Path to gravity.db (one level up from employee-zero root)
-const DB_PATH = path.join(process.cwd(), "..", "gravity.db");
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  // Lazy imports to avoid build-time crashes
+  const Stripe = (await import("stripe")).default;
+  const Database = (await import("better-sqlite3")).default;
+  const path = await import("path");
+
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) {
+    console.error("Missing STRIPE_SECRET_KEY");
+    return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
+  }
+
+  const stripe = new Stripe(stripeKey, {
+    apiVersion: "2025-02-24.acacia" as any,
+  });
+
   const body = await req.text();
   const signature = req.headers.get("stripe-signature") as string;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -21,7 +27,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
   }
 
-  let event: Stripe.Event;
+  let event: import("stripe").Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
@@ -30,6 +36,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // Path to gravity.db (one level up from employee-zero root)
+  const DB_PATH = path.join(process.cwd(), "..", "gravity.db");
   const db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
 
@@ -47,25 +55,24 @@ export async function POST(req: Request) {
   `);
 
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+    const session = event.data.object as import("stripe").Stripe.Checkout.Session;
     const { userId, plan, specialistId } = session.metadata || {};
 
     if (!userId || !plan) {
       console.error("Missing metadata in checkout session completion event.");
+      db.close();
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
     }
 
     console.log(`Processing subscription for user ${userId}, plan ${plan}`);
 
     try {
-      // Update user_subscriptions
       const stmt = db.prepare(`
         INSERT INTO user_subscriptions (user_id, plan_id, specialist_id, status, stripe_subscription_id)
         VALUES (?, ?, ?, ?, ?)
       `);
       stmt.run(userId, plan, specialistId || null, "active", session.subscription as string);
 
-      // Also update settings table if it exists (for compatibility)
       try {
         const settingsStmt = db.prepare(`
           INSERT INTO settings (key, value)
@@ -85,6 +92,7 @@ export async function POST(req: Request) {
       console.log(`Successfully provisioned ${plan} for user ${userId}`);
     } catch (err: any) {
       console.error("Database update failed:", err.message);
+      db.close();
       return NextResponse.json({ error: "Database update failed" }, { status: 500 });
     }
   }
