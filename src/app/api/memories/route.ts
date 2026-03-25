@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { storeMemory, searchMemories } from "@/lib/memory";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: Request) {
   try {
     const { tenantId, agentId, content, action, query } = await req.json();

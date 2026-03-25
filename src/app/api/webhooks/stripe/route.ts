@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-import Database from "better-sqlite3";
-import path from "path";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
-// Initialize the Stripe instance
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia" as any,
-});
+export const dynamic = "force-dynamic";
 
-// Path to gravity.db (one level up from employee-zero root)
-const DB_PATH = path.join(process.cwd(), "..", "gravity.db");
+// Initialize Firebase Admin if not already
+if (!getApps().length) {
+  initializeApp({
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "employee-zero-production",
+  });
+}
+
+const adminDb = getFirestore();
 
 export async function POST(req: Request) {
+  const Stripe = (await import("stripe")).default;
+
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey) {
+    console.error("Missing STRIPE_SECRET_KEY");
+    return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
+  }
+
+  const stripe = new Stripe(stripeKey, {
+    apiVersion: "2025-02-24.acacia" as any,
+  });
+
   const body = await req.text();
   const signature = req.headers.get("stripe-signature") as string;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -21,7 +35,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
   }
 
-  let event: Stripe.Event;
+  let event: import("stripe").Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
@@ -30,25 +44,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-
-  // Ensure user_subscriptions table exists
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS user_subscriptions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT NOT NULL,
-      plan_id TEXT NOT NULL,
-      specialist_id TEXT,
-      status TEXT NOT NULL,
-      stripe_subscription_id TEXT,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const { userId, plan, specialistId } = session.metadata || {};
+    const session = event.data.object as import("stripe").Stripe.Checkout.Session;
+    const { userId, plan } = session.metadata || {};
 
     if (!userId || !plan) {
       console.error("Missing metadata in checkout session completion event.");
@@ -58,37 +56,39 @@ export async function POST(req: Request) {
     console.log(`Processing subscription for user ${userId}, plan ${plan}`);
 
     try {
-      // Update user_subscriptions
-      const stmt = db.prepare(`
-        INSERT INTO user_subscriptions (user_id, plan_id, specialist_id, status, stripe_subscription_id)
-        VALUES (?, ?, ?, ?, ?)
-      `);
-      stmt.run(userId, plan, specialistId || null, "active", session.subscription as string);
+      // 1. Create a new agent document in the user's agents subcollection
+      //    The agent starts as "pending" — user will name it on return
+      const agentRef = await adminDb.collection(`users/${userId}/agents`).add({
+        name: "New Agent",
+        avatar: "robot",
+        status: "pending_setup",
+        plan,
+        stripeSubscriptionId: session.subscription as string,
+        createdAt: new Date().toISOString(),
+      });
 
-      // Also update settings table if it exists (for compatibility)
-      try {
-        const settingsStmt = db.prepare(`
-          INSERT INTO settings (key, value)
-          VALUES (?, ?)
-          ON CONFLICT(key) DO UPDATE SET value = excluded.value
-        `);
-        
-        if (plan === "founding-100") {
-          settingsStmt.run(`subscription:${userId}`, "founding-100");
-        } else if (plan === "specialist" && specialistId) {
-          settingsStmt.run(`specialist:${userId}:${specialistId}`, "active");
-        }
-      } catch (err: any) {
-        console.warn("Failed to update settings table, but subscription was recorded.", err.message);
+      console.log(`Created pending agent ${agentRef.id} for user ${userId}`);
+
+      // 2. Increment the user's agent count
+      await adminDb.doc(`users/${userId}`).set(
+        { agentCount: FieldValue.increment(1) },
+        { merge: true }
+      );
+
+      // 3. If founding plan, increment the global founding count
+      if (plan === "founding") {
+        await adminDb.doc("config/pricing").update({
+          foundingCount: FieldValue.increment(1),
+        });
+        console.log(`Incremented founding count for user ${userId}`);
       }
 
-      console.log(`Successfully provisioned ${plan} for user ${userId}`);
+      console.log(`Successfully provisioned ${plan} agent for user ${userId}`);
     } catch (err: any) {
-      console.error("Database update failed:", err.message);
+      console.error("Firestore update failed:", err.message);
       return NextResponse.json({ error: "Database update failed" }, { status: 500 });
     }
   }
 
-  db.close();
   return NextResponse.json({ received: true });
 }

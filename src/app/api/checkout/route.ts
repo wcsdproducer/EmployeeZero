@@ -1,5 +1,17 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+
+export const dynamic = "force-dynamic";
+
+// Initialize Firebase Admin if not already
+if (!getApps().length) {
+  initializeApp({
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "employee-zero-production",
+  });
+}
+
+const adminDb = getFirestore();
 
 export async function POST(request: Request) {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -10,22 +22,35 @@ export async function POST(request: Request) {
     );
   }
 
+  const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(key, { apiVersion: "2025-02-24.acacia" as any });
-  const { userId, email, plan, metadata: clientMetadata } = await request.json();
+  const { userId, email } = await request.json();
 
-  let priceId = "";
-  if (plan === "founding-100") {
-    priceId = process.env.NEXT_PUBLIC_STRIPE_FOUNDING_100_PRICE_ID || "";
-  } else if (plan === "specialist") {
-    const specialistId = clientMetadata?.specialistId;
-    if (specialistId === "argos") priceId = process.env.STRIPE_ARGOS_PRICE_ID || "";
-    if (specialistId === "spectre") priceId = process.env.STRIPE_SPECTRE_PRICE_ID || "";
-    if (specialistId === "fixer") priceId = process.env.STRIPE_FIXER_PRICE_ID || "";
+  if (!userId || !email) {
+    return NextResponse.json({ error: "Missing userId or email" }, { status: 400 });
+  }
 
-    // Fallback to generic specialist price ID
-    if (!priceId) {
-      priceId = process.env.NEXT_PUBLIC_STRIPE_SPECIALIST_PRICE_ID || "";
+  // Check founding count to determine which price to use
+  let priceId: string;
+  let plan: string;
+
+  try {
+    const pricingDoc = await adminDb.doc("config/pricing").get();
+    const foundingCount = pricingDoc.exists ? (pricingDoc.data()?.foundingCount ?? 0) : 0;
+    const foundingLimit = pricingDoc.exists ? (pricingDoc.data()?.foundingLimit ?? 100) : 100;
+
+    if (foundingCount < foundingLimit) {
+      priceId = process.env.STRIPE_FOUNDING_PRICE_ID || "";
+      plan = "founding";
+    } else {
+      priceId = process.env.STRIPE_REGULAR_PRICE_ID || "";
+      plan = "regular";
     }
+  } catch (err) {
+    console.error("Failed to check founding count:", err);
+    // Default to regular price if config can't be read
+    priceId = process.env.STRIPE_REGULAR_PRICE_ID || "";
+    plan = "regular";
   }
 
   if (!priceId) {
@@ -42,12 +67,11 @@ export async function POST(request: Request) {
       payment_method_types: ["card"],
       customer_email: email,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${request.headers.get("origin")}/dashboard?success=true`,
-      cancel_url: `${request.headers.get("origin")}${plan === "founding-100" ? "/hiring-hall" : "/specialists"}`,
-      metadata: { 
-        userId, 
+      success_url: `${request.headers.get("origin")}/chat?success=true&plan=${plan}`,
+      cancel_url: `${request.headers.get("origin")}/chat`,
+      metadata: {
+        userId,
         plan,
-        specialistId: clientMetadata?.specialistId || "" 
       },
     });
 

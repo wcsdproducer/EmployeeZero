@@ -2,12 +2,24 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
-import { signInWithGoogle, signInWithEmail, signUpWithEmail } from "@/lib/firebase";
+import { signInWithGoogle, signInWithEmail, signUpWithEmail, auth, db } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Check, Mail, Share2, User, ArrowRight, Zap, Bot, Loader2, Twitter, Linkedin } from "lucide-react";
+import { Mail, ArrowRight, Zap, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const AVATARS = [
+  { id: "bolt", emoji: "⚡", label: "Bolt", bg: "from-yellow-500/20 to-orange-500/20" },
+  { id: "ghost", emoji: "👻", label: "Ghost", bg: "from-purple-500/20 to-indigo-500/20" },
+  { id: "rocket", emoji: "🚀", label: "Rocket", bg: "from-blue-500/20 to-cyan-500/20" },
+  { id: "brain", emoji: "🧠", label: "Brain", bg: "from-pink-500/20 to-rose-500/20" },
+  { id: "robot", emoji: "🤖", label: "Robot", bg: "from-green-500/20 to-emerald-500/20" },
+  { id: "fire", emoji: "🔥", label: "Fire", bg: "from-red-500/20 to-orange-500/20" },
+  { id: "crystal", emoji: "💎", label: "Crystal", bg: "from-cyan-500/20 to-blue-500/20" },
+  { id: "star", emoji: "⭐", label: "Star", bg: "from-amber-500/20 to-yellow-500/20" },
+  { id: "alien", emoji: "👾", label: "Alien", bg: "from-violet-500/20 to-purple-500/20" },
+];
 
 export default function Onboarding() {
   const [step, setStep] = useState(1);
@@ -16,6 +28,14 @@ export default function Onboarding() {
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
   const [error, setError] = useState<string | null>(null);
+
+  // Step 2 state
+  const [userName, setUserName] = useState("");
+  const [employeeName, setEmployeeName] = useState("");
+
+  // Step 3 state
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+
   const router = useRouter();
 
   const handleNext = () => setStep(prev => prev + 1);
@@ -26,10 +46,11 @@ export default function Onboarding() {
     try {
       const user = await signInWithGoogle();
       if (user) {
-        // Popup succeeded
+        // Pre-fill the user name from Google profile
+        if (user.displayName) setUserName(user.displayName);
+        setLoading(false);
         handleNext();
       }
-      // If null, redirect is happening — page will reload
     } catch (err) {
       console.error(err);
       setError("Google sign-in failed. Please try again.");
@@ -47,6 +68,7 @@ export default function Onboarding() {
       } else {
         await signInWithEmail(email, password);
       }
+      setLoading(false);
       handleNext();
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? "";
@@ -65,13 +87,25 @@ export default function Onboarding() {
     }
   };
 
-  const handleSocialAuth = (provider: string) => {
+  const handleFinish = async () => {
     setLoading(true);
-    // Simulation: in real world, this would call Twitter/LinkedIn OAuth
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        await setDoc(doc(db, "users", user.uid), {
+          name: userName,
+          email: user.email || email,
+          employeeName,
+          avatar: selectedAvatar || "robot",
+          onboardedAt: new Date().toISOString(),
+          plan: "free",
+        }, { merge: true });
+      }
       router.push("/chat");
-    }, 1200);
+    } catch (err) {
+      console.error("Failed to save profile:", err);
+      router.push("/chat");
+    }
   };
 
   return (
@@ -95,6 +129,7 @@ export default function Onboarding() {
         </div>
 
         <AnimatePresence mode="wait">
+          {/* ─── STEP 1: Auth ─── */}
           {step === 1 && (
             <motion.div
               key="step1"
@@ -193,6 +228,7 @@ export default function Onboarding() {
             </motion.div>
           )}
 
+          {/* ─── STEP 2: Name Setup ─── */}
           {step === 2 && (
             <motion.div
               key="step2"
@@ -203,70 +239,105 @@ export default function Onboarding() {
             >
               <div className="text-center space-y-8">
                 <div className="mx-auto w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-2xl shadow-white/10 animate-float">
-                    <Share2 size={36} strokeWidth={2.5} className="text-black" />
+                    <Sparkles size={36} strokeWidth={2.5} className="text-black" />
                 </div>
                 <div className="space-y-3">
-                    <h1 className="text-4xl font-bold tracking-tight">Social Presence.</h1>
+                    <h1 className="text-4xl font-bold tracking-tight">Name your team.</h1>
                     <p className="text-neutral-500 text-lg font-medium max-w-sm mx-auto">
-                        Allow Employee Zero to publish content and engage with your community.
+                        Tell us who you are and give your AI employee an identity.
                     </p>
                 </div>
                 
-                <div className="grid grid-cols-1 gap-4 pt-6">
-                    <Button
-                        onClick={() => handleSocialAuth("twitter")}
-                        disabled={loading}
-                        variant="outline"
-                        className="h-16 border-white/10 bg-white/5 hover:bg-white hover:text-black text-lg font-bold rounded-2xl transition-all"
-                    >
-                        <Twitter size={20} className="mr-3" />
-                        Connect X / Twitter
-                    </Button>
-                    <Button
-                        onClick={() => handleSocialAuth("linkedin")}
-                        disabled={loading}
-                        variant="outline"
-                        className="h-16 border-white/10 bg-white/5 hover:bg-white hover:text-black text-lg font-bold rounded-2xl transition-all"
-                    >
-                        <Linkedin size={20} className="mr-3" />
-                        Connect LinkedIn
-                    </Button>
-                    <Button
-                        onClick={handleNext}
-                        variant="ghost"
-                        className="h-12 text-neutral-500 hover:text-white mt-4"
-                    >
-                        Skip for now
-                    </Button>
+                <div className="space-y-4 pt-2">
+                  <div className="text-left">
+                    <label className="text-xs text-neutral-500 font-mono uppercase tracking-widest mb-2 block px-1">Your Name</label>
+                    <input
+                      type="text"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      placeholder="e.g. Jack Freeman"
+                      autoFocus
+                      className="w-full h-14 px-4 bg-white/[0.05] border border-white/10 rounded-xl text-base text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
+                    />
+                  </div>
+                  <div className="text-left">
+                    <label className="text-xs text-neutral-500 font-mono uppercase tracking-widest mb-2 block px-1">Employee Name</label>
+                    <input
+                      type="text"
+                      value={employeeName}
+                      onChange={(e) => setEmployeeName(e.target.value)}
+                      placeholder="e.g. Nova, Atlas, Echo..."
+                      className="w-full h-14 px-4 bg-white/[0.05] border border-white/10 rounded-xl text-base text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all"
+                    />
+                  </div>
                 </div>
+
+                <Button
+                  onClick={handleNext}
+                  disabled={!userName.trim() || !employeeName.trim()}
+                  className="w-full h-16 bg-white text-black hover:bg-neutral-200 text-lg font-bold rounded-2xl group transition-all mt-4 disabled:opacity-30"
+                >
+                  Continue
+                  <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
               </div>
             </motion.div>
           )}
 
+          {/* ─── STEP 3: Avatar Selection ─── */}
           {step === 3 && (
             <motion.div
               key="step3"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             >
-              <div className="text-center space-y-10">
-                 <div className="mx-auto w-24 h-24 bg-white/5 border border-white/10 rounded-full flex items-center justify-center shadow-2xl shadow-white/5 relative">
-                    <Bot size={48} className="text-white animate-pulse" />
-                    <div className="absolute inset-0 bg-white/20 blur-2xl rounded-full -z-10" />
-                 </div>
-                 <div className="space-y-4">
-                    <h1 className="text-4xl font-bold tracking-tight">System Ready.</h1>
-                    <p className="text-neutral-400 text-lg font-medium max-w-xs mx-auto">
-                        Employee Zero is initialized and awaiting your first mission.
+              <div className="text-center space-y-8">
+                <div className="space-y-3">
+                    <div className="mx-auto w-20 h-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center shadow-2xl shadow-white/5 relative">
+                      <span className="text-4xl">{selectedAvatar ? AVATARS.find(a => a.id === selectedAvatar)?.emoji : "🤖"}</span>
+                      <div className="absolute inset-0 bg-white/10 blur-2xl rounded-full -z-10" />
+                    </div>
+                    <h1 className="text-4xl font-bold tracking-tight">
+                      Choose {employeeName}&apos;s look.
+                    </h1>
+                    <p className="text-neutral-500 text-lg font-medium max-w-sm mx-auto">
+                        Pick an avatar that represents your AI employee.
                     </p>
-                 </div>
-                 <Button
-                    onClick={() => router.push("/chat")}
-                    className="w-full h-16 bg-white text-black hover:bg-neutral-200 text-lg font-bold rounded-2xl shadow-[0_0_50px_rgba(255,255,255,0.15)] transition-all"
-                 >
-                    Enter Terminal
-                 </Button>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  {AVATARS.map((avatar) => (
+                    <button
+                      key={avatar.id}
+                      onClick={() => setSelectedAvatar(avatar.id)}
+                      className={cn(
+                        "relative flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border transition-all duration-300 cursor-pointer group",
+                        selectedAvatar === avatar.id
+                          ? "border-white bg-white/10 shadow-[0_0_30px_rgba(255,255,255,0.1)] scale-105"
+                          : "border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:border-white/20"
+                      )}
+                    >
+                      <span className="text-3xl group-hover:scale-110 transition-transform">{avatar.emoji}</span>
+                      <span className={cn(
+                        "text-xs font-medium transition-colors",
+                        selectedAvatar === avatar.id ? "text-white" : "text-neutral-500"
+                      )}>{avatar.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={handleFinish}
+                  disabled={!selectedAvatar || loading}
+                  className="w-full h-16 bg-white text-black hover:bg-neutral-200 text-lg font-bold rounded-2xl shadow-[0_0_50px_rgba(255,255,255,0.15)] transition-all disabled:opacity-30"
+                >
+                  {loading ? (
+                    <Loader2 size={20} className="animate-spin mr-2" />
+                  ) : null}
+                  Enter Terminal
+                </Button>
               </div>
             </motion.div>
           )}
