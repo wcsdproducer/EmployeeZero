@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug } from "lucide-react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
@@ -293,6 +294,19 @@ export default function ChatPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Connections Link */}
+            <div className="p-3 pt-0">
+              <Link
+                href="/connections"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-neutral-500 hover:bg-white/5 hover:text-neutral-300 group"
+              >
+                <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
+                  <Plug size={14} className="text-blue-400" />
+                </div>
+                <span className="font-medium">Connections</span>
+              </Link>
             </div>
 
             <div className="p-3 border-t border-white/5">
