@@ -4,11 +4,19 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc } from "firebase/firestore";
+
+interface AgentDoc {
+  id: string;
+  name: string;
+  avatar: string;
+  status: string; // "active" | "pending_setup"
+  plan: string;
+}
 
 interface Mission {
   id: string;
@@ -21,41 +29,159 @@ interface Mission {
   workspace: string;
 }
 
-const agents = [
-    { id: "gravityclaw", name: "Gravity Claw", icon: <Zap size={14} />, color: "text-blue-400" },
-    { id: "argos", name: "Argos", icon: <Eye size={14} />, color: "text-purple-400" },
-    { id: "spectre", name: "SPECTRE", icon: <Shield size={14} />, color: "text-emerald-400" },
-    { id: "fixer", name: "FIXER", icon: <Settings size={14} />, color: "text-orange-400" },
-];
+const AVATAR_EMOJIS: Record<string, string> = {
+  bolt: "⚡", ghost: "👻", rocket: "🚀", brain: "🧠", robot: "🤖",
+  fire: "🔥", crystal: "💎", star: "⭐", alien: "👾",
+};
+
+function getAgents(employeeName: string, avatarId: string | null) {
+  const emoji = AVATAR_EMOJIS[avatarId || "robot"] || "🤖";
+  return [
+    { id: "primary", name: employeeName, icon: <span className="text-sm">{emoji}</span>, color: "text-blue-400", emoji },
+  ];
+}
 
 export default function ChatPage() {
   const { user, loading: authLoading } = useAuth();
   const [input, setInput] = useState("");
   const [missions, setMissions] = useState<Mission[]>([]);
   const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState(agents[0]);
+  const [employeeName, setEmployeeName] = useState("Employee Zero");
+  const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
+  const agents = getAgents(employeeName, employeeAvatar);
+  const [selectedAgentId, setSelectedAgentId] = useState("primary");
+  const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showHireModal, setShowHireModal] = useState(false);
+  const [foundingCount, setFoundingCount] = useState<number | null>(null);
+  const [purchasedAgents, setPurchasedAgents] = useState<AgentDoc[]>([]);
+  const [setupAgent, setSetupAgent] = useState<AgentDoc | null>(null);
+  const [setupName, setSetupName] = useState("");
+  const [setupAvatar, setSetupAvatar] = useState("robot");
+
+  const FOUNDING_LIMIT = 100;
+  const FOUNDING_PRICE = 29;
+  const REGULAR_PRICE = 39;
+  const isFoundingAvailable = foundingCount !== null && foundingCount < FOUNDING_LIMIT;
+  const slotsRemaining = foundingCount !== null ? Math.max(0, FOUNDING_LIMIT - foundingCount) : null;
+
+  // Build full agents list: primary + purchased
+  const allAgents = [
+    ...agents,
+    ...purchasedAgents
+      .filter(a => a.status === "active")
+      .map(a => ({
+        id: a.id,
+        name: a.name,
+        icon: <span className="text-sm">{AVATAR_EMOJIS[a.avatar] || "🤖"}</span>,
+        color: "text-blue-400" as const,
+        emoji: AVATAR_EMOJIS[a.avatar] || "🤖",
+      })),
+  ];
+
+  // Fetch user profile for employee name
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDoc(doc(db, "users", user.uid)).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.employeeName) setEmployeeName(data.employeeName);
+        if (data.avatar) setEmployeeAvatar(data.avatar);
+      }
+    }).catch((err) => console.warn("Failed to fetch user profile:", err.message));
+  }, [user?.uid]);
+
+  // Real-time founding count listener
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsubscribe = onSnapshot(
+      doc(db, "config", "pricing"),
+      (snap) => {
+        if (snap.exists()) {
+          setFoundingCount(snap.data().foundingCount ?? 0);
+        } else {
+          setFoundingCount(0);
+        }
+      },
+      (err) => {
+        console.warn("Config listener error:", err.message);
+        setFoundingCount(0);
+      }
+    );
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Listen for purchased agents in subcollection
+  useEffect(() => {
+    if (!user?.uid) return;
+    const agentsRef = collection(db, "users", user.uid, "agents");
+    const unsubscribe = onSnapshot(
+      agentsRef,
+      (snapshot) => {
+        const agentList = snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+        })) as AgentDoc[];
+        setPurchasedAgents(agentList);
+
+        // Auto-open setup modal for any pending agent
+        const pending = agentList.find(a => a.status === "pending_setup");
+        if (pending) {
+          setSetupAgent(pending);
+          setSetupName("");
+          setSetupAvatar("robot");
+        }
+      },
+      (err) => {
+        console.warn("Agents listener error:", err.message);
+      }
+    );
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     const q = query(
       collection(db, "missions"),
       where("userId", "==", user.uid),
       orderBy("createdAt", "desc")
     );
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const missionData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Mission[];
-      setMissions(missionData);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const missionData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Mission[];
+        setMissions(missionData);
+      },
+      (err) => {
+        console.warn("Missions listener error:", err.message);
+        // Fall back: try without orderBy if composite index is missing
+        if (err.code === "failed-precondition" || err.code === "permission-denied") {
+          const fallbackQ = query(
+            collection(db, "missions"),
+            where("userId", "==", user.uid)
+          );
+          onSnapshot(fallbackQ, (snapshot) => {
+            const missionData = snapshot.docs
+              .map(doc => ({ id: doc.id, ...doc.data() }) as Mission)
+              .sort((a, b) => {
+                const aTime = a.createdAt?.toMillis?.() || 0;
+                const bTime = b.createdAt?.toMillis?.() || 0;
+                return bTime - aTime;
+              });
+            setMissions(missionData);
+          });
+        }
+      }
+    );
     
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -121,10 +247,10 @@ export default function ChatPage() {
 
               <div className="space-y-1">
                 <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Active Workforce</p>
-                {agents.map((agent) => (
+                {allAgents.map((agent) => (
                     <button
                         key={agent.id}
-                        onClick={() => setSelectedAgent(agent)}
+                        onClick={() => setSelectedAgentId(agent.id)}
                         className={cn(
                             "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group",
                             selectedAgent.id === agent.id ? "bg-white/10 text-white" : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
@@ -139,6 +265,15 @@ export default function ChatPage() {
                         )}
                     </button>
                 ))}
+                <button
+                  onClick={() => setShowHireModal(true)}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group text-neutral-600 hover:bg-white/5 hover:text-neutral-400 border border-dashed border-white/10 mt-2"
+                >
+                  <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
+                    <Plus size={14} />
+                  </div>
+                  <span className="font-medium">Hire Agent</span>
+                </button>
               </div>
             </div>
 
@@ -259,7 +394,7 @@ export default function ChatPage() {
               <div className="h-full flex flex-col items-center justify-center text-center space-y-8 pt-20">
                 <div className="relative">
                     <div className={cn("w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl relative z-10", selectedAgent.color, "bg-white/5 border border-white/10")}>
-                        {selectedAgent.id === "gravityclaw" ? <Zap size={40} className="fill-current" /> : selectedAgent.icon}
+                        {selectedAgent.id === "primary" ? <span className="text-4xl">{(selectedAgent as any).emoji || "🤖"}</span> : selectedAgent.icon}
                     </div>
                     <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full -z-10" />
                 </div>
@@ -324,6 +459,224 @@ export default function ChatPage() {
           </div>
         </div>
       </main>
+
+      {/* Hire Agent Modal */}
+      <AnimatePresence>
+        {showHireModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            onClick={() => setShowHireModal(false)}
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md bg-[#111111] border border-white/10 rounded-3xl p-8 shadow-2xl shadow-black/50"
+            >
+              {/* Close */}
+              <button
+                onClick={() => setShowHireModal(false)}
+                className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors p-1"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Header */}
+              <div className="text-center space-y-4 mb-8">
+                <div className="mx-auto w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center">
+                  <Users size={28} className="text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Hire another agent</h2>
+                  <p className="text-neutral-500 text-sm mt-2 max-w-xs mx-auto">
+                    Expand your workforce with a specialized AI employee that works 24/7 alongside {employeeName}.
+                  </p>
+                </div>
+              </div>
+
+              {/* Features */}
+              <div className="space-y-3 mb-8">
+                {[
+                  "Dedicated AI that learns your workflows",
+                  "Runs tasks in parallel with your existing agent",
+                  "Custom name, avatar, and personality",
+                  "Separate memory and conversation history",
+                ].map((feature, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                      <Check size={12} className="text-blue-400" />
+                    </div>
+                    <span className="text-sm text-neutral-300">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pricing */}
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 mb-6">
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <p className="text-xs text-neutral-500 font-mono uppercase tracking-widest mb-1">Per Agent</p>
+                    <div className="flex items-baseline gap-1">
+                      {isFoundingAvailable ? (
+                        <>
+                          <span className="text-3xl font-bold">${FOUNDING_PRICE}</span>
+                          <span className="text-neutral-500 text-sm">/month</span>
+                          <span className="text-neutral-600 text-sm line-through ml-2">${REGULAR_PRICE}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-3xl font-bold">${REGULAR_PRICE}</span>
+                          <span className="text-neutral-500 text-sm">/month</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {isFoundingAvailable ? (
+                      <>
+                        <p className="text-xs text-emerald-400 font-medium">Founding price</p>
+                        <p className="text-xs text-neutral-600">Locked forever</p>
+                        <p className="text-[10px] text-amber-400/80 font-mono mt-1">{slotsRemaining} of {FOUNDING_LIMIT} left</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-neutral-400 font-medium">Standard price</p>
+                        <p className="text-xs text-neutral-600">Founding slots filled</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <Button
+                className="w-full h-14 bg-white text-black hover:bg-neutral-200 text-base font-bold rounded-2xl transition-all"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/checkout", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        userId: user.uid,
+                        email: user.email,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.url) {
+                      window.location.href = data.url;
+                    } else {
+                      console.error("Checkout error:", data.error);
+                    }
+                  } catch (err) {
+                    console.error("Failed to start checkout:", err);
+                  }
+                }}
+              >
+                Add to Workforce
+              </Button>
+              <p className="text-center text-[10px] text-neutral-600 mt-3 font-mono uppercase tracking-wider">
+                Cancel anytime • No long-term commitment
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* New Agent Setup Modal - auto-triggered after purchase */}
+      <AnimatePresence>
+        {setupAgent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          >
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md bg-[#111111] border border-white/10 rounded-3xl p-8 shadow-2xl shadow-black/50"
+            >
+              <div className="text-center space-y-4 mb-8">
+                <div className="mx-auto w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-3xl">
+                  {AVATAR_EMOJIS[setupAvatar] || "🤖"}
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">Set up your new agent</h2>
+                  <p className="text-neutral-500 text-sm mt-2">Give your new hire a name and identity.</p>
+                </div>
+              </div>
+
+              <div className="space-y-6 mb-8">
+                <div>
+                  <label className="text-xs text-neutral-500 font-mono uppercase tracking-widest block mb-2">Agent Name</label>
+                  <input
+                    type="text"
+                    value={setupName}
+                    onChange={(e) => setSetupName(e.target.value)}
+                    placeholder="e.g. Atlas, Echo, Sage..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-neutral-500 font-mono uppercase tracking-widest block mb-2">Choose Avatar</label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {Object.entries(AVATAR_EMOJIS).map(([key, emoji]) => (
+                      <button
+                        key={key}
+                        onClick={() => setSetupAvatar(key)}
+                        className={cn(
+                          "w-full aspect-square rounded-xl text-2xl flex items-center justify-center transition-all border",
+                          setupAvatar === key
+                            ? "bg-blue-500/20 border-blue-500 scale-110 shadow-lg shadow-blue-500/20"
+                            : "bg-white/5 border-white/10 hover:bg-white/10"
+                        )}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                disabled={!setupName.trim()}
+                className="w-full h-14 bg-white text-black hover:bg-neutral-200 text-base font-bold rounded-2xl transition-all disabled:opacity-30"
+                onClick={async () => {
+                  if (!setupAgent || !setupName.trim() || !user) return;
+                  try {
+                    await updateDoc(
+                      doc(db, "users", user.uid, "agents", setupAgent.id),
+                      {
+                        name: setupName.trim(),
+                        avatar: setupAvatar,
+                        status: "active",
+                      }
+                    );
+                    setSetupAgent(null);
+                  } catch (err) {
+                    console.error("Failed to set up agent:", err);
+                  }
+                }}
+              >
+                Activate Agent
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
