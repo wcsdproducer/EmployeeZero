@@ -1,0 +1,20 @@
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyAgEhZd1nTOeZV3cgQnmqadwx4VrelPp6k
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: employee-zero-production.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: employee-zero-production
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: employee-zero-production.firebasestorage.app
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "368999511686"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:368999511686:web:06c2de33da3173cc270307"
