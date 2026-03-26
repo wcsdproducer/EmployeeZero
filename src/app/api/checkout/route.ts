@@ -1,17 +1,8 @@
 import { NextResponse } from "next/server";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { FieldValue } from "firebase-admin/firestore";
+import { adminDb } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
-
-// Initialize Firebase Admin if not already
-if (!getApps().length) {
-  initializeApp({
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "employee-zero-production",
-  });
-}
-
-const adminDb = getFirestore();
 
 export async function POST(request: Request) {
   const key = process.env.STRIPE_SECRET_KEY;

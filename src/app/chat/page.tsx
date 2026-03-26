@@ -4,29 +4,35 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug } from "lucide-react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 
 interface AgentDoc {
   id: string;
   name: string;
   avatar: string;
-  status: string; // "active" | "pending_setup"
+  status: string;
   plan: string;
 }
 
-interface Mission {
+interface ChatMessage {
+  role: "user" | "model";
+  content: string;
+  timestamp: string;
+}
+
+interface Conversation {
   id: string;
-  task: string;
-  status: string;
-  result?: string;
+  title: string;
+  messages: ChatMessage[];
+  status: string; // "idle" | "running" | "error"
   createdAt: any;
-  steps?: string[];
   userId: string;
-  workspace: string;
+  lastError?: string;
 }
 
 const AVATAR_EMOJIS: Record<string, string> = {
@@ -44,8 +50,8 @@ function getAgents(employeeName: string, avatarId: string | null) {
 export default function ChatPage() {
   const { user, loading: authLoading } = useAuth();
   const [input, setInput] = useState("");
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [employeeName, setEmployeeName] = useState("Employee Zero");
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
   const agents = getAgents(employeeName, employeeAvatar);
@@ -83,102 +89,151 @@ export default function ChatPage() {
 
   // Fetch user profile for employee name
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     getDoc(doc(db, "users", user.uid)).then((snap) => {
       if (snap.exists()) {
         const data = snap.data();
         if (data.employeeName) setEmployeeName(data.employeeName);
         if (data.avatar) setEmployeeAvatar(data.avatar);
       }
-    });
-  }, [user]);
+    }).catch((err) => console.warn("Failed to fetch user profile:", err.message));
+  }, [user?.uid]);
 
   // Real-time founding count listener
   useEffect(() => {
-    if (!user) return;
-    const unsubscribe = onSnapshot(doc(db, "config", "pricing"), (snap) => {
-      if (snap.exists()) {
-        setFoundingCount(snap.data().foundingCount ?? 0);
-      } else {
+    if (!user?.uid) return;
+    const unsubscribe = onSnapshot(
+      doc(db, "config", "pricing"),
+      (snap) => {
+        if (snap.exists()) {
+          setFoundingCount(snap.data().foundingCount ?? 0);
+        } else {
+          setFoundingCount(0);
+        }
+      },
+      (err) => {
+        console.warn("Config listener error:", err.message);
         setFoundingCount(0);
       }
-    });
+    );
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
   // Listen for purchased agents in subcollection
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     const agentsRef = collection(db, "users", user.uid, "agents");
-    const unsubscribe = onSnapshot(agentsRef, (snapshot) => {
-      const agentList = snapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-      })) as AgentDoc[];
-      setPurchasedAgents(agentList);
+    const unsubscribe = onSnapshot(
+      agentsRef,
+      (snapshot) => {
+        const agentList = snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+        })) as AgentDoc[];
+        setPurchasedAgents(agentList);
 
-      // Auto-open setup modal for any pending agent
-      const pending = agentList.find(a => a.status === "pending_setup");
-      if (pending) {
-        setSetupAgent(pending);
-        setSetupName("");
-        setSetupAvatar("robot");
+        // Auto-open setup modal for any pending agent
+        const pending = agentList.find(a => a.status === "pending_setup");
+        if (pending) {
+          setSetupAgent(pending);
+          setSetupName("");
+          setSetupAvatar("robot");
+        }
+      },
+      (err) => {
+        console.warn("Agents listener error:", err.message);
       }
-    });
+    );
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
+  // Listen for conversations
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     const q = query(
-      collection(db, "missions"),
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "desc")
+      collection(db, "conversations"),
+      where("userId", "==", user.uid)
     );
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const missionData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Mission[];
-      setMissions(missionData);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const convData = snapshot.docs
+          .map(d => ({ id: d.id, ...d.data() }) as Conversation)
+          // Only show conversations that have at least 1 message
+          .filter(c => c.messages && c.messages.length > 0)
+          .sort((a, b) => {
+            const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds * 1000 || 0;
+            const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds * 1000 || 0;
+            return bTime - aTime;
+          });
+        setConversations(convData);
+        
+        // Auto-select the most recent conversation on first load
+        if (!activeConvId && convData.length > 0) {
+          setActiveConvId(convData[0].id);
+        }
+      },
+      (err) => {
+        console.warn("Conversations listener error:", err.message);
+      }
+    );
     
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]);
 
+  // Auto-scroll on message updates
+  const activeConv = conversations.find(c => c.id === activeConvId);
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [missions]);
+  }, [activeConv?.messages?.length, activeConv?.status]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!input.trim() || !user || submitting) return;
 
-    const task = input.trim();
+    const message = input.trim();
     setInput("");
     setSubmitting(true);
 
     try {
-      const docRef = await addDoc(collection(db, "missions"), {
-        userId: user.uid,
-        task,
-        status: "queued",
-        createdAt: Timestamp.now(),
-        workspace: selectedAgent.id,
-      });
-      setActiveMissionId(docRef.id);
+      let convId = activeConvId;
+
+      // If no active conversation, create one
+      if (!convId) {
+        const docRef = await addDoc(collection(db, "conversations"), {
+          userId: user.uid,
+          title: message.slice(0, 80),
+          messages: [],
+          status: "running",
+          createdAt: Timestamp.now(),
+        });
+        convId = docRef.id;
+        setActiveConvId(convId);
+      } else {
+        // Update status to running
+        await updateDoc(doc(db, "conversations", convId), { status: "running" });
+      }
+
+      // Fire the chat API (don't await — Firestore listener handles updates)
+      fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.uid,
+          conversationId: convId,
+          message,
+          agentName: selectedAgent.name,
+        }),
+      }).catch((err) => console.error("Chat API error:", err));
     } catch (err) {
-      console.error("Failed to submit mission", err);
+      console.error("Failed to submit message", err);
     } finally {
       setSubmitting(false);
     }
   };
-
-  const activeMission = missions.find(m => m.id === activeMissionId);
-  const runningMission = missions.find(m => ["running", "processing", "queued"].includes(m.status));
 
   if (authLoading) return <div className="h-screen flex items-center justify-center font-mono uppercase tracking-widest animate-pulse bg-[#050505] text-white">Initializing Employee Zero...</div>;
   if (!user) return <div className="h-screen flex items-center justify-center bg-[#050505] text-white">Please sign in to access the terminal.</div>;
@@ -199,13 +254,13 @@ export default function ChatPage() {
               <Button 
                 variant="ghost" 
                 className="w-full justify-between gap-2 border border-white/10 hover:bg-white/5 rounded-lg px-3 py-6 group"
-                onClick={() => setActiveMissionId(null)}
+                onClick={() => setActiveConvId(null)}
               >
                 <div className="flex items-center gap-3 font-medium">
                   <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-black">
                     <Plus size={14} strokeWidth={3} />
                   </div>
-                  New Mission
+                  New Conversation
                 </div>
               </Button>
 
@@ -236,27 +291,47 @@ export default function ChatPage() {
                   <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
                     <Plus size={14} />
                   </div>
-                  <span className="font-medium">Hire Agent</span>
+                  <span className="font-medium">Hire Another Agent</span>
                 </button>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 pt-0">
               <div className="space-y-1 mt-4">
-                <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Recent Missions</p>
-                {missions.slice(0, 15).map((m) => (
+                <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Conversations</p>
+                {conversations.slice(0, 20).map((c) => (
                   <button
-                    key={m.id}
-                    onClick={() => setActiveMissionId(m.id)}
+                    key={c.id}
+                    onClick={() => setActiveConvId(c.id)}
                     className={cn(
                       "w-full text-left px-3 py-2.5 rounded-lg text-[13px] truncate transition-all",
-                      activeMissionId === m.id ? "bg-white/5 text-white" : "text-neutral-500 hover:text-neutral-300"
+                      activeConvId === c.id ? "bg-white/5 text-white" : "text-neutral-500 hover:text-neutral-300"
                     )}
                   >
-                    {m.task}
+                    {c.title}
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Connections Link */}
+            <div className="p-3 pt-0">
+              <Link
+                href="/connections"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-neutral-500 hover:bg-white/5 hover:text-neutral-300 group"
+              >
+                <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
+                  <Plug size={14} className="text-blue-400" />
+                </div>
+                <span className="font-medium">Connections</span>
+              </Link>
+            </div>
+
+            {/* Legal Links */}
+            <div className="px-6 pb-2 flex items-center gap-3 text-[10px] text-neutral-600">
+              <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms</Link>
+              <span>•</span>
+              <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy</Link>
             </div>
 
             <div className="p-3 border-t border-white/5">
@@ -306,53 +381,45 @@ export default function ChatPage() {
         {/* Chat Area */}
         <div className="flex-1 overflow-y-auto" ref={scrollRef}>
           <div className="max-w-3xl mx-auto px-6 py-10">
-            {activeMissionId ? (
+            {activeConvId && activeConv ? (
               <div className="space-y-8">
-                {/* User Message */}
-                <div className="flex gap-4 group">
-                    <div className="w-8 h-8 rounded-full bg-neutral-800 flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1">
-                        U
-                    </div>
+                {/* Render all messages in the conversation */}
+                {activeConv.messages.map((msg, i) => (
+                  <div key={i} className="flex gap-4 group">
+                    {msg.role === "user" ? (
+                      <div className="w-8 h-8 rounded-full bg-neutral-800 flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1">U</div>
+                    ) : (
+                      <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1", selectedAgent.color, "bg-white/5 border border-white/5")}>{selectedAgent.icon}</div>
+                    )}
                     <div className="space-y-2 flex-1">
-                        <p className="text-sm font-semibold text-neutral-400">You</p>
-                        <div className="text-[16px] leading-relaxed text-neutral-200">
-                            {activeMission?.task}
-                        </div>
+                      <p className="text-sm font-semibold text-neutral-400">{msg.role === "user" ? "You" : selectedAgent.name}</p>
+                      <div className={cn("text-[16px] leading-relaxed whitespace-pre-wrap", msg.role === "user" ? "text-neutral-200" : "text-neutral-100 prose prose-invert max-w-none")}>
+                        {msg.content}
+                      </div>
                     </div>
-                </div>
+                  </div>
+                ))}
 
-                {/* Agent Response */}
-                <div className="flex gap-4 pt-4">
-                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1", selectedAgent.color, "bg-white/5 border border-white/5")}>
-                        {selectedAgent.icon}
-                    </div>
+                {/* Loading indicator when waiting for response */}
+                {activeConv.status === "running" && (
+                  <div className="flex gap-4">
+                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1", selectedAgent.color, "bg-white/5 border border-white/5")}>{selectedAgent.icon}</div>
                     <div className="space-y-4 flex-1">
-                        <p className="text-sm font-semibold text-neutral-400">{selectedAgent.name}</p>
-                        <div className="text-[16px] leading-relaxed text-neutral-100 min-h-[100px]">
-                            {activeMission?.status === "completed" ? (
-                                <motion.div 
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="whitespace-pre-wrap prose prose-invert max-w-none"
-                                >
-                                    {activeMission.result}
-                                </motion.div>
-                            ) : (
-                                <div className="flex flex-col gap-4">
-                                    <div className="flex items-center gap-3 text-neutral-500 italic text-sm">
-                                        <Loader2 size={14} className="animate-spin" />
-                                        {activeMission?.status === "queued" ? "Waiting for deployment..." : "Executing strategic operations..."}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <div className="h-3 bg-white/5 rounded-full w-3/4 animate-pulse" />
-                                        <div className="h-3 bg-white/5 rounded-full w-1/2 animate-pulse" />
-                                        <div className="h-3 bg-white/5 rounded-full w-2/3 animate-pulse" />
-                                    </div>
-                                </div>
-                            )}
+                      <p className="text-sm font-semibold text-neutral-400">{selectedAgent.name}</p>
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-3 text-neutral-500 italic text-sm">
+                          <Loader2 size={14} className="animate-spin" />
+                          Thinking...
                         </div>
+                        <div className="space-y-2">
+                          <div className="h-3 bg-white/5 rounded-full w-3/4 animate-pulse" />
+                          <div className="h-3 bg-white/5 rounded-full w-1/2 animate-pulse" />
+                          <div className="h-3 bg-white/5 rounded-full w-2/3 animate-pulse" />
+                        </div>
+                      </div>
                     </div>
-                </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-8 pt-20">
