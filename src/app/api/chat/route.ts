@@ -16,16 +16,20 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 async function loadMemories(userId: string, agentId: string): Promise<string[]> {
   try {
+    // Simple query — no composite index needed
     const snap = await adminDb
       .collection(`users/${userId}/memories`)
-      .where("agentId", "==", agentId)
-      .orderBy("createdAt", "desc")
       .limit(50)
       .get();
 
-    return snap.docs.map((d) => d.data().content as string);
-  } catch {
-    // Collection may not exist yet — that's fine
+    return snap.docs
+      .filter((d) => {
+        const data = d.data();
+        return !agentId || data.agentId === agentId;
+      })
+      .map((d) => d.data().content as string);
+  } catch (err) {
+    console.warn("Failed to load memories:", err);
     return [];
   }
 }
@@ -47,29 +51,35 @@ async function storeMemories(userId: string, agentId: string, facts: string[]) {
 
 async function loadHistory(userId: string, currentMissionId: string) {
   try {
+    // Simple query — only filter by userId to avoid composite index requirement
     const snap = await adminDb
       .collection("missions")
       .where("userId", "==", userId)
-      .where("status", "==", "completed")
-      .orderBy("createdAt", "desc")
-      .limit(20)
+      .limit(50)
       .get();
 
-    // Filter out current mission and reverse to chronological order
-    const history = snap.docs
-      .filter((d) => d.id !== currentMissionId)
-      .reverse();
+    // Filter and sort in memory
+    const completed = snap.docs
+      .filter((d) => d.id !== currentMissionId && d.data().status === "completed")
+      .sort((a, b) => {
+        const aTime = a.data().createdAt?.toMillis?.() || a.data().createdAt?.seconds * 1000 || 0;
+        const bTime = b.data().createdAt?.toMillis?.() || b.data().createdAt?.seconds * 1000 || 0;
+        return aTime - bTime; // chronological order
+      })
+      .slice(-20); // last 20
 
     const messages: { role: "user" | "model"; parts: { text: string }[] }[] = [];
-    for (const doc of history) {
+    for (const doc of completed) {
       const data = doc.data();
       messages.push({ role: "user", parts: [{ text: data.task }] });
       if (data.result) {
         messages.push({ role: "model", parts: [{ text: data.result }] });
       }
     }
+    console.log(`Loaded ${messages.length} history messages for user ${userId}`);
     return messages;
-  } catch {
+  } catch (err) {
+    console.warn("Failed to load history:", err);
     return [];
   }
 }
