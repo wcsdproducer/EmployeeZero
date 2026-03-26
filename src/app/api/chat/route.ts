@@ -1,33 +1,32 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/admin";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 /**
- * Chat API — processes a mission using the user's own Gemini API key.
+ * Chat API — conversation-based, with persistent memory.
  *
- * 1. Loads conversation history (recent missions)
- * 2. Loads persistent memories from Firestore
- * 3. Calls Gemini with full context
- * 4. Auto-extracts & stores new memories
- * 5. Updates the mission doc with the result
+ * Accepts a conversationId + new user message.
+ * Loads the conversation's existing messages, memories, and calls Gemini.
+ * Appends both the user message and AI response to the conversation doc.
  */
+
+// ── Types ───────────────────────────────────────────────────────
+
+interface ChatMessage {
+  role: "user" | "model";
+  content: string;
+  timestamp: string;
+}
 
 // ── Memory helpers ──────────────────────────────────────────────
 
-async function loadMemories(userId: string, agentId: string): Promise<string[]> {
+async function loadMemories(userId: string): Promise<string[]> {
   try {
-    // Simple query — no composite index needed
     const snap = await adminDb
       .collection(`users/${userId}/memories`)
       .limit(50)
       .get();
-
-    return snap.docs
-      .filter((d) => {
-        const data = d.data();
-        return !agentId || data.agentId === agentId;
-      })
-      .map((d) => d.data().content as string);
+    return snap.docs.map((d) => d.data().content as string);
   } catch (err) {
     console.warn("Failed to load memories:", err);
     return [];
@@ -47,55 +46,23 @@ async function storeMemories(userId: string, agentId: string, facts: string[]) {
   await batch.commit();
 }
 
-// ── Conversation history ────────────────────────────────────────
-
-async function loadHistory(userId: string, currentMissionId: string) {
-  try {
-    // Simple query — only filter by userId to avoid composite index requirement
-    const snap = await adminDb
-      .collection("missions")
-      .where("userId", "==", userId)
-      .limit(50)
-      .get();
-
-    // Filter and sort in memory
-    const completed = snap.docs
-      .filter((d) => d.id !== currentMissionId && d.data().status === "completed")
-      .sort((a, b) => {
-        const aTime = a.data().createdAt?.toMillis?.() || a.data().createdAt?.seconds * 1000 || 0;
-        const bTime = b.data().createdAt?.toMillis?.() || b.data().createdAt?.seconds * 1000 || 0;
-        return aTime - bTime; // chronological order
-      })
-      .slice(-20); // last 20
-
-    const messages: { role: "user" | "model"; parts: { text: string }[] }[] = [];
-    for (const doc of completed) {
-      const data = doc.data();
-      messages.push({ role: "user", parts: [{ text: data.task }] });
-      if (data.result) {
-        messages.push({ role: "model", parts: [{ text: data.result }] });
-      }
-    }
-    console.log(`Loaded ${messages.length} history messages for user ${userId}`);
-    return messages;
-  } catch (err) {
-    console.warn("Failed to load history:", err);
-    return [];
-  }
-}
-
 // ── Main handler ────────────────────────────────────────────────
 
 export async function POST(request: Request) {
-  let parsedBody: { userId?: string; missionId?: string; task?: string; agentName?: string } = {};
+  let parsedBody: {
+    userId?: string;
+    conversationId?: string;
+    message?: string;
+    agentName?: string;
+  } = {};
 
   try {
     parsedBody = await request.json();
-    const { userId, missionId, task, agentName } = parsedBody;
+    const { userId, conversationId, message, agentName } = parsedBody;
 
-    if (!userId || !missionId || !task) {
+    if (!userId || !conversationId || !message) {
       return NextResponse.json(
-        { error: "Missing userId, missionId, or task" },
+        { error: "Missing userId, conversationId, or message" },
         { status: 400 }
       );
     }
@@ -104,34 +71,28 @@ export async function POST(request: Request) {
     const brainSnap = await adminDb.doc(`users/${userId}/settings/brain`).get();
 
     if (!brainSnap.exists) {
-      await adminDb.doc(`missions/${missionId}`).update({
-        status: "error",
-        result: "⚠️ No AI brain configured. Go to **Connections** and add your API key to get started.",
-      });
       return NextResponse.json({ error: "No brain configured" }, { status: 400 });
     }
 
     const brain = brainSnap.data() as { provider: string; apiKey: string };
-
     if (!brain.apiKey) {
-      await adminDb.doc(`missions/${missionId}`).update({
-        status: "error",
-        result: "⚠️ API key is empty. Go to **Connections** and save your API key.",
-      });
       return NextResponse.json({ error: "Empty API key" }, { status: 400 });
     }
 
-    // 2. Update mission to "running"
-    await adminDb.doc(`missions/${missionId}`).update({ status: "running" });
+    // 2. Load conversation doc to get existing messages
+    const convRef = adminDb.doc(`conversations/${conversationId}`);
+    const convSnap = await convRef.get();
+    const existingMessages: ChatMessage[] = convSnap.exists
+      ? (convSnap.data()?.messages || [])
+      : [];
 
-    // 3. Load context in parallel
-    const agentId = "primary"; // default agent
-    const [memories, history] = await Promise.all([
-      loadMemories(userId, agentId),
-      loadHistory(userId, missionId),
-    ]);
+    // 3. Update status to running
+    await convRef.update({ status: "running" });
 
-    // 4. Build system prompt with memories
+    // 4. Load memories
+    const memories = await loadMemories(userId);
+
+    // 5. Build system prompt
     const name = agentName || "Employee Zero";
     let systemPrompt = `You are ${name}, an elite AI employee. You are direct, strategic, and action-oriented. You provide clear, actionable intelligence. Format your responses with markdown when appropriate. Be concise but thorough.
 
@@ -153,63 +114,70 @@ In your response, if there are facts to remember, end your visible response, the
 
 The memory_extract section will be automatically processed and NOT shown to the user. Only include genuinely important, persistent facts — not ephemeral details about the current task.`;
 
-    // 5. Call Gemini
+    // 6. Build Gemini contents from conversation history + new message
+    const contents = [
+      ...existingMessages.map((m) => ({
+        role: m.role as "user" | "model",
+        parts: [{ text: m.content }],
+      })),
+      { role: "user" as const, parts: [{ text: message }] },
+    ];
+
+    // 7. Call Gemini
     let result: string;
 
     if (brain.provider === "gemini") {
       const ai = new GoogleGenAI({ apiKey: brain.apiKey });
-
-      const contents = [
-        ...history,
-        { role: "user" as const, parts: [{ text: task }] },
-      ];
-
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents,
-        config: {
-          systemInstruction: systemPrompt,
-        },
+        config: { systemInstruction: systemPrompt },
       });
-
       result = response.text || "I processed your request but generated no output. Please try again.";
     } else {
       result = `⚠️ ${brain.provider} is not yet supported. Please switch to Gemini in your Connections settings.`;
     }
 
-    // 6. Extract and store memories from response
+    // 8. Extract and store memories
     const memoryMatch = result.match(/<memory_extract>([\s\S]*?)<\/memory_extract>/);
     if (memoryMatch) {
       const facts = memoryMatch[1]
         .split("\n")
         .map((line) => line.replace(/^-\s*/, "").trim())
         .filter((line) => line.length > 0);
-
-      if (facts.length > 0) {
-        await storeMemories(userId, agentId, facts);
-      }
-
-      // Remove the memory extract section from the visible response
+      if (facts.length > 0) await storeMemories(userId, "primary", facts);
       result = result.replace(/<memory_extract>[\s\S]*?<\/memory_extract>/, "").trim();
     }
 
-    // 7. Update mission with result
-    await adminDb.doc(`missions/${missionId}`).update({
-      status: "completed",
-      result,
-      completedAt: new Date().toISOString(),
+    // 9. Append both messages to conversation doc
+    const now = new Date().toISOString();
+    const updatedMessages: ChatMessage[] = [
+      ...existingMessages,
+      { role: "user", content: message, timestamp: now },
+      { role: "model", content: result, timestamp: now },
+    ];
+
+    await convRef.update({
+      messages: updatedMessages,
+      status: "idle",
+      updatedAt: now,
     });
 
     return NextResponse.json({ status: "completed", result });
   } catch (err: any) {
     console.error("Chat API error:", err);
 
+    // Try to reset conversation status
     try {
-      if (parsedBody.missionId) {
-        await adminDb.doc(`missions/${parsedBody.missionId}`).update({
-          status: "error",
-          result: `❌ Error: ${err.message || "Unknown error occurred"}. Check your API key in Connections.`,
-        });
+      if (parsedBody.conversationId) {
+        const convRef = adminDb.doc(`conversations/${parsedBody.conversationId}`);
+        const snap = await convRef.get();
+        if (snap.exists) {
+          await convRef.update({
+            status: "error",
+            lastError: err.message || "Unknown error",
+          });
+        }
       }
     } catch {}
 
