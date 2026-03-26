@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -28,11 +28,13 @@ import {
   Shield,
   Zap,
   Lock,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { SetupGuide, BRAIN_GUIDES, SOCIAL_GUIDES, GOOGLE_SUITE_GUIDES } from "./setup-guide";
+import { useSearchParams, useRouter } from "next/navigation";
 
 /* ─── Types ─── */
 interface BrainConfig {
@@ -43,9 +45,11 @@ interface BrainConfig {
 }
 
 interface ConnectionEntry {
-  apiKey: string;
+  apiKey?: string;
   apiSecret?: string;
   connected: boolean;
+  tokenType?: "oauth" | "api_key";
+  connectedAt?: string;
 }
 
 type ConnectionsMap = Record<string, ConnectionEntry>;
@@ -105,7 +109,21 @@ const SOCIAL_MEDIA = [
 
 /* ─── Component ─── */
 export default function ConnectionsPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen flex items-center justify-center bg-[#0d0d0d] text-white font-mono uppercase tracking-widest animate-pulse">
+        Loading...
+      </div>
+    }>
+      <ConnectionsPageInner />
+    </Suspense>
+  );
+}
+
+function ConnectionsPageInner() {
   const { user, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Brain state
   const [brainConfig, setBrainConfig] = useState<BrainConfig>({
@@ -124,6 +142,36 @@ export default function ConnectionsPage() {
   const [editValue, setEditValue] = useState("");
   const [editSecret, setEditSecret] = useState("");
   const [savingConnection, setSavingConnection] = useState<string | null>(null);
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // Handle OAuth callback params
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const error = searchParams.get("error");
+
+    if (connected) {
+      setToast({ message: `${connected.charAt(0).toUpperCase() + connected.slice(1)} connected successfully!`, type: "success" });
+      // Clean URL params
+      router.replace("/connections", { scroll: false });
+    } else if (error) {
+      const messages: Record<string, string> = {
+        access_denied: "You denied access. No changes were made.",
+        token_exchange_failed: "Failed to exchange token with Google. Try again.",
+        storage_failed: "Connected but failed to save. Try again.",
+      };
+      setToast({ message: messages[error] || `OAuth error: ${error}`, type: "error" });
+      router.replace("/connections", { scroll: false });
+    }
+  }, [searchParams, router]);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Load brain config
   useEffect(() => {
@@ -172,6 +220,7 @@ export default function ConnectionsPage() {
       const entry: ConnectionEntry = {
         apiKey: editValue.trim(),
         connected: !!editValue.trim(),
+        tokenType: "api_key",
       };
       if (hasSecret) entry.apiSecret = editSecret.trim();
 
@@ -183,6 +232,39 @@ export default function ConnectionsPage() {
       setEditSecret("");
     } catch (err) {
       console.error("Failed to save connection:", err);
+    } finally {
+      setSavingConnection(null);
+    }
+  };
+
+  const connectWithOAuth = (serviceId: string) => {
+    if (!user?.uid) return;
+    // Full-page redirect to our OAuth initiation endpoint
+    window.location.href = `/api/auth/google?service=${serviceId}&userId=${user.uid}`;
+  };
+
+  const disconnectOAuthService = async (serviceId: string) => {
+    if (!user?.uid) return;
+    setSavingConnection(serviceId);
+    try {
+      const res = await fetch("/api/auth/google/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.uid, service: serviceId }),
+      });
+
+      if (res.ok) {
+        const updated = { ...connections };
+        delete updated[serviceId];
+        setConnections(updated);
+        setToast({ message: `${serviceId.charAt(0).toUpperCase() + serviceId.slice(1)} disconnected.`, type: "success" });
+      } else {
+        const data = await res.json();
+        setToast({ message: `Failed to disconnect: ${data.error}`, type: "error" });
+      }
+    } catch (err) {
+      console.error("Failed to disconnect:", err);
+      setToast({ message: "Failed to disconnect. Check your connection.", type: "error" });
     } finally {
       setSavingConnection(null);
     }
@@ -223,6 +305,26 @@ export default function ConnectionsPage() {
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] text-white">
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className={cn(
+              "fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl border text-sm font-medium shadow-2xl backdrop-blur-xl flex items-center gap-2",
+              toast.type === "success"
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                : "bg-red-500/10 border-red-500/30 text-red-400"
+            )}
+          >
+            {toast.type === "success" ? <Check size={14} /> : <X size={14} />}
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="sticky top-0 z-20 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
@@ -432,6 +534,7 @@ export default function ConnectionsPage() {
               const conn = connections[svc.id];
               const isEditing = editingKey === svc.id;
               const isConnected = conn?.connected;
+              const isOAuth = conn?.tokenType === "oauth";
               const Icon = svc.icon;
 
               return (
@@ -445,13 +548,16 @@ export default function ConnectionsPage() {
                       <p className="text-xs text-neutral-500">{svc.description}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {svc.requiresOAuth && !isConnected && !isEditing && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 flex items-center gap-1">
-                          <Lock size={8} /> Coming Soon
-                        </span>
-                      )}
                       {isConnected && !isEditing && (
-                        <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                        <span className={cn(
+                          "text-xs font-medium flex items-center gap-1",
+                          isOAuth ? "text-emerald-400" : "text-emerald-400"
+                        )}>
+                          {isOAuth && (
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 mr-1">
+                              OAuth
+                            </span>
+                          )}
                           <Check size={12} /> Connected
                         </span>
                       )}
@@ -466,12 +572,26 @@ export default function ConnectionsPage() {
                         </button>
                       ) : isConnected ? (
                         <button
-                          onClick={() => disconnectService(svc.id)}
+                          onClick={() => isOAuth ? disconnectOAuthService(svc.id) : disconnectService(svc.id)}
                           className="text-[11px] text-red-400/70 hover:text-red-400 font-medium transition-colors"
                         >
                           Disconnect
                         </button>
-                      ) : !svc.requiresOAuth ? (
+                      ) : svc.requiresOAuth ? (
+                        <button
+                          onClick={() => connectWithOAuth(svc.id)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-white transition-all flex items-center gap-1.5 group"
+                        >
+                          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                          </svg>
+                          Connect with Google
+                          <ExternalLink size={10} className="opacity-50 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ) : (
                         <button
                           onClick={() => {
                             setEditingKey(svc.id);
@@ -481,11 +601,11 @@ export default function ConnectionsPage() {
                         >
                           Connect <ChevronRight size={12} />
                         </button>
-                      ) : null}
+                      )}
                     </div>
                   </div>
 
-                  {/* Edit row */}
+                  {/* Edit row — for non-OAuth services like YouTube */}
                   {isEditing && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
@@ -511,6 +631,21 @@ export default function ConnectionsPage() {
                         <SetupGuide platformName={svc.name} steps={GOOGLE_SUITE_GUIDES[svc.id]} />
                       )}
                     </motion.div>
+                  )}
+
+                  {/* OAuth info row for connected OAuth services */}
+                  {isConnected && isOAuth && (
+                    <div className="px-4 pb-3">
+                      <div className="flex items-center gap-2 text-[11px] text-neutral-500">
+                        <Lock size={10} />
+                        <span>Authenticated via Google OAuth — tokens are stored securely</span>
+                        {conn?.connectedAt && (
+                          <span className="text-neutral-600 ml-auto">
+                            Connected {new Date(conn.connectedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               );
