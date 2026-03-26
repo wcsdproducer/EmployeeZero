@@ -82,20 +82,15 @@ export default function ChatPage() {
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
   const agents = getAgents(employeeName, employeeAvatar);
 
-  // Rotating workflow suggestions
+  // Rotating workflow suggestions — reshuffle on every new conversation
   const [visibleWorkflows, setVisibleWorkflows] = useState<WorkflowSuggestion[]>([]);
   const [wfKey, setWfKey] = useState(0);
 
   useEffect(() => {
-    const shuffle = () => {
-      const shuffled = [...WORKFLOW_SUGGESTIONS].sort(() => Math.random() - 0.5);
-      setVisibleWorkflows(shuffled.slice(0, 4));
-      setWfKey((k) => k + 1);
-    };
-    shuffle();
-    const interval = setInterval(shuffle, 8000);
-    return () => clearInterval(interval);
-  }, []);
+    const shuffled = [...WORKFLOW_SUGGESTIONS].sort(() => Math.random() - 0.5);
+    setVisibleWorkflows(shuffled.slice(0, 4));
+    setWfKey((k) => k + 1);
+  }, [activeConvId]);
   const [selectedAgentId, setSelectedAgentId] = useState("primary");
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
   const [submitting, setSubmitting] = useState(false);
