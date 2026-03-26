@@ -199,6 +199,7 @@ export default function ChatPage() {
     setSubmitting(true);
 
     try {
+      // 1. Create mission doc in Firestore
       const docRef = await addDoc(collection(db, "missions"), {
         userId: user.uid,
         task,
@@ -207,6 +208,18 @@ export default function ChatPage() {
         workspace: selectedAgent.id,
       });
       setActiveMissionId(docRef.id);
+
+      // 2. Fire the chat API to process with Gemini (don't await — let Firestore listener handle updates)
+      fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.uid,
+          missionId: docRef.id,
+          task,
+          agentName: selectedAgent.name,
+        }),
+      }).catch((err) => console.error("Chat API error:", err));
     } catch (err) {
       console.error("Failed to submit mission", err);
     } finally {
@@ -379,7 +392,7 @@ export default function ChatPage() {
                     <div className="space-y-4 flex-1">
                         <p className="text-sm font-semibold text-neutral-400">{selectedAgent.name}</p>
                         <div className="text-[16px] leading-relaxed text-neutral-100 min-h-[100px]">
-                            {activeMission?.status === "completed" ? (
+                            {activeMission?.status === "completed" || activeMission?.status === "error" ? (
                                 <motion.div 
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
@@ -391,7 +404,7 @@ export default function ChatPage() {
                                 <div className="flex flex-col gap-4">
                                     <div className="flex items-center gap-3 text-neutral-500 italic text-sm">
                                         <Loader2 size={14} className="animate-spin" />
-                                        {activeMission?.status === "queued" ? "Waiting for deployment..." : "Executing strategic operations..."}
+                                        {activeMission?.status === "queued" ? "Connecting to brain..." : "Thinking..."}
                                     </div>
                                     <div className="space-y-2">
                                         <div className="h-3 bg-white/5 rounded-full w-3/4 animate-pulse" />
