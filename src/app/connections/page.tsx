@@ -27,10 +27,12 @@ import {
   ChevronRight,
   Shield,
   Zap,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { SetupGuide, BRAIN_GUIDES, SOCIAL_GUIDES, GOOGLE_SUITE_GUIDES } from "./setup-guide";
 
 /* ─── Types ─── */
 interface BrainConfig {
@@ -86,11 +88,11 @@ const LLM_PROVIDERS = [
 ];
 
 const GOOGLE_SUITE = [
-  { id: "gmail", name: "Gmail", description: "Read, send, and manage emails", icon: Mail, color: "text-red-400" },
-  { id: "calendar", name: "Google Calendar", description: "Schedule and manage events", icon: Calendar, color: "text-blue-400" },
-  { id: "drive", name: "Google Drive", description: "Access and manage files", icon: HardDrive, color: "text-yellow-400" },
-  { id: "sheets", name: "Google Sheets", description: "Read and write spreadsheet data", icon: FileSpreadsheet, color: "text-green-400" },
-  { id: "youtube", name: "YouTube", description: "Video analytics and management", icon: Youtube, color: "text-red-500" },
+  { id: "gmail", name: "Gmail", description: "Read, send, and manage emails", icon: Mail, color: "text-red-400", requiresOAuth: true },
+  { id: "calendar", name: "Google Calendar", description: "Schedule and manage events", icon: Calendar, color: "text-blue-400", requiresOAuth: true },
+  { id: "drive", name: "Google Drive", description: "Access and manage files", icon: HardDrive, color: "text-yellow-400", requiresOAuth: true },
+  { id: "sheets", name: "Google Sheets", description: "Read and write spreadsheet data", icon: FileSpreadsheet, color: "text-green-400", requiresOAuth: true },
+  { id: "youtube", name: "YouTube", description: "Video analytics and management", icon: Youtube, color: "text-red-500", requiresOAuth: false },
 ];
 
 const SOCIAL_MEDIA = [
@@ -243,6 +245,41 @@ export default function ConnectionsPage() {
       </header>
 
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-14">
+        {/* ═══ SETUP PROGRESS ═══ */}
+        {(() => {
+          const brainDone = brainConfig.verified ? 1 : 0;
+          const connDone = Object.values(connections).filter(c => c.connected).length;
+          const totalSetup = 1 + GOOGLE_SUITE.length + SOCIAL_MEDIA.length; // brain + all services
+          const completedSetup = brainDone + connDone;
+          const pct = Math.round((completedSetup / totalSetup) * 100);
+
+          return pct < 100 ? (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-5 rounded-2xl border border-blue-500/20 bg-blue-500/5"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-blue-400" />
+                  <span className="text-sm font-semibold">Complete your setup</span>
+                </div>
+                <span className="text-xs text-neutral-500 font-mono">{completedSetup}/{totalSetup} connected</span>
+              </div>
+              <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                />
+              </div>
+              <p className="text-xs text-neutral-500 mt-2">
+                Connect your services so your agents can work with your accounts. Start with your Brain to power AI, then add integrations.
+              </p>
+            </motion.div>
+          ) : null;
+        })()}
         {/* ═══ BRAIN SECTION ═══ */}
         <section>
           <div className="flex items-center gap-3 mb-6">
@@ -367,6 +404,14 @@ export default function ConnectionsPage() {
                 <><Zap size={16} /> Save &amp; Verify</>
               )}
             </button>
+
+            {/* Setup Guide */}
+            {BRAIN_GUIDES[brainConfig.provider] && (
+              <SetupGuide
+                platformName={LLM_PROVIDERS.find(p => p.id === brainConfig.provider)?.name || brainConfig.provider}
+                steps={BRAIN_GUIDES[brainConfig.provider]}
+              />
+            )}
           </motion.div>
         </section>
 
@@ -400,6 +445,11 @@ export default function ConnectionsPage() {
                       <p className="text-xs text-neutral-500">{svc.description}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {svc.requiresOAuth && !isConnected && !isEditing && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 flex items-center gap-1">
+                          <Lock size={8} /> Coming Soon
+                        </span>
+                      )}
                       {isConnected && !isEditing && (
                         <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
                           <Check size={12} /> Connected
@@ -421,7 +471,7 @@ export default function ConnectionsPage() {
                         >
                           Disconnect
                         </button>
-                      ) : (
+                      ) : !svc.requiresOAuth ? (
                         <button
                           onClick={() => {
                             setEditingKey(svc.id);
@@ -431,7 +481,7 @@ export default function ConnectionsPage() {
                         >
                           Connect <ChevronRight size={12} />
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
@@ -457,6 +507,9 @@ export default function ConnectionsPage() {
                       >
                         Save Connection
                       </button>
+                      {GOOGLE_SUITE_GUIDES[svc.id] && (
+                        <SetupGuide platformName={svc.name} steps={GOOGLE_SUITE_GUIDES[svc.id]} />
+                      )}
                     </motion.div>
                   )}
                 </div>
@@ -562,6 +615,9 @@ export default function ConnectionsPage() {
                       >
                         Save Connection
                       </button>
+                      {SOCIAL_GUIDES[svc.id] && (
+                        <SetupGuide platformName={svc.name} steps={SOCIAL_GUIDES[svc.id]} />
+                      )}
                     </motion.div>
                   )}
                 </div>
