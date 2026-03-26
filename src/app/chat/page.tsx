@@ -289,7 +289,7 @@ export default function ChatPage() {
             <div className="p-3 space-y-4">
               <Button 
                 variant="ghost" 
-                className="w-full justify-between gap-2 border border-white/10 hover:bg-white/5 rounded-lg px-3 py-6 group"
+                className="w-full justify-between gap-2 border border-white/10 hover:bg-white/5 hover:text-white rounded-lg px-3 py-6 group text-white"
                 onClick={() => setActiveConvId(null)}
               >
                 <div className="flex items-center gap-3 font-medium">
