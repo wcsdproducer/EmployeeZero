@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { signInWithGoogle, signInWithEmail, signUpWithEmail } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Mail, Zap, ArrowRight, Loader2 } from "lucide-react";
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -32,6 +34,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
+        if (!tosAccepted) {
+          setError("You must accept the Terms of Service to create an account.");
+          setLoading(false);
+          return;
+        }
         await signUpWithEmail(email, password);
       } else {
         await signInWithEmail(email, password);
@@ -54,6 +61,10 @@ export default function LoginPage() {
   };
 
   const handleGoogle = async () => {
+    if (mode === "signup" && !tosAccepted) {
+      setError("You must accept the Terms of Service to create an account.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -143,13 +154,34 @@ export default function LoginPage() {
             />
           </div>
 
+          {mode === "signup" && (
+            <label className="flex items-start gap-3 px-1 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={tosAccepted}
+                onChange={(e) => { setTosAccepted(e.target.checked); setError(null); }}
+                className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 accent-white cursor-pointer"
+              />
+              <span className="text-xs text-neutral-500 leading-relaxed group-hover:text-neutral-400 transition-colors">
+                I agree to the{" "}
+                <Link href="/terms" target="_blank" className="text-white hover:underline underline-offset-2">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" target="_blank" className="text-white hover:underline underline-offset-2">
+                  Privacy Policy
+                </Link>
+              </span>
+            </label>
+          )}
+
           {error && (
             <p className="text-xs text-red-400 font-medium px-1">{error}</p>
           )}
 
           <Button
             type="submit"
-            disabled={loading || !email || !password}
+            disabled={loading || !email || !password || (mode === "signup" && !tosAccepted)}
             className="w-full h-14 bg-white/[0.08] border border-white/10 hover:bg-white/[0.15] text-white rounded-2xl text-sm font-bold transition-all disabled:opacity-30"
           >
             {loading ? (
@@ -186,9 +218,16 @@ export default function LoginPage() {
           )}
         </p>
 
-        <p className="text-[10px] font-mono text-neutral-700 uppercase tracking-[0.2em] text-center">
-          Secure Auth Gateway • 256-bit AES
-        </p>
+        <div className="text-center space-y-2">
+          <p className="text-[10px] font-mono text-neutral-700 uppercase tracking-[0.2em]">
+            Secure Auth Gateway • 256-bit AES
+          </p>
+          <p className="text-[10px] text-neutral-600">
+            <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms of Service</Link>
+            <span className="mx-2">•</span>
+            <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy Policy</Link>
+          </p>
+        </div>
       </motion.div>
     </div>
   );

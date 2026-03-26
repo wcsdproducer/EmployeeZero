@@ -160,12 +160,19 @@ export default function ChatPage() {
       (snapshot) => {
         const convData = snapshot.docs
           .map(d => ({ id: d.id, ...d.data() }) as Conversation)
+          // Only show conversations that have at least 1 message
+          .filter(c => c.messages && c.messages.length > 0)
           .sort((a, b) => {
             const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds * 1000 || 0;
             const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds * 1000 || 0;
             return bTime - aTime;
           });
         setConversations(convData);
+        
+        // Auto-select the most recent conversation on first load
+        if (!activeConvId && convData.length > 0) {
+          setActiveConvId(convData[0].id);
+        }
       },
       (err) => {
         console.warn("Conversations listener error:", err.message);
@@ -253,7 +260,7 @@ export default function ChatPage() {
                   <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-black">
                     <Plus size={14} strokeWidth={3} />
                   </div>
-                  New Mission
+                  New Conversation
                 </div>
               </Button>
 
@@ -284,7 +291,7 @@ export default function ChatPage() {
                   <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
                     <Plus size={14} />
                   </div>
-                  <span className="font-medium">Hire Agent</span>
+                  <span className="font-medium">Hire Another Agent</span>
                 </button>
               </div>
             </div>
@@ -318,6 +325,13 @@ export default function ChatPage() {
                 </div>
                 <span className="font-medium">Connections</span>
               </Link>
+            </div>
+
+            {/* Legal Links */}
+            <div className="px-6 pb-2 flex items-center gap-3 text-[10px] text-neutral-600">
+              <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms</Link>
+              <span>•</span>
+              <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy</Link>
             </div>
 
             <div className="p-3 border-t border-white/5">

@@ -67,16 +67,35 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Get user's brain config
+    // 1. Get API key — platform key first, user override if configured
+    const platformKey = process.env.GOOGLE_GENAI_API_KEY || "";
+    let apiKey = platformKey;
+    let provider = "gemini";
+    
+    // Check if user has configured their own brain/key
     const brainSnap = await adminDb.doc(`users/${userId}/settings/brain`).get();
-
-    if (!brainSnap.exists) {
-      return NextResponse.json({ error: "No brain configured" }, { status: 400 });
+    if (brainSnap.exists) {
+      const brain = brainSnap.data() as { provider: string; apiKey: string };
+      if (brain.provider) provider = brain.provider;
+      // Only use user's key if it looks valid (non-empty and different from a known-bad value)
+      if (brain.apiKey && brain.apiKey.length > 10) {
+        apiKey = brain.apiKey;
+      }
     }
-
-    const brain = brainSnap.data() as { provider: string; apiKey: string };
-    if (!brain.apiKey) {
-      return NextResponse.json({ error: "Empty API key" }, { status: 400 });
+    
+    // Final fallback — always use platform key if user key seems invalid
+    if (!apiKey) {
+      apiKey = platformKey;
+      provider = "gemini";
+    }
+    
+    console.log(`[Chat] Using ${apiKey === platformKey ? "platform" : "user"} API key for user ${userId}`);
+    
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "No API key configured. Please add your Gemini API key in Connections." },
+        { status: 400 }
+      );
     }
 
     // 2. Load conversation doc to get existing messages
@@ -126,16 +145,30 @@ The memory_extract section will be automatically processed and NOT shown to the 
     // 7. Call Gemini
     let result: string;
 
-    if (brain.provider === "gemini") {
-      const ai = new GoogleGenAI({ apiKey: brain.apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents,
-        config: { systemInstruction: systemPrompt },
-      });
-      result = response.text || "I processed your request but generated no output. Please try again.";
+    if (provider === "gemini") {
+      const callGemini = async (key: string) => {
+        const ai = new GoogleGenAI({ apiKey: key });
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents,
+          config: { systemInstruction: systemPrompt },
+        });
+        return response.text || "I processed your request but generated no output. Please try again.";
+      };
+      
+      try {
+        result = await callGemini(apiKey);
+      } catch (err: any) {
+        // If user's key failed and we have a platform key to fall back to
+        if (apiKey !== platformKey && platformKey) {
+          console.warn(`[Chat] User key failed (${err.message}), retrying with platform key`);
+          result = await callGemini(platformKey);
+        } else {
+          throw err;
+        }
+      }
     } else {
-      result = `⚠️ ${brain.provider} is not yet supported. Please switch to Gemini in your Connections settings.`;
+      result = `⚠️ ${provider} is not yet supported. Please switch to Gemini in your Connections settings.`;
     }
 
     // 8. Extract and store memories
