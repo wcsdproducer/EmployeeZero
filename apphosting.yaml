@@ -9,7 +9,7 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: AIzaSyAgEhZd1nTOeZV3cgQnmqadwx4VrelPp6k
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: employee-zero-production.firebaseapp.com
+    value: employeezero.app
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: employee-zero-production
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET

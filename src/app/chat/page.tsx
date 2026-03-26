@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,32 @@ const AVATAR_EMOJIS: Record<string, string> = {
   fire: "🔥", crystal: "💎", star: "⭐", alien: "👾",
 };
 
+/* ─── Workflow Suggestions ─── */
+interface WorkflowSuggestion {
+  id: string;
+  name: string;
+  tagline: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  skills: string[];
+}
+
+const WORKFLOW_SUGGESTIONS: WorkflowSuggestion[] = [
+  { id: "morning-briefing", name: "Morning Briefing", tagline: "Start every day knowing what matters", icon: <Sparkles size={16} />, iconBg: "from-amber-500/20 to-orange-500/20 border-amber-500/30 text-amber-400", skills: ["Email Scanning", "Calendar Analysis"] },
+  { id: "inbox-commander", name: "Inbox Commander", tagline: "Your inbox, triaged and handled", icon: <Mail size={16} />, iconBg: "from-red-500/20 to-pink-500/20 border-red-500/30 text-red-400", skills: ["Email Triage", "Auto-Reply Drafting"] },
+  { id: "meeting-prep", name: "Meeting Prep", tagline: "Walk into meetings already informed", icon: <Users size={16} />, iconBg: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400", skills: ["Attendee Research", "Talking Points"] },
+  { id: "eod-wrapup", name: "End-of-Day Wrap-Up", tagline: "Close every day with clarity", icon: <Clock size={16} />, iconBg: "from-purple-500/20 to-violet-500/20 border-purple-500/30 text-purple-400", skills: ["Activity Review", "Priority Setting"] },
+  { id: "lead-tracker", name: "Lead Tracker", tagline: "Never lose a lead again", icon: <Target size={16} />, iconBg: "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400", skills: ["Lead Detection", "Follow-Up Sequences"] },
+  { id: "appointment-scheduler", name: "Appointment Scheduler", tagline: "Clients book via email — no Calendly", icon: <Calendar size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", skills: ["Availability Check", "Booking"] },
+  { id: "review-responder", name: "Review Responder", tagline: "Every review gets a thoughtful reply", icon: <Star size={16} />, iconBg: "from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-400", skills: ["Sentiment Analysis", "Response Drafting"] },
+  { id: "invoice-tracker", name: "Invoice Tracker", tagline: "Every dollar tracked automatically", icon: <FileSpreadsheet size={16} />, iconBg: "from-green-500/20 to-lime-500/20 border-green-500/30 text-green-400", skills: ["Invoice Detection", "Expense Logging"] },
+  { id: "weekly-report", name: "Weekly Report", tagline: "One-click executive summary", icon: <BarChart3 size={16} />, iconBg: "from-indigo-500/20 to-purple-500/20 border-indigo-500/30 text-indigo-400", skills: ["Data Aggregation", "Trend Analysis"] },
+  { id: "content-calendar", name: "Content Calendar", tagline: "A week of content in 10 seconds", icon: <Globe size={16} />, iconBg: "from-pink-500/20 to-rose-500/20 border-pink-500/30 text-pink-400", skills: ["Copy Generation", "Calendar Planning"] },
+  { id: "competitor-intel", name: "Competitor Intel", tagline: "Know what competitors do first", icon: <Search size={16} />, iconBg: "from-orange-500/20 to-red-500/20 border-orange-500/30 text-orange-400", skills: ["Web Monitoring", "Competitive Analysis"] },
+  { id: "social-autopilot", name: "Social Autopilot", tagline: "Create once, publish everywhere", icon: <TrendingUp size={16} />, iconBg: "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400", skills: ["Platform Adapt", "Scheduling"] },
+  { id: "business-pulse", name: "Business Pulse", tagline: "\"How's business?\" — answered instantly", icon: <Briefcase size={16} />, iconBg: "from-violet-500/20 to-purple-500/20 border-violet-500/30 text-violet-400", skills: ["KPI Tracking", "Insight Generation"] },
+];
+
 function getAgents(employeeName: string, avatarId: string | null) {
   const emoji = AVATAR_EMOJIS[avatarId || "robot"] || "🤖";
   return [
@@ -55,6 +81,16 @@ export default function ChatPage() {
   const [employeeName, setEmployeeName] = useState("Employee Zero");
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
   const agents = getAgents(employeeName, employeeAvatar);
+
+  // Rotating workflow suggestions — reshuffle on every new conversation
+  const [visibleWorkflows, setVisibleWorkflows] = useState<WorkflowSuggestion[]>([]);
+  const [wfKey, setWfKey] = useState(0);
+
+  useEffect(() => {
+    const shuffled = [...WORKFLOW_SUGGESTIONS].sort(() => Math.random() - 0.5);
+    setVisibleWorkflows(shuffled.slice(0, 4));
+    setWfKey((k) => k + 1);
+  }, [activeConvId]);
   const [selectedAgentId, setSelectedAgentId] = useState("primary");
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
   const [submitting, setSubmitting] = useState(false);
@@ -253,7 +289,7 @@ export default function ChatPage() {
             <div className="p-3 space-y-4">
               <Button 
                 variant="ghost" 
-                className="w-full justify-between gap-2 border border-white/10 hover:bg-white/5 rounded-lg px-3 py-6 group"
+                className="w-full justify-between gap-2 border border-white/10 hover:bg-white/5 hover:text-white rounded-lg px-3 py-6 group text-white"
                 onClick={() => setActiveConvId(null)}
               >
                 <div className="flex items-center gap-3 font-medium">
@@ -314,8 +350,17 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Connections Link */}
-            <div className="p-3 pt-0">
+            {/* Workflows & Connections Links */}
+            <div className="p-3 pt-0 space-y-1">
+              <Link
+                href="/workflows"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-neutral-500 hover:bg-white/5 hover:text-neutral-300 group"
+              >
+                <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
+                  <Zap size={14} className="text-amber-400" />
+                </div>
+                <span className="font-medium">Workflows</span>
+              </Link>
               <Link
                 href="/connections"
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-neutral-500 hover:bg-white/5 hover:text-neutral-300 group"
@@ -433,21 +478,45 @@ export default function ChatPage() {
                     <h1 className="text-3xl font-bold tracking-tight">How can {selectedAgent.name} help you today?</h1>
                     <p className="text-neutral-500 max-w-sm mx-auto text-sm">Deploy an autonomous mission to scale your tactical operations.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3 w-full max-w-2xl pt-4">
-                    {[
-                        "Audit my competitor's latest viral campaign",
-                        "Scout for emerging trends in AI agents",
-                        "Optimize my automation pipeline for throughput",
-                        "Draft a strategic roadmap for Q3 operations"
-                    ].map((suggestion, i) => (
-                        <button 
-                            key={i}
-                            onClick={() => setInput(suggestion)}
-                            className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all text-[13px] text-neutral-400 hover:text-neutral-200"
+                {/* Rotating Workflow Suggestions */}
+                <div className="w-full max-w-2xl pt-4">
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Workflow Suggestions</p>
+                    <Link href="/workflows" className="text-[10px] text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 transition-colors">
+                      View all <ChevronRight size={10} />
+                    </Link>
+                  </div>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={wfKey}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                      className="grid grid-cols-2 gap-3"
+                    >
+                      {visibleWorkflows.map((wf) => (
+                        <Link
+                          key={wf.id}
+                          href="/workflows"
+                          className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group"
                         >
-                            {suggestion}
-                        </button>
-                    ))}
+                          <div className="flex items-center gap-2.5 mb-2">
+                            <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br border flex items-center justify-center flex-shrink-0", wf.iconBg)}>
+                              {wf.icon}
+                            </div>
+                            <span className="font-semibold text-[13px] text-neutral-200 group-hover:text-white transition-colors">{wf.name}</span>
+                          </div>
+                          <p className="text-[12px] text-neutral-500 leading-relaxed mb-2">{wf.tagline}</p>
+                          <div className="flex gap-1.5">
+                            {wf.skills.map((s) => (
+                              <span key={s} className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-500">{s}</span>
+                            ))}
+                          </div>
+                        </Link>
+                      ))}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
               </div>
             )}

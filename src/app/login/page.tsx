@@ -33,12 +33,12 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
+      if (!tosAccepted) {
+        setError("You must accept the Terms of Service to continue.");
+        setLoading(false);
+        return;
+      }
       if (mode === "signup") {
-        if (!tosAccepted) {
-          setError("You must accept the Terms of Service to create an account.");
-          setLoading(false);
-          return;
-        }
         await signUpWithEmail(email, password);
       } else {
         await signInWithEmail(email, password);
@@ -61,8 +61,8 @@ export default function LoginPage() {
   };
 
   const handleGoogle = async () => {
-    if (mode === "signup" && !tosAccepted) {
-      setError("You must accept the Terms of Service to create an account.");
+    if (!tosAccepted) {
+      setError("You must accept the Terms of Service to continue.");
       return;
     }
     setError(null);
@@ -107,11 +107,35 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* TOS acceptance — required for all sign-in methods */}
+        <label className="flex items-start gap-3 px-1 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={tosAccepted}
+            onChange={(e) => { setTosAccepted(e.target.checked); setError(null); }}
+            className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 accent-white cursor-pointer"
+          />
+          <span className="text-xs text-neutral-500 leading-relaxed group-hover:text-neutral-400 transition-colors">
+            I agree to the{" "}
+            <Link href="/terms" target="_blank" className="text-white hover:underline underline-offset-2">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" target="_blank" className="text-white hover:underline underline-offset-2">
+              Privacy Policy
+            </Link>
+          </span>
+        </label>
+
+        {error && (
+          <p className="text-xs text-red-400 font-medium px-1">{error}</p>
+        )}
+
         {/* Google button */}
         <Button
           onClick={handleGoogle}
-          disabled={loading}
-          className="w-full h-14 bg-white text-black hover:bg-neutral-200 rounded-2xl text-sm font-bold shadow-xl transition-all group"
+          disabled={loading || !tosAccepted}
+          className="w-full h-14 bg-white text-black hover:bg-neutral-200 rounded-2xl text-sm font-bold shadow-xl transition-all group disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg className="mr-3 w-5 h-5" viewBox="0 0 48 48">
             <path d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z" fill="#FFC107"/>
@@ -154,34 +178,11 @@ export default function LoginPage() {
             />
           </div>
 
-          {mode === "signup" && (
-            <label className="flex items-start gap-3 px-1 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={tosAccepted}
-                onChange={(e) => { setTosAccepted(e.target.checked); setError(null); }}
-                className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 accent-white cursor-pointer"
-              />
-              <span className="text-xs text-neutral-500 leading-relaxed group-hover:text-neutral-400 transition-colors">
-                I agree to the{" "}
-                <Link href="/terms" target="_blank" className="text-white hover:underline underline-offset-2">
-                  Terms of Service
-                </Link>{" "}
-                and{" "}
-                <Link href="/privacy" target="_blank" className="text-white hover:underline underline-offset-2">
-                  Privacy Policy
-                </Link>
-              </span>
-            </label>
-          )}
 
-          {error && (
-            <p className="text-xs text-red-400 font-medium px-1">{error}</p>
-          )}
 
           <Button
             type="submit"
-            disabled={loading || !email || !password || (mode === "signup" && !tosAccepted)}
+            disabled={loading || !email || !password || !tosAccepted}
             className="w-full h-14 bg-white/[0.08] border border-white/10 hover:bg-white/[0.15] text-white rounded-2xl text-sm font-bold transition-all disabled:opacity-30"
           >
             {loading ? (
