@@ -362,6 +362,15 @@ export default function ChatPage() {
                 <span className="font-medium">Workflows</span>
               </Link>
               <Link
+                href="/cron"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-neutral-500 hover:bg-white/5 hover:text-neutral-300 group"
+              >
+                <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
+                  <Clock size={14} className="text-cyan-400" />
+                </div>
+                <span className="font-medium">Scheduled Jobs</span>
+              </Link>
+              <Link
                 href="/connections"
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-neutral-500 hover:bg-white/5 hover:text-neutral-300 group"
               >
