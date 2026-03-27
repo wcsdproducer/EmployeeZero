@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/admin";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
+import {
+  listEmails,
+  getEmail,
+  sendEmail,
+  replyToEmail,
+  getUnreadCount,
+  archiveEmail,
+  trashEmail,
+} from "@/lib/gmail";
 
 /**
- * Chat API — conversation-based, with persistent memory.
+ * Chat API — conversation-based, with persistent memory + tool use.
  *
  * Accepts a conversationId + new user message.
- * Loads the conversation's existing messages, memories, and calls Gemini.
- * Appends both the user message and AI response to the conversation doc.
+ * Loads the conversation's existing messages, connections, memories, and calls Gemini.
+ * Supports function calling for Gmail (and future services).
  */
 
 // ── Types ───────────────────────────────────────────────────────
@@ -46,6 +55,165 @@ async function storeMemories(userId: string, agentId: string, facts: string[]) {
   await batch.commit();
 }
 
+// ── Connections helper ──────────────────────────────────────────
+
+async function loadConnections(userId: string): Promise<Record<string, any>> {
+  try {
+    const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
+    return snap.exists ? (snap.data() as Record<string, any>) : {};
+  } catch {
+    return {};
+  }
+}
+
+// ── Tool declarations ───────────────────────────────────────────
+
+const GMAIL_TOOLS = [
+  {
+    name: "search_emails",
+    description:
+      "Search or list emails in the user's Gmail. Use Gmail search syntax for the query (e.g. 'is:unread', 'from:john@example.com', 'subject:invoice', 'newer_than:1d'). Returns a list of email summaries with id, from, subject, snippet, and date.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: {
+          type: Type.STRING,
+          description:
+            "Gmail search query. Examples: 'is:unread', 'from:boss@company.com', 'subject:meeting newer_than:7d', 'in:inbox'. Leave empty for recent inbox emails.",
+        },
+        max_results: {
+          type: Type.NUMBER,
+          description: "Maximum number of emails to return (1-20, default 10)",
+        },
+      },
+    },
+  },
+  {
+    name: "read_email",
+    description:
+      "Read the full content of a specific email by its message ID. Returns from, to, subject, date, body text, and labels.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: {
+          type: Type.STRING,
+          description: "The Gmail message ID to read",
+        },
+      },
+      required: ["message_id"],
+    },
+  },
+  {
+    name: "send_email",
+    description:
+      "Send a new email from the user's Gmail account. Always confirm with the user before sending.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        to: {
+          type: Type.STRING,
+          description: "Recipient email address",
+        },
+        subject: {
+          type: Type.STRING,
+          description: "Email subject line",
+        },
+        body: {
+          type: Type.STRING,
+          description: "Email body text (plain text)",
+        },
+      },
+      required: ["to", "subject", "body"],
+    },
+  },
+  {
+    name: "reply_to_email",
+    description:
+      "Reply to a specific email thread. The reply will include proper threading headers. Always confirm with the user before sending.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: {
+          type: Type.STRING,
+          description: "The Gmail message ID to reply to",
+        },
+        body: {
+          type: Type.STRING,
+          description: "Reply body text (plain text)",
+        },
+      },
+      required: ["message_id", "body"],
+    },
+  },
+  {
+    name: "get_unread_count",
+    description: "Get the count of unread emails in the inbox",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {},
+    },
+  },
+  {
+    name: "archive_email",
+    description: "Archive an email (remove from inbox but keep in All Mail)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: {
+          type: Type.STRING,
+          description: "The Gmail message ID to archive",
+        },
+      },
+      required: ["message_id"],
+    },
+  },
+  {
+    name: "trash_email",
+    description: "Move an email to trash",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: {
+          type: Type.STRING,
+          description: "The Gmail message ID to trash",
+        },
+      },
+      required: ["message_id"],
+    },
+  },
+];
+
+// ── Tool executor ───────────────────────────────────────────────
+
+async function executeTool(
+  userId: string,
+  toolName: string,
+  args: Record<string, any>
+): Promise<any> {
+  switch (toolName) {
+    case "search_emails":
+      return await listEmails(userId, args.query, args.max_results || 10);
+    case "read_email":
+      return await getEmail(userId, args.message_id);
+    case "send_email":
+      return await sendEmail(userId, args.to, args.subject, args.body);
+    case "reply_to_email":
+      return await replyToEmail(userId, args.message_id, args.body);
+    case "get_unread_count": {
+      const count = await getUnreadCount(userId);
+      return { unread_count: count };
+    }
+    case "archive_email":
+      await archiveEmail(userId, args.message_id);
+      return { success: true, action: "archived" };
+    case "trash_email":
+      await trashEmail(userId, args.message_id);
+      return { success: true, action: "trashed" };
+    default:
+      return { error: `Unknown tool: ${toolName}` };
+  }
+}
+
 // ── Main handler ────────────────────────────────────────────────
 
 export async function POST(request: Request) {
@@ -68,29 +236,28 @@ export async function POST(request: Request) {
     }
 
     // 1. Get API key — platform key first, user override if configured
-    const platformKey = process.env.GOOGLE_GENAI_API_KEY || "";
+    const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || "";
     let apiKey = platformKey;
     let provider = "gemini";
-    
-    // Check if user has configured their own brain/key
+
     const brainSnap = await adminDb.doc(`users/${userId}/settings/brain`).get();
     if (brainSnap.exists) {
       const brain = brainSnap.data() as { provider: string; apiKey: string };
       if (brain.provider) provider = brain.provider;
-      // Only use user's key if it looks valid (non-empty and different from a known-bad value)
       if (brain.apiKey && brain.apiKey.length > 10) {
         apiKey = brain.apiKey;
       }
     }
-    
-    // Final fallback — always use platform key if user key seems invalid
+
     if (!apiKey) {
       apiKey = platformKey;
       provider = "gemini";
     }
-    
-    console.log(`[Chat] Using ${apiKey === platformKey ? "platform" : "user"} API key for user ${userId}`);
-    
+
+    console.log(
+      `[Chat] Using ${apiKey === platformKey ? "platform" : "user"} API key for user ${userId}`
+    );
+
     if (!apiKey) {
       return NextResponse.json(
         { error: "No API key configured. Please add your Gemini API key in Connections." },
@@ -108,14 +275,34 @@ export async function POST(request: Request) {
     // 3. Update status to running
     await convRef.update({ status: "running" });
 
-    // 4. Load memories
-    const memories = await loadMemories(userId);
+    // 4. Load memories + connections
+    const [memories, connections] = await Promise.all([
+      loadMemories(userId),
+      loadConnections(userId),
+    ]);
 
-    // 5. Build system prompt
+    // 5. Build system prompt with connection awareness
     const name = agentName || "Employee Zero";
     let systemPrompt = `You are ${name}, an elite AI employee. You are direct, strategic, and action-oriented. You provide clear, actionable intelligence. Format your responses with markdown when appropriate. Be concise but thorough.
 
 You have persistent memory. You remember everything the user has told you across all conversations.`;
+
+    // Connection awareness
+    const connectedServices: string[] = [];
+    if (connections.gmail?.connected) connectedServices.push("Gmail");
+    if (connections.calendar?.connected) connectedServices.push("Google Calendar");
+    if (connections.drive?.connected) connectedServices.push("Google Drive");
+    if (connections.sheets?.connected) connectedServices.push("Google Sheets");
+
+    if (connectedServices.length > 0) {
+      systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
+
+      if (connections.gmail?.connected) {
+        systemPrompt += `\n### Gmail Access\nYou can search, read, send, reply to, archive, and trash emails using the user's connected Gmail account. Use the provided tools to interact with Gmail. When the user asks about emails, proactively use the search_emails or get_unread_count tools. Before sending or replying to emails, always confirm the content with the user first unless they explicitly asked you to send it.`;
+      }
+    } else {
+      systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
+    }
 
     if (memories.length > 0) {
       systemPrompt += `\n\n## Your Memories\nThese are facts you've learned about the user and important context from past conversations:\n${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`;
@@ -146,20 +333,81 @@ The memory_extract section will be automatically processed and NOT shown to the 
     let result: string;
 
     if (provider === "gemini") {
+      const hasGmailTools = connections.gmail?.connected;
+
       const callGemini = async (key: string) => {
         const ai = new GoogleGenAI({ apiKey: key });
-        const response = await ai.models.generateContent({
+
+        // Config with optional tools
+        const config: any = {
+          systemInstruction: systemPrompt,
+        };
+        if (hasGmailTools) {
+          config.tools = [{ functionDeclarations: GMAIL_TOOLS }];
+        }
+
+        let response = await ai.models.generateContent({
           model: "gemini-2.5-flash",
           contents,
-          config: { systemInstruction: systemPrompt },
+          config,
         });
-        return response.text || "I processed your request but generated no output. Please try again.";
+
+        // Tool execution loop — max 5 rounds to prevent infinite loops
+        let rounds = 0;
+        while (rounds < 5) {
+          const candidate = response.candidates?.[0];
+          const parts = candidate?.content?.parts || [];
+
+          // Check if there's a function call
+          const fnCall = parts.find((p: any) => p.functionCall);
+          if (!fnCall?.functionCall) break; // No function call — we're done
+
+          const { name: toolName, args } = fnCall.functionCall;
+          console.log(`[Chat] Tool call: ${toolName}(${JSON.stringify(args)})`);
+
+          let toolResult: any;
+          try {
+            toolResult = await executeTool(userId, toolName!, args as Record<string, any>);
+          } catch (err: any) {
+            toolResult = { error: err.message };
+            console.error(`[Chat] Tool error:`, err.message);
+          }
+
+          // Feed tool result back to Gemini
+          contents.push({
+            role: "model" as const,
+            parts: [{ functionCall: { name: toolName!, args: args as Record<string, any> } } as any],
+          });
+          contents.push({
+            role: "user" as const,
+            parts: [
+              {
+                functionResponse: {
+                  name: toolName!,
+                  response: toolResult,
+                },
+              } as any,
+            ],
+          });
+
+          response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents,
+            config,
+          });
+
+          rounds++;
+        }
+
+        return (
+          response.text ||
+          "I processed your request but generated no output. Please try again."
+        );
       };
-      
+
       try {
         result = await callGemini(apiKey);
       } catch (err: any) {
-        // If user's key failed and we have a platform key to fall back to
         if (apiKey !== platformKey && platformKey) {
           console.warn(`[Chat] User key failed (${err.message}), retrying with platform key`);
           result = await callGemini(platformKey);
@@ -200,7 +448,6 @@ The memory_extract section will be automatically processed and NOT shown to the 
   } catch (err: any) {
     console.error("Chat API error:", err);
 
-    // Try to reset conversation status
     try {
       if (parsedBody.conversationId) {
         const convRef = adminDb.doc(`conversations/${parsedBody.conversationId}`);
