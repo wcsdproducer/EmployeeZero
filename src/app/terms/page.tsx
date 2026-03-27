@@ -31,7 +31,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white mb-3">2. Description of Service</h2>
             <p>
-              Employee Zero is an AI-powered digital employee platform that provides autonomous AI agents capable of performing tasks, generating content, and assisting with business operations. The Service is provided on an &ldquo;as-is&rdquo; and &ldquo;as-available&rdquo; basis.
+              Employee Zero is an AI-powered digital employee platform that provides autonomous AI agents capable of performing tasks, generating content, and assisting with business operations. The Service is currently in <strong className="text-white">early access (beta)</strong> and is provided on an &ldquo;as-is&rdquo; and &ldquo;as-available&rdquo; basis. As beta software, you should expect occasional bugs, downtime, changes to features, and evolving functionality. We actively develop and improve the Service, but do not guarantee feature stability or continuity during the beta period.
             </p>
           </section>
 
@@ -45,7 +45,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white mb-3">4. Subscriptions and Payments</h2>
             <p>
-              Certain features of the Service require a paid subscription. By subscribing, you agree to pay the fees associated with your selected plan. Subscriptions auto-renew monthly unless canceled. Refunds are handled on a case-by-case basis. We reserve the right to change pricing with 30 days&apos; notice.
+              Certain features of the Service require a paid subscription. By subscribing, you agree to pay the fees associated with your selected plan. Subscriptions auto-renew monthly unless canceled. Refunds are handled on a case-by-case basis. We reserve the right to change pricing with 30 days&apos; notice. If we permanently discontinue the Service, active subscribers will receive a prorated refund for any unused portion of their current billing period.
             </p>
           </section>
 
