@@ -11,6 +11,7 @@ import {
   trashEmail,
 } from "@/lib/gmail";
 import { createTask, executeTask } from "@/lib/taskEngine";
+import { browseUrl, clickUrl, submitForm, webSearch } from "@/lib/browser";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -212,6 +213,56 @@ const GMAIL_TOOLS = [
   },
 ];
 
+const BROWSER_TOOLS = [
+  {
+    name: "browse_url",
+    description: "Fetch and read the content of any web page. Returns page title, text content, and optionally all links.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: { type: Type.STRING, description: "The URL to browse" },
+        extract_links: { type: Type.BOOLEAN, description: "Set true to also extract all links" },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "click_url",
+    description: "Navigate to / click a URL (e.g. unsubscribe link, confirmation link). Makes a GET request and follows redirects.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: { type: Type.STRING, description: "The URL to click" },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "submit_form",
+    description: "Submit a web form by POSTing data to a URL.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: { type: Type.STRING, description: "The form action URL" },
+        data: { type: Type.STRING, description: "JSON string of key-value pairs" },
+        content_type: { type: Type.STRING, description: "'form' (default) or 'json'" },
+      },
+      required: ["url", "data"],
+    },
+  },
+  {
+    name: "web_search",
+    description: "Search the web for information. Returns results with titles, URLs, and snippets.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search query" },
+      },
+      required: ["query"],
+    },
+  },
+];
+
 // ── Tool executor ───────────────────────────────────────────────
 
 async function executeTool(
@@ -238,6 +289,16 @@ async function executeTool(
     case "trash_email":
       await trashEmail(userId, args.message_id);
       return { success: true, action: "trashed" };
+    case "browse_url":
+      return await browseUrl(args.url, { extractLinks: args.extract_links });
+    case "click_url":
+      return await clickUrl(args.url);
+    case "submit_form": {
+      const formData = typeof args.data === "string" ? JSON.parse(args.data) : args.data;
+      return await submitForm(args.url, formData, args.content_type);
+    }
+    case "web_search":
+      return await webSearch(args.query);
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -427,6 +488,9 @@ You have persistent memory. You remember everything the user has told you across
       systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
     }
 
+    // Browser capabilities (always available)
+    systemPrompt += `\n\n### Web Browsing\nYou can browse any website, read web pages, follow links (like unsubscribe URLs), submit forms, and search the web. Use browse_url to read pages, click_url to follow action links, submit_form for form submissions, and web_search to find information.`;
+
     // Inject conversation summary for long conversations
     if (conversationSummary) {
       systemPrompt += `\n\n## Earlier Conversation Context\nSummary of earlier parts of this conversation (older messages have been condensed to save processing):\n${conversationSummary}`;
@@ -470,9 +534,12 @@ The memory_extract section will be automatically processed and NOT shown to the 
         const config: any = {
           systemInstruction: systemPrompt,
         };
+        // Always include browser tools, add Gmail if connected
+        const allTools: any[] = [...BROWSER_TOOLS];
         if (hasGmailTools) {
-          config.tools = [{ functionDeclarations: GMAIL_TOOLS }];
+          allTools.push(...GMAIL_TOOLS);
         }
+        config.tools = [{ functionDeclarations: allTools }];
 
         let response = await ai.models.generateContent({
           model: "gemini-2.5-flash",

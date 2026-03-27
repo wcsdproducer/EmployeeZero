@@ -4,6 +4,7 @@ import {
   listEmails, getEmail, sendEmail, replyToEmail,
   getUnreadCount, archiveEmail, trashEmail,
 } from "@/lib/gmail";
+import { browseUrl, clickUrl, submitForm, webSearch } from "@/lib/browser";
 
 /* ─── Types ─── */
 
@@ -138,6 +139,56 @@ const TOOL_DECLARATIONS = [
   },
 ];
 
+const BROWSER_TOOLS = [
+  {
+    name: "browse_url",
+    description: "Fetch and read the content of any web page. Returns the page title, extracted text, and optionally all links. Use this to research topics, read articles, check websites, or find unsubscribe links.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: { type: Type.STRING, description: "The URL to browse" },
+        extract_links: { type: Type.BOOLEAN, description: "Set true to also extract all links on the page" },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "click_url",
+    description: "Navigate to / click a URL (e.g. an unsubscribe link, confirmation link, or any action URL). Makes a GET request and follows redirects.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: { type: Type.STRING, description: "The URL to click/navigate to" },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "submit_form",
+    description: "Submit a web form by POSTing data to a URL. Use for unsubscribe confirmations, signups, or any form submission.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        url: { type: Type.STRING, description: "The form action URL" },
+        data: { type: Type.STRING, description: "JSON string of key-value pairs to submit" },
+        content_type: { type: Type.STRING, description: "'form' (default) or 'json'" },
+      },
+      required: ["url", "data"],
+    },
+  },
+  {
+    name: "web_search",
+    description: "Search the web for information. Returns a list of results with titles, URLs, and snippets.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search query" },
+      },
+      required: ["query"],
+    },
+  },
+];
+
 /* ─── Tool Executor ─── */
 
 async function executeTool(
@@ -164,6 +215,16 @@ async function executeTool(
     case "trash_email":
       await trashEmail(userId, args.message_id);
       return { success: true, action: "trashed" };
+    case "browse_url":
+      return await browseUrl(args.url, { extractLinks: args.extract_links });
+    case "click_url":
+      return await clickUrl(args.url);
+    case "submit_form": {
+      const formData = typeof args.data === "string" ? JSON.parse(args.data) : args.data;
+      return await submitForm(args.url, formData, args.content_type);
+    }
+    case "web_search":
+      return await webSearch(args.query);
     case "report_progress":
       return { acknowledged: true };
     case "task_complete":
@@ -228,18 +289,23 @@ async function getAvailableTools(userId: string) {
       services.push("Gmail");
     }
 
-    // Always include meta-tools
+    // Always include meta-tools + browser tools
     tools.push(...TOOL_DECLARATIONS.filter(t =>
       ["report_progress", "task_complete"].includes(t.name)
     ));
+    tools.push(...BROWSER_TOOLS);
+    services.push("Web Browsing");
 
     return { tools, services, connections };
   } catch {
     return {
-      tools: TOOL_DECLARATIONS.filter(t =>
-        ["report_progress", "task_complete"].includes(t.name)
-      ),
-      services: [],
+      tools: [
+        ...TOOL_DECLARATIONS.filter(t =>
+          ["report_progress", "task_complete"].includes(t.name)
+        ),
+        ...BROWSER_TOOLS,
+      ],
+      services: ["Web Browsing"],
       connections: {},
     };
   }
@@ -295,7 +361,8 @@ export async function executeTask(taskId: string): Promise<string> {
 3. If a tool call fails, try a different approach (up to ${MAX_RETRIES_PER_STEP} retries per step).
 4. When the goal is fully accomplished, call task_complete with a comprehensive result summary.
 5. Be efficient — minimize unnecessary tool calls.
-6. Never send emails without the content being explicitly specified in the goal.`;
+6. Never send emails without the content being explicitly specified in the goal.
+7. You can browse any website, follow links, search the web, and submit forms. Use browse_url to read pages and click_url to follow action links like unsubscribe URLs.`;
 
   const contents: any[] = [
     { role: "user", parts: [{ text: `Execute this task:\n\n${goal}` }] },
