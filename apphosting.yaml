@@ -18,5 +18,11 @@ env:
     value: "368999511686"
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: "1:368999511686:web:06c2de33da3173cc270307"
+  - variable: NEXT_PUBLIC_APP_URL
+    value: https://employeezero.app
   - variable: GOOGLE_GENAI_API_KEY
     secret: GOOGLE_GENAI_API_KEY
+  - variable: GOOGLE_CLIENT_ID
+    secret: GOOGLE_CLIENT_ID
+  - variable: GOOGLE_CLIENT_SECRET
+    secret: GOOGLE_CLIENT_SECRET
