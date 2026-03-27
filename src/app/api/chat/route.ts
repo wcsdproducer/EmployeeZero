@@ -66,6 +66,34 @@ async function loadConnections(userId: string): Promise<Record<string, any>> {
   }
 }
 
+// ── Conversation window + summarization ─────────────────────────
+
+const MAX_CONTEXT_MESSAGES = 20; // Send at most 20 recent messages to Gemini
+const SUMMARIZE_THRESHOLD = 24; // Summarize when total exceeds this
+
+async function summarizeOldMessages(
+  apiKey: string,
+  messages: ChatMessage[],
+  existingSummary?: string
+): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey });
+
+  const transcript = messages
+    .map((m) => `${m.role === "user" ? "User" : "Agent"}: ${m.content.substring(0, 300)}`)
+    .join("\n");
+
+  const prompt = existingSummary
+    ? `You have a previous conversation summary:\n"${existingSummary}"\n\nHere are additional older messages to incorporate:\n${transcript}\n\nWrite a concise updated summary (max 200 words) capturing all important context, decisions, facts, and action items. Preserve names, dates, and specific details.`
+    : `Summarize this conversation excerpt concisely (max 200 words). Capture important context, decisions, facts, and action items. Preserve names, dates, and specific details.\n\n${transcript}`;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+  });
+
+  return response.text || existingSummary || "";
+}
+
 // ── Tool declarations ───────────────────────────────────────────
 
 const GMAIL_TOOLS = [
@@ -268,9 +296,9 @@ export async function POST(request: Request) {
     // 2. Load conversation doc to get existing messages
     const convRef = adminDb.doc(`conversations/${conversationId}`);
     const convSnap = await convRef.get();
-    const existingMessages: ChatMessage[] = convSnap.exists
-      ? (convSnap.data()?.messages || [])
-      : [];
+    const convData = convSnap.exists ? convSnap.data() : null;
+    let allMessages: ChatMessage[] = convData?.messages || [];
+    let conversationSummary: string = convData?.summary || "";
 
     // 3. Update status to running
     await convRef.update({ status: "running" });
@@ -280,6 +308,32 @@ export async function POST(request: Request) {
       loadMemories(userId),
       loadConnections(userId),
     ]);
+
+    // 4b. Sliding window + rolling summarization
+    //     If conversation is long, summarize old messages and only send recent ones
+    if (allMessages.length > SUMMARIZE_THRESHOLD) {
+      const cutoff = allMessages.length - MAX_CONTEXT_MESSAGES;
+      const oldMessages = allMessages.slice(0, cutoff);
+
+      try {
+        conversationSummary = await summarizeOldMessages(
+          apiKey,
+          oldMessages,
+          conversationSummary
+        );
+        // Trim stored messages — keep only recent ones
+        allMessages = allMessages.slice(cutoff);
+        console.log(
+          `[Chat] Summarized ${oldMessages.length} old messages, keeping ${allMessages.length} recent`
+        );
+      } catch (err) {
+        console.warn("[Chat] Summarization failed, using full history:", err);
+        // Fall through — use full history if summarization fails
+      }
+    }
+
+    // Messages to send to Gemini (windowed)
+    const contextMessages = allMessages.slice(-MAX_CONTEXT_MESSAGES);
 
     // 5. Build system prompt with connection awareness
     const name = agentName || "Employee Zero";
@@ -304,6 +358,11 @@ You have persistent memory. You remember everything the user has told you across
       systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
     }
 
+    // Inject conversation summary for long conversations
+    if (conversationSummary) {
+      systemPrompt += `\n\n## Earlier Conversation Context\nSummary of earlier parts of this conversation (older messages have been condensed to save processing):\n${conversationSummary}`;
+    }
+
     if (memories.length > 0) {
       systemPrompt += `\n\n## Your Memories\nThese are facts you've learned about the user and important context from past conversations:\n${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`;
     }
@@ -320,9 +379,9 @@ In your response, if there are facts to remember, end your visible response, the
 
 The memory_extract section will be automatically processed and NOT shown to the user. Only include genuinely important, persistent facts — not ephemeral details about the current task.`;
 
-    // 6. Build Gemini contents from conversation history + new message
+    // 6. Build Gemini contents from windowed history + new message
     const contents = [
-      ...existingMessages.map((m) => ({
+      ...contextMessages.map((m) => ({
         role: m.role as "user" | "model",
         parts: [{ text: m.content }],
       })),
@@ -431,18 +490,25 @@ The memory_extract section will be automatically processed and NOT shown to the 
     }
 
     // 9. Append both messages to conversation doc
+    //    Use allMessages (which may have been trimmed by summarization)
     const now = new Date().toISOString();
     const updatedMessages: ChatMessage[] = [
-      ...existingMessages,
+      ...allMessages,
       { role: "user", content: message, timestamp: now },
       { role: "model", content: result, timestamp: now },
     ];
 
-    await convRef.update({
+    const updatePayload: Record<string, any> = {
       messages: updatedMessages,
       status: "idle",
       updatedAt: now,
-    });
+    };
+    // Persist summary if we generated/updated one
+    if (conversationSummary) {
+      updatePayload.summary = conversationSummary;
+    }
+
+    await convRef.update(updatePayload);
 
     return NextResponse.json({ status: "completed", result });
   } catch (err: any) {
