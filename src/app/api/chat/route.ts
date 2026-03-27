@@ -10,6 +10,7 @@ import {
   archiveEmail,
   trashEmail,
 } from "@/lib/gmail";
+import { createTask, executeTask } from "@/lib/taskEngine";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -293,7 +294,75 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Load conversation doc to get existing messages
+    // 1b. Intent detection — route complex tasks to the task engine
+    const complexPatterns = [
+      /\b(clean up|organize|triage|sort through|go through)\b.*\b(inbox|emails|mail)\b/i,
+      /\b(archive|delete|trash)\b.*\b(all|every|older than|from last)\b/i,
+      /\b(draft|write|compose)\b.*\b(replies|responses)\b.*\b(all|each|every)\b/i,
+      /\b(morning briefing|daily summary|end.of.day|weekly report)\b/i,
+      /\b(run|execute|start|trigger)\b.*\b(workflow|automation|briefing)\b/i,
+      /\b(follow up|reach out)\b.*\b(all|each|every|batch)\b/i,
+    ];
+    const isComplexTask = complexPatterns.some((p) => p.test(message));
+
+    if (isComplexTask) {
+      // Create a task and execute it
+      const taskId = await createTask(userId, message, conversationId);
+
+      // Start execution in background
+      const executionPromise = executeTask(taskId).then(async (result) => {
+        // Write result back to conversation
+        const convRef = adminDb.doc(`conversations/${conversationId}`);
+        const convSnap = await convRef.get();
+        const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
+        const now = new Date().toISOString();
+        await convRef.update({
+          messages: [
+            ...existingMsgs,
+            { role: "user", content: message, timestamp: now },
+            { role: "model", content: `🔄 **Task Completed**\n\n${result}\n\n_Task ID: ${taskId}_`, timestamp: now },
+          ],
+          status: "idle",
+          updatedAt: now,
+        });
+      }).catch(async (err) => {
+        const convRef = adminDb.doc(`conversations/${conversationId}`);
+        const convSnap = await convRef.get();
+        const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
+        const now = new Date().toISOString();
+        await convRef.update({
+          messages: [
+            ...existingMsgs,
+            { role: "user", content: message, timestamp: now },
+            { role: "model", content: `⚠️ Task failed: ${err.message}`, timestamp: now },
+          ],
+          status: "error",
+          updatedAt: now,
+        });
+      });
+
+      // Update conversation status to running immediately
+      const convRef = adminDb.doc(`conversations/${conversationId}`);
+      const convSnap = await convRef.get();
+      if (convSnap.exists) {
+        const existingMsgs = convSnap.data()?.messages || [];
+        await convRef.update({
+          messages: [
+            ...existingMsgs,
+            { role: "user", content: message, timestamp: new Date().toISOString() },
+          ],
+          status: "running",
+        });
+      }
+
+      return NextResponse.json({
+        status: "task_started",
+        taskId,
+        result: `🧠 **Working on it...**\n\nI'm executing this as a multi-step task. I'll update this conversation when complete.\n\n_Task ID: ${taskId}_`,
+      });
+    }
+
+    // 2. Load conversation doc to get existing messages (simple chat path)
     const convRef = adminDb.doc(`conversations/${conversationId}`);
     const convSnap = await convRef.get();
     const convData = convSnap.exists ? convSnap.data() : null;
