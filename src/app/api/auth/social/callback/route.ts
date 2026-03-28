@@ -155,6 +155,7 @@ export async function GET(request: Request) {
         body: tokenBody,
       });
       tokenData = await res.json();
+      console.log(`[Social OAuth] Token response for ${platform}:`, JSON.stringify(tokenData));
     }
 
     // Normalize token response
@@ -166,9 +167,10 @@ export async function GET(request: Request) {
       tokenData.expires_in || tokenData.data?.expires_in || 3600;
 
     if (!accessToken) {
-      console.error(`[Social OAuth] No access_token for ${platform}:`, tokenData);
+      console.error(`[Social OAuth] No access_token for ${platform}:`, JSON.stringify(tokenData));
+      const errorDetail = tokenData.error_description || tokenData.error || tokenData.message || "unknown";
       return NextResponse.redirect(
-        `${base}/connections?error=token_exchange_failed`
+        `${base}/connections?error=token_exchange_failed&detail=${encodeURIComponent(errorDetail)}`
       );
     }
 

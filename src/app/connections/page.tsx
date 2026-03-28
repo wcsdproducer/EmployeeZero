@@ -220,9 +220,12 @@ function ConnectionsPageInner() {
       setSetupPlatform(setup);
       router.replace("/connections", { scroll: false });
     } else if (error) {
+      const detail = searchParams.get("detail");
       const messages: Record<string, string> = {
         access_denied: "You denied access. No changes were made.",
-        token_exchange_failed: "Failed to exchange token. Please try again.",
+        token_exchange_failed: detail
+          ? `Token exchange failed: ${detail}`
+          : "Failed to exchange token. Please try again.",
         storage_failed: "Connected but failed to save. Try again.",
         missing_params: "Connection request was missing required information.",
         unknown_platform: "Unknown platform requested.",
