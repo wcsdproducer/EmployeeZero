@@ -371,11 +371,11 @@ export async function POST(request: Request) {
     const isComplexTask = complexPatterns.some((p) => p.test(message));
 
     if (isComplexTask) {
-      // Create a task and execute it
-      const taskId = await createTask(userId, message, conversationId);
+      // Create a task and execute it — pass the already-resolved apiKey
+      const taskId = await createTask(userId, message, conversationId, apiKey);
 
       // Start execution in background
-      const executionPromise = executeTask(taskId).then(async (result) => {
+      const executionPromise = executeTask(taskId, apiKey).then(async (result) => {
         // Write result back to conversation
         const convRef = adminDb.doc(`conversations/${conversationId}`);
         const convSnap = await convRef.get();

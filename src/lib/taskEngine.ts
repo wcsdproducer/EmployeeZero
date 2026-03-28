@@ -316,11 +316,12 @@ async function getAvailableTools(userId: string) {
 export async function createTask(
   userId: string,
   goal: string,
-  conversationId?: string
+  conversationId?: string,
+  apiKey?: string
 ): Promise<string> {
   const now = new Date().toISOString();
   const taskRef = adminDb.collection("tasks").doc();
-  const task: Omit<Task, "id"> = {
+  const task: Omit<Task, "id"> & { apiKey?: string } = {
     userId,
     conversationId,
     goal,
@@ -330,18 +331,28 @@ export async function createTask(
     createdAt: now,
     updatedAt: now,
   };
+  // Store API key temporarily in task doc so executeTask can use it
+  if (apiKey) (task as any)._apiKey = apiKey;
   await taskRef.set(task);
   return taskRef.id;
 }
 
-export async function executeTask(taskId: string): Promise<string> {
+export async function executeTask(taskId: string, overrideApiKey?: string): Promise<string> {
   const taskSnap = await adminDb.doc(`tasks/${taskId}`).get();
   if (!taskSnap.exists) throw new Error("Task not found");
 
-  const task = { id: taskId, ...taskSnap.data() } as Task;
+  const taskData = taskSnap.data() as any;
+  const task = { id: taskId, ...taskData } as Task;
   const { userId, goal } = task;
 
-  const apiKey = await getApiKey(userId);
+  // Use override key, then task-stored key, then resolve from user/platform
+  let apiKey = overrideApiKey || taskData._apiKey || "";
+  if (!apiKey) apiKey = await getApiKey(userId);
+  
+  // Clean up the stored key from Firestore
+  if (taskData._apiKey) {
+    await adminDb.doc(`tasks/${taskId}`).update({ _apiKey: null });
+  }
   if (!apiKey) {
     await updateTask(taskId, { status: "failed", result: "No API key configured." });
     return "No API key configured.";
