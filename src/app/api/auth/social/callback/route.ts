@@ -71,11 +71,18 @@ export async function GET(request: Request) {
 
   let state: { platform: string; userId: string; codeVerifier?: string };
   try {
-    state = JSON.parse(stateRaw);
+    // Try base64url-decoded JSON first, fall back to raw JSON
+    const decoded = Buffer.from(stateRaw, "base64url").toString("utf8");
+    state = JSON.parse(decoded);
   } catch {
-    return NextResponse.redirect(
-      `${base}/connections?error=invalid_state`
-    );
+    // Fallback: try parsing as raw JSON (for other platforms)
+    try {
+      state = JSON.parse(stateRaw);
+    } catch {
+      return NextResponse.redirect(
+        `${base}/connections?error=invalid_state`
+      );
+    }
   }
 
   const { platform, userId, codeVerifier } = state;

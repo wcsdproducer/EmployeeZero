@@ -81,7 +81,12 @@ export async function GET(request: Request) {
   }
 
   const redirectUri = getRedirectUri();
-  const state = JSON.stringify({ platform, userId });
+
+  // Base64url-encode state to prevent platforms mangling JSON on redirect
+  const encodeState = (obj: Record<string, string>) =>
+    Buffer.from(JSON.stringify(obj)).toString("base64url");
+
+  let stateParam = encodeState({ platform, userId });
 
   // Build authorization URL
   const params = new URLSearchParams();
@@ -91,13 +96,12 @@ export async function GET(request: Request) {
     params.set("response_type", "code");
     if (config.scopes.length > 0) params.set("scope", config.scopes.join(","));
     params.set("redirect_uri", redirectUri);
-    params.set("state", state);
+    params.set("state", stateParam);
   } else {
     params.set("client_id", clientId);
     params.set("response_type", "code");
     params.set("redirect_uri", redirectUri);
     if (config.scopes.length > 0) params.set("scope", config.scopes.join(" "));
-    params.set("state", state);
 
     if (config.usePKCE) {
       // PKCE for Twitter
@@ -110,10 +114,10 @@ export async function GET(request: Request) {
       params.set("code_challenge", codeChallenge);
       params.set("code_challenge_method", "S256");
 
-      // Store code_verifier in state for the callback
-      const stateWithPKCE = JSON.stringify({ platform, userId, codeVerifier });
-      params.set("state", stateWithPKCE);
+      stateParam = encodeState({ platform, userId, codeVerifier });
     }
+
+    params.set("state", stateParam);
   }
 
   const authUrl = `${config.authorizeUrl}?${params.toString()}`;
