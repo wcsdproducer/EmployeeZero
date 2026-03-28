@@ -66,6 +66,15 @@ import {
   getProfile as getInstagramProfile,
   getRecentMedia as getInstagramMedia,
   createPost as createInstagramPost,
+  getPostComments as getInstagramComments,
+  replyToComment as replyToInstagramComment,
+  createCarouselPost as createInstagramCarousel,
+  createReel as createInstagramReel,
+  getPostInsights as getInstagramPostInsights,
+  getAccountInsights as getInstagramAccountInsights,
+  getStories as getInstagramStories,
+  searchHashtag as searchInstagramHashtag,
+  deletePost as deleteInstagramPost,
 } from "@/lib/instagram";
 import {
   getProfile as getFacebookProfile,
@@ -774,6 +783,103 @@ const INSTAGRAM_TOOLS = [
       required: ["image_url", "caption"],
     },
   },
+  {
+    name: "get_instagram_comments",
+    description: "Get comments on an Instagram post (use get_instagram_media first to get media IDs)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        media_id: { type: Type.STRING, description: "Instagram media/post ID" },
+      },
+      required: ["media_id"],
+    },
+  },
+  {
+    name: "reply_to_instagram_comment",
+    description: "Reply to a comment on an Instagram post",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        media_id: { type: Type.STRING, description: "Instagram media/post ID" },
+        comment_id: { type: Type.STRING, description: "Comment ID to reply to" },
+        text: { type: Type.STRING, description: "Reply text" },
+      },
+      required: ["media_id", "comment_id", "text"],
+    },
+  },
+  {
+    name: "create_instagram_carousel",
+    description: "Create a carousel (multi-image) post on Instagram. Requires 2-10 public image URLs.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        image_urls: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Array of public image URLs (2-10)" },
+        caption: { type: Type.STRING, description: "Post caption" },
+      },
+      required: ["image_urls", "caption"],
+    },
+  },
+  {
+    name: "create_instagram_reel",
+    description: "Publish a video reel to Instagram. Requires a public video URL. Video will be processed before publishing.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        video_url: { type: Type.STRING, description: "Public URL of the video file" },
+        caption: { type: Type.STRING, description: "Reel caption" },
+      },
+      required: ["video_url", "caption"],
+    },
+  },
+  {
+    name: "get_instagram_post_insights",
+    description: "Get analytics for an Instagram post (impressions, reach, saves, shares, interactions)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        media_id: { type: Type.STRING, description: "Instagram media/post ID" },
+      },
+      required: ["media_id"],
+    },
+  },
+  {
+    name: "get_instagram_account_insights",
+    description: "Get Instagram account analytics (impressions, reach, profile views, follows) over a period",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        period: { type: Type.STRING, description: "Period: day, week, or days_28 (default: day)" },
+        days: { type: Type.NUMBER, description: "Number of days to look back (default 7)" },
+      },
+    },
+  },
+  {
+    name: "get_instagram_stories",
+    description: "Get the user's currently active Instagram stories",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "search_instagram_hashtag",
+    description: "Search Instagram for recent posts with a specific hashtag",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        hashtag: { type: Type.STRING, description: "Hashtag to search (without #)" },
+      },
+      required: ["hashtag"],
+    },
+  },
+  {
+    name: "delete_instagram_post",
+    description: "Delete an Instagram post by its media ID",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        media_id: { type: Type.STRING, description: "Instagram media/post ID to delete" },
+      },
+      required: ["media_id"],
+    },
+  },
 ];
 
 const FACEBOOK_TOOLS = [
@@ -962,6 +1068,24 @@ async function executeTool(
       return await getInstagramMedia(userId, args.max_results || 10);
     case "create_instagram_post":
       return await createInstagramPost(userId, args.image_url, args.caption);
+    case "get_instagram_comments":
+      return await getInstagramComments(userId, args.media_id);
+    case "reply_to_instagram_comment":
+      return await replyToInstagramComment(userId, args.media_id, args.comment_id, args.text);
+    case "create_instagram_carousel":
+      return await createInstagramCarousel(userId, args.image_urls, args.caption);
+    case "create_instagram_reel":
+      return await createInstagramReel(userId, args.video_url, args.caption);
+    case "get_instagram_post_insights":
+      return await getInstagramPostInsights(userId, args.media_id);
+    case "get_instagram_account_insights":
+      return await getInstagramAccountInsights(userId, args.period || "day", args.days || 7);
+    case "get_instagram_stories":
+      return await getInstagramStories(userId);
+    case "search_instagram_hashtag":
+      return await searchInstagramHashtag(userId, args.hashtag);
+    case "delete_instagram_post":
+      return await deleteInstagramPost(userId, args.media_id);
     // Facebook tools
     case "get_facebook_profile":
       return await getFacebookProfile(userId);
