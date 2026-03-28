@@ -18,7 +18,7 @@ const PLATFORM_CONFIGS: Record<string, OAuthConfig> = {
   twitter: {
     authorizeUrl: "https://x.com/i/oauth2/authorize",
     tokenUrl: "https://api.twitter.com/2/oauth2/token",
-    scopes: ["tweet.read", "users.read", "offline.access"],
+    scopes: ["tweet.read", "tweet.write", "users.read", "offline.access"],
     clientIdEnv: "TWITTER_CLIENT_ID",
     clientSecretEnv: "TWITTER_CLIENT_SECRET",
     usePKCE: true,
@@ -26,14 +26,14 @@ const PLATFORM_CONFIGS: Record<string, OAuthConfig> = {
   instagram: {
     authorizeUrl: "https://www.facebook.com/v21.0/dialog/oauth",
     tokenUrl: "https://graph.facebook.com/v21.0/oauth/access_token",
-    scopes: [],
+    scopes: ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement"],
     clientIdEnv: "META_APP_ID",
     clientSecretEnv: "META_APP_SECRET",
   },
   facebook: {
     authorizeUrl: "https://www.facebook.com/v21.0/dialog/oauth",
     tokenUrl: "https://graph.facebook.com/v21.0/oauth/access_token",
-    scopes: [],
+    scopes: ["pages_manage_posts", "pages_read_engagement", "pages_show_list", "public_profile"],
     clientIdEnv: "META_APP_ID",
     clientSecretEnv: "META_APP_SECRET",
   },

@@ -46,6 +46,31 @@ import {
   getVideoAnalytics,
   searchYouTube,
 } from "@/lib/youtube";
+import {
+  getProfile as getLinkedInProfile,
+  createPost as createLinkedInPost,
+  createPostWithLink as createLinkedInPostWithLink,
+} from "@/lib/linkedin";
+import {
+  getProfile as getTwitterProfile,
+  getTimeline as getTwitterTimeline,
+  createTweet,
+  searchTweets,
+} from "@/lib/twitter";
+import {
+  getProfile as getInstagramProfile,
+  getRecentMedia as getInstagramMedia,
+  createPost as createInstagramPost,
+} from "@/lib/instagram";
+import {
+  getProfile as getFacebookProfile,
+  getPages as getFacebookPages,
+  getPagePosts as getFacebookPagePosts,
+  createPagePost as createFacebookPagePost,
+} from "@/lib/facebook";
+import {
+  getProfile as getTikTokProfile,
+} from "@/lib/tiktok";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -586,6 +611,155 @@ const YOUTUBE_TOOLS = [
   },
 ];
 
+const LINKEDIN_TOOLS = [
+  {
+    name: "get_linkedin_profile",
+    description: "Get the user's LinkedIn profile info (name, email, picture)",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "create_linkedin_post",
+    description: "Create a text post on the user's LinkedIn. Always confirm content with user before posting.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        text: { type: Type.STRING, description: "The post content text" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "create_linkedin_post_with_link",
+    description: "Share a link with commentary on LinkedIn",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        text: { type: Type.STRING, description: "Commentary text" },
+        url: { type: Type.STRING, description: "URL to share" },
+        title: { type: Type.STRING, description: "Optional title for the link" },
+      },
+      required: ["text", "url"],
+    },
+  },
+];
+
+const TWITTER_TOOLS = [
+  {
+    name: "get_twitter_profile",
+    description: "Get the user's X/Twitter profile (name, handle, followers, tweet count)",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_twitter_timeline",
+    description: "Get the user's recent tweets with engagement stats",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        max_results: { type: Type.NUMBER, description: "Max tweets to return (default 10, max 100)" },
+      },
+    },
+  },
+  {
+    name: "create_tweet",
+    description: "Post a new tweet on X/Twitter. Always confirm content with user before posting.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        text: { type: Type.STRING, description: "Tweet text (max 280 characters)" },
+      },
+      required: ["text"],
+    },
+  },
+  {
+    name: "search_tweets",
+    description: "Search recent tweets on X/Twitter",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search query" },
+        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
+      },
+      required: ["query"],
+    },
+  },
+];
+
+const INSTAGRAM_TOOLS = [
+  {
+    name: "get_instagram_profile",
+    description: "Get the user's Instagram profile (username, followers, post count, bio)",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_instagram_media",
+    description: "Get recent Instagram posts with engagement stats (likes, comments)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        max_results: { type: Type.NUMBER, description: "Max posts to return (default 10)" },
+      },
+    },
+  },
+  {
+    name: "create_instagram_post",
+    description: "Publish an image post to Instagram. Requires a public image URL. Always confirm with user before posting.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        image_url: { type: Type.STRING, description: "Public URL of the image to post" },
+        caption: { type: Type.STRING, description: "Post caption with hashtags" },
+      },
+      required: ["image_url", "caption"],
+    },
+  },
+];
+
+const FACEBOOK_TOOLS = [
+  {
+    name: "get_facebook_profile",
+    description: "Get the user's Facebook profile info",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_facebook_pages",
+    description: "List Facebook Pages the user manages (with fan counts)",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_facebook_page_posts",
+    description: "Get recent posts from a Facebook Page with engagement stats",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        page_id: { type: Type.STRING, description: "Facebook Page ID (use get_facebook_pages to find it)" },
+        max_results: { type: Type.NUMBER, description: "Max posts to return (default 10)" },
+      },
+      required: ["page_id"],
+    },
+  },
+  {
+    name: "create_facebook_page_post",
+    description: "Publish a post to a Facebook Page. Always confirm with user before posting.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        page_id: { type: Type.STRING, description: "Facebook Page ID" },
+        message: { type: Type.STRING, description: "Post text content" },
+        link: { type: Type.STRING, description: "Optional link to share" },
+      },
+      required: ["page_id", "message"],
+    },
+  },
+];
+
+const TIKTOK_TOOLS = [
+  {
+    name: "get_tiktok_profile",
+    description: "Get the user's TikTok profile (display name, followers, video count, likes)",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+];
+
 // ── Tool executor ───────────────────────────────────────────────
 
 async function executeTool(
@@ -693,6 +867,41 @@ async function executeTool(
       return await listCustomWorkflows(userId);
     case "delete_workflow":
       return await deleteCustomWorkflow(userId, args.workflow_id);
+    // LinkedIn tools
+    case "get_linkedin_profile":
+      return await getLinkedInProfile(userId);
+    case "create_linkedin_post":
+      return await createLinkedInPost(userId, args.text);
+    case "create_linkedin_post_with_link":
+      return await createLinkedInPostWithLink(userId, args.text, args.url, args.title);
+    // Twitter/X tools
+    case "get_twitter_profile":
+      return await getTwitterProfile(userId);
+    case "get_twitter_timeline":
+      return await getTwitterTimeline(userId, args.max_results || 10);
+    case "create_tweet":
+      return await createTweet(userId, args.text);
+    case "search_tweets":
+      return await searchTweets(userId, args.query, args.max_results || 10);
+    // Instagram tools
+    case "get_instagram_profile":
+      return await getInstagramProfile(userId);
+    case "get_instagram_media":
+      return await getInstagramMedia(userId, args.max_results || 10);
+    case "create_instagram_post":
+      return await createInstagramPost(userId, args.image_url, args.caption);
+    // Facebook tools
+    case "get_facebook_profile":
+      return await getFacebookProfile(userId);
+    case "get_facebook_pages":
+      return await getFacebookPages(userId);
+    case "get_facebook_page_posts":
+      return await getFacebookPagePosts(userId, args.page_id, args.max_results || 10);
+    case "create_facebook_page_post":
+      return await createFacebookPagePost(userId, args.page_id, args.message, args.link);
+    // TikTok tools
+    case "get_tiktok_profile":
+      return await getTikTokProfile(userId);
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -886,6 +1095,11 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
     if (connections.drive?.connected) connectedServices.push("Google Drive");
     if (connections.sheets?.connected) connectedServices.push("Google Sheets");
     if (connections.youtube?.connected) connectedServices.push("YouTube");
+    if (connections.linkedin?.connected) connectedServices.push("LinkedIn");
+    if (connections.twitter?.connected) connectedServices.push("X/Twitter");
+    if (connections.instagram?.connected) connectedServices.push("Instagram");
+    if (connections.facebook?.connected) connectedServices.push("Facebook");
+    if (connections.tiktok?.connected) connectedServices.push("TikTok");
 
     if (connectedServices.length > 0) {
       systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
@@ -908,6 +1122,26 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 
       if (connections.youtube?.connected) {
         systemPrompt += `\n\n### YouTube Access\nYou can list the user's YouTube channels, view their videos with analytics (views, likes, comments), and search YouTube. Use this to help with content strategy and performance tracking.`;
+      }
+
+      if (connections.linkedin?.connected) {
+        systemPrompt += `\n\n### LinkedIn Access\nYou can view the user's LinkedIn profile and create posts (text or with links). Always confirm post content with the user before publishing.`;
+      }
+
+      if (connections.twitter?.connected) {
+        systemPrompt += `\n\n### X/Twitter Access\nYou can view the user's X profile, read their recent tweets with engagement stats, post new tweets, and search recent tweets. Always confirm tweet content with the user before posting.`;
+      }
+
+      if (connections.instagram?.connected) {
+        systemPrompt += `\n\n### Instagram Access\nYou can view the user's Instagram profile and recent posts with engagement stats (likes, comments). You can publish image posts with captions. Always confirm before posting.`;
+      }
+
+      if (connections.facebook?.connected) {
+        systemPrompt += `\n\n### Facebook Access\nYou can list the user's Facebook Pages, view page posts with engagement stats, and create new page posts. Use get_facebook_pages first to find page IDs. Always confirm before posting.`;
+      }
+
+      if (connections.tiktok?.connected) {
+        systemPrompt += `\n\n### TikTok Access\nYou can view the user's TikTok profile with follower count and video stats. Posting is not yet available (pending API approval).`;
       }
     } else {
       systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
@@ -977,6 +1211,21 @@ The memory_extract section will be automatically processed and NOT shown to the 
         }
         if (connections.youtube?.connected) {
           allTools.push(...YOUTUBE_TOOLS);
+        }
+        if (connections.linkedin?.connected) {
+          allTools.push(...LINKEDIN_TOOLS);
+        }
+        if (connections.twitter?.connected) {
+          allTools.push(...TWITTER_TOOLS);
+        }
+        if (connections.instagram?.connected) {
+          allTools.push(...INSTAGRAM_TOOLS);
+        }
+        if (connections.facebook?.connected) {
+          allTools.push(...FACEBOOK_TOOLS);
+        }
+        if (connections.tiktok?.connected) {
+          allTools.push(...TIKTOK_TOOLS);
         }
         config.tools = [{ functionDeclarations: allTools }];
 
