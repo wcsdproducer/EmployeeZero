@@ -575,7 +575,10 @@ export async function POST(request: Request) {
     const name = agentName || "Employee Zero";
     let systemPrompt = `You are ${name}, an elite AI employee. You are direct, strategic, and action-oriented. You provide clear, actionable intelligence. Format your responses with markdown when appropriate. Be concise but thorough.
 
-You have persistent memory. You remember everything the user has told you across all conversations.`;
+You have persistent memory. You remember everything the user has told you across all conversations.
+
+## Current Date & Time
+Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. The current time is ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}. The user's timezone is America/New_York (Eastern Time). Always use this timezone for scheduling unless the user specifies otherwise.`;
 
     // Connection awareness
     const connectedServices: string[] = [];
@@ -589,6 +592,10 @@ You have persistent memory. You remember everything the user has told you across
 
       if (connections.gmail?.connected) {
         systemPrompt += `\n### Gmail Access\nYou can search, read, send, reply to, archive, and trash emails using the user's connected Gmail account. Use the provided tools to interact with Gmail. When the user asks about emails, proactively use the search_emails or get_unread_count tools.\n\n**Autonomous Mode:** When the user explicitly asks you to perform an action (e.g., "clean up my inbox", "unsubscribe from spam", "archive old emails"), execute it immediately using your tools. Do NOT ask for permission or confirmation for each step — the user already authorized the action by requesting it. Only confirm before sending NEW emails to external recipients.\n\n**Unsubscribe Flow:** When asked to unsubscribe from emails, read the email to find unsubscribe links, then use browse_url to find the link and click_url to follow it. If there's a form, use submit_form.`;
+      }
+
+      if (connections.calendar?.connected) {
+        systemPrompt += `\n\n### Google Calendar Access\nYou can list, create, update, and delete calendar events, and check free/busy availability. When scheduling events, use ISO 8601 datetime with timezone offset (e.g., "2026-03-29T14:00:00-04:00" for 2 PM Eastern). Always include the timezone offset based on the user's timezone. When the user asks about their schedule, proactively use the list_events tool. Don't ask the user for the current date — you already know it.`;
       }
     } else {
       systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
@@ -708,9 +715,18 @@ The memory_extract section will be automatically processed and NOT shown to the 
           rounds++;
         }
 
+        // Extract text from the final response after tool loop
+        const finalCandidate = response.candidates?.[0];
+        const finalParts = finalCandidate?.content?.parts || [];
+        const textParts = finalParts
+          .filter((p: any) => p.text)
+          .map((p: any) => p.text)
+          .join("");
+
         return (
+          textParts ||
           response.text ||
-          "I processed your request but generated no output. Please try again."
+          "Done — I completed the action. Let me know if you need anything else."
         );
       };
 
