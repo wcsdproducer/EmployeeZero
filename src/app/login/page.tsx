@@ -33,8 +33,8 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      if (!tosAccepted) {
-        setError("You must accept the Terms of Service to continue.");
+      if (mode === "signup" && !tosAccepted) {
+        setError("You must accept the Terms of Service to create an account.");
         setLoading(false);
         return;
       }
@@ -61,8 +61,8 @@ export default function LoginPage() {
   };
 
   const handleGoogle = async () => {
-    if (!tosAccepted) {
-      setError("You must accept the Terms of Service to continue.");
+    if (mode === "signup" && !tosAccepted) {
+      setError("You must accept the Terms of Service to create an account.");
       return;
     }
     setError(null);
@@ -107,7 +107,8 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* TOS acceptance — required for all sign-in methods */}
+        {/* TOS acceptance — required for sign-up only */}
+        {mode === "signup" && (
         <label className="flex items-start gap-3 px-1 cursor-pointer group">
           <input
             type="checkbox"
@@ -126,6 +127,7 @@ export default function LoginPage() {
             </Link>
           </span>
         </label>
+        )}
 
         {error && (
           <p className="text-xs text-red-400 font-medium px-1">{error}</p>
@@ -134,7 +136,7 @@ export default function LoginPage() {
         {/* Google button */}
         <Button
           onClick={handleGoogle}
-          disabled={loading || !tosAccepted}
+          disabled={loading}
           className="w-full h-14 bg-white text-black hover:bg-neutral-200 rounded-2xl text-sm font-bold shadow-xl transition-all group disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg className="mr-3 w-5 h-5" viewBox="0 0 48 48">
@@ -182,7 +184,7 @@ export default function LoginPage() {
 
           <Button
             type="submit"
-            disabled={loading || !email || !password || !tosAccepted}
+            disabled={loading || !email || !password || (mode === "signup" && !tosAccepted)}
             className="w-full h-14 bg-white/[0.08] border border-white/10 hover:bg-white/[0.15] text-white rounded-2xl text-sm font-bold transition-all disabled:opacity-30"
           >
             {loading ? (
