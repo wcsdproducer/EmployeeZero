@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -266,6 +267,10 @@ export default function WorkflowsPage() {
   const [filter, setFilter] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [customWorkflows, setCustomWorkflows] = useState<any[]>([]);
+  const [customLoading, setCustomLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const router = useRouter();
 
   // Load installed workflows
   useEffect(() => {
@@ -275,6 +280,17 @@ export default function WorkflowsPage() {
         setInstalledIds(snap.data().installed || []);
       }
     }).catch(() => {});
+  }, [user?.uid]);
+
+  // Load custom workflows
+  useEffect(() => {
+    if (!user?.uid) return;
+    setCustomLoading(true);
+    fetch(`/api/workflows?userId=${user.uid}`)
+      .then((res) => res.json())
+      .then((data) => setCustomWorkflows(data.workflows || []))
+      .catch(() => {})
+      .finally(() => setCustomLoading(false));
   }, [user?.uid]);
 
   // Auto-dismiss toast
@@ -395,6 +411,77 @@ export default function WorkflowsPage() {
       </header>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* ─── My Custom Workflows ─── */}
+        {(customWorkflows.length > 0 || customLoading) && (
+          <div className="mb-10">
+            <h2 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
+              <Sparkles size={18} className="text-purple-400" />
+              My Workflows
+            </h2>
+            {customLoading ? (
+              <div className="flex items-center gap-2 text-neutral-500 text-sm">
+                <Loader2 size={14} className="animate-spin" /> Loading...
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {customWorkflows.map((cw) => (
+                  <div
+                    key={cw.id}
+                    className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-center gap-4"
+                  >
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 text-purple-400">
+                      <Zap size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{cw.name}</p>
+                      <p className="text-xs text-neutral-500 truncate">{cw.description}</p>
+                      {cw.lastRunAt && (
+                        <p className="text-[10px] text-neutral-600 mt-1">
+                          Last run: {new Date(cw.lastRunAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => {
+                          // Navigate to chat and trigger workflow execution
+                          router.push(`/chat?runCustomWorkflow=${cw.id}&workflowName=${encodeURIComponent(cw.name)}`);
+                        }}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 text-purple-400 transition-all"
+                      >
+                        Run
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!user?.uid) return;
+                          setDeletingId(cw.id);
+                          try {
+                            await fetch("/api/workflows", {
+                              method: "DELETE",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ userId: user.uid, workflowId: cw.id }),
+                            });
+                            setCustomWorkflows((prev) => prev.filter((w) => w.id !== cw.id));
+                            setToast({ message: `"${cw.name}" deleted.`, type: "success" });
+                          } catch {
+                            setToast({ message: "Failed to delete.", type: "error" });
+                          } finally {
+                            setDeletingId(null);
+                          }
+                        }}
+                        disabled={deletingId === cw.id}
+                        className="text-[11px] text-red-400/70 hover:text-red-400 font-medium transition-colors"
+                      >
+                        {deletingId === cw.id ? "..." : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
           {[

@@ -20,6 +20,11 @@ import {
   deleteEvent,
   findFreeSlots,
 } from "@/lib/calendar";
+import {
+  createCustomWorkflow,
+  listCustomWorkflows,
+  deleteCustomWorkflow,
+} from "@/lib/customWorkflows";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -351,6 +356,39 @@ const BROWSER_TOOLS = [
   },
 ];
 
+const WORKFLOW_TOOLS = [
+  {
+    name: "create_workflow",
+    description: "Create a new custom workflow/automation for the user. The workflow will appear in their Workflows page and can be run on demand or scheduled.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING, description: "Short name for the workflow (e.g., 'Morning Inbox Scan')" },
+        description: { type: Type.STRING, description: "One-line description of what this workflow does" },
+        goal: { type: Type.STRING, description: "Detailed step-by-step instructions for the AI agent to follow when executing this workflow. Be specific and actionable." },
+        required_connections: { type: Type.STRING, description: "Comma-separated list of required connections (e.g., 'gmail,calendar'). Leave empty if no connections needed." },
+      },
+      required: ["name", "description", "goal"],
+    },
+  },
+  {
+    name: "list_my_workflows",
+    description: "List all custom workflows the user has created",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "delete_workflow",
+    description: "Delete a custom workflow by its ID",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        workflow_id: { type: Type.STRING, description: "The workflow ID to delete" },
+      },
+      required: ["workflow_id"],
+    },
+  },
+];
+
 // ── Tool executor ───────────────────────────────────────────────
 
 async function executeTool(
@@ -405,6 +443,22 @@ async function executeTool(
       return await deleteEvent(userId, args.event_id);
     case "find_free_slots":
       return await findFreeSlots(userId, args.date);
+    // Workflow tools
+    case "create_workflow": {
+      const connections = args.required_connections
+        ? args.required_connections.split(",").map((c: string) => c.trim()).filter(Boolean)
+        : [];
+      return await createCustomWorkflow(userId, {
+        name: args.name,
+        description: args.description,
+        goal: args.goal,
+        requiredConnections: connections,
+      });
+    }
+    case "list_my_workflows":
+      return await listCustomWorkflows(userId);
+    case "delete_workflow":
+      return await deleteCustomWorkflow(userId, args.workflow_id);
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -604,6 +658,8 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
     // Browser capabilities (always available)
     systemPrompt += `\n\n### Web Browsing\nYou can browse any website, read web pages, follow links (like unsubscribe URLs), submit forms, and search the web. Use browse_url to read pages, click_url to follow action links, submit_form for form submissions, and web_search to find information.`;
 
+    systemPrompt += `\n\n### Custom Workflows\nYou have workflow management tools: create_workflow, list_my_workflows, delete_workflow.\n\n**IMPORTANT:** When the user asks to "create a workflow", "set up an automation", or "build a routine", use the **create_workflow** tool to SAVE a workflow definition. Do NOT actually execute the workflow steps — just save the definition so the user can run it later from their Workflows page.\n\nThe "goal" field should contain detailed, step-by-step instructions for another AI agent to follow when the workflow is eventually executed. Include specific tool names (like search_emails, list_events, web_search) and formatting requirements.\n\nExample: If the user says "create a workflow that checks my email every morning", save it with create_workflow — don't start scanning emails.`;
+
     // Inject conversation summary for long conversations
     if (conversationSummary) {
       systemPrompt += `\n\n## Earlier Conversation Context\nSummary of earlier parts of this conversation (older messages have been condensed to save processing):\n${conversationSummary}`;
@@ -647,8 +703,8 @@ The memory_extract section will be automatically processed and NOT shown to the 
         const config: any = {
           systemInstruction: systemPrompt,
         };
-        // Always include browser tools, add Gmail/Calendar if connected
-        const allTools: any[] = [...BROWSER_TOOLS];
+        // Always include browser + workflow tools, add Gmail/Calendar if connected
+        const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS];
         if (hasGmailTools) {
           allTools.push(...GMAIL_TOOLS);
         }
