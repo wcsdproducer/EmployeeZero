@@ -76,25 +76,21 @@ export async function GET(request: Request) {
   const userId = searchParams.get("userId");
 
   if (!platform || !userId) {
-    return NextResponse.json(
-      { error: "Missing required params: platform, userId" },
-      { status: 400 }
-    );
+    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+    return NextResponse.redirect(`${base}/connections?error=missing_params`);
   }
 
   const config = PLATFORM_CONFIGS[platform];
   if (!config) {
-    return NextResponse.json(
-      { error: `Unknown platform: ${platform}. Supported: ${Object.keys(PLATFORM_CONFIGS).join(", ")}` },
-      { status: 400 }
-    );
+    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+    return NextResponse.redirect(`${base}/connections?error=unknown_platform`);
   }
 
   const clientId = process.env[config.clientIdEnv]?.trim();
   if (!clientId) {
-    return NextResponse.json(
-      { error: `${platform} OAuth not configured — missing ${config.clientIdEnv}. Set up a developer app at the platform's developer portal.` },
-      { status: 503 }
+    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+    return NextResponse.redirect(
+      `${base}/connections?setup=${platform}`
     );
   }
 

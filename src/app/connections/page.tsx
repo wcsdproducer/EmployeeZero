@@ -146,20 +146,86 @@ function ConnectionsPageInner() {
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+  // Setup instructions for social platforms
+  const [setupPlatform, setSetupPlatform] = useState<string | null>(null);
+
+  const SETUP_INFO: Record<string, { name: string; url: string; steps: string[] }> = {
+    twitter: {
+      name: "X / Twitter",
+      url: "https://developer.twitter.com/en/portal/dashboard",
+      steps: [
+        "Go to the X Developer Portal and create a project + app",
+        "Enable OAuth 2.0 with \"Read and Write\" permissions",
+        "Add the callback URL: https://employeezero.app/api/auth/social/callback",
+        "Copy your Client ID and Client Secret",
+        "Add them to your Employee Zero settings as TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET",
+      ],
+    },
+    instagram: {
+      name: "Instagram",
+      url: "https://developers.facebook.com/apps/",
+      steps: [
+        "Go to Meta for Developers and create a new app (type: Business)",
+        "Add the Instagram Basic Display or Instagram Graph API product",
+        "Configure OAuth with redirect: https://employeezero.app/api/auth/social/callback",
+        "Copy your App ID and App Secret",
+        "Add them to your Employee Zero settings as META_APP_ID and META_APP_SECRET",
+      ],
+    },
+    facebook: {
+      name: "Facebook",
+      url: "https://developers.facebook.com/apps/",
+      steps: [
+        "Go to Meta for Developers and create a new app (type: Business)",
+        "Add the Facebook Login product",
+        "Configure OAuth with redirect: https://employeezero.app/api/auth/social/callback",
+        "Copy your App ID and App Secret",
+        "Add them as META_APP_ID and META_APP_SECRET (shared with Instagram)",
+      ],
+    },
+    tiktok: {
+      name: "TikTok",
+      url: "https://developers.tiktok.com/",
+      steps: [
+        "Go to TikTok for Developers and register an app",
+        "Apply for Login Kit and Content Posting API access",
+        "Add the callback URL: https://employeezero.app/api/auth/social/callback",
+        "Copy your Client Key and Client Secret",
+        "Add them as TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET",
+      ],
+    },
+    linkedin: {
+      name: "LinkedIn",
+      url: "https://www.linkedin.com/developers/apps",
+      steps: [
+        "Go to LinkedIn Developers and create a new app",
+        "Request access to \"Share on LinkedIn\" and \"Sign In with LinkedIn v2\"",
+        "Add the callback URL: https://employeezero.app/api/auth/social/callback",
+        "Copy your Client ID and Client Secret",
+        "Add them as LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET",
+      ],
+    },
+  };
+
   // Handle OAuth callback params
   useEffect(() => {
     const connected = searchParams.get("connected");
     const error = searchParams.get("error");
+    const setup = searchParams.get("setup");
 
     if (connected) {
       setToast({ message: `${connected.charAt(0).toUpperCase() + connected.slice(1)} connected successfully!`, type: "success" });
-      // Clean URL params
+      router.replace("/connections", { scroll: false });
+    } else if (setup && SETUP_INFO[setup]) {
+      setSetupPlatform(setup);
       router.replace("/connections", { scroll: false });
     } else if (error) {
       const messages: Record<string, string> = {
         access_denied: "You denied access. No changes were made.",
         token_exchange_failed: "Failed to exchange token with Google. Try again.",
         storage_failed: "Connected but failed to save. Try again.",
+        missing_params: "Connection request was missing required information.",
+        unknown_platform: "Unknown platform requested.",
       };
       setToast({ message: messages[error] || `OAuth error: ${error}`, type: "error" });
       router.replace("/connections", { scroll: false });
@@ -346,6 +412,72 @@ function ConnectionsPageInner() {
           >
             {toast.type === "success" ? <Check size={14} /> : <X size={14} />}
             {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Setup Instructions Modal */}
+      <AnimatePresence>
+        {setupPlatform && SETUP_INFO[setupPlatform] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setSetupPlatform(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#141414] border border-white/10 rounded-3xl p-6 max-w-lg w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">
+                  Connect {SETUP_INFO[setupPlatform].name}
+                </h3>
+                <button
+                  onClick={() => setSetupPlatform(null)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-neutral-500 hover:text-white transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <p className="text-sm text-neutral-400 mb-4">
+                To connect {SETUP_INFO[setupPlatform].name}, you need to set up a developer app first. This is a one-time setup:
+              </p>
+
+              <ol className="space-y-2.5 mb-5">
+                {SETUP_INFO[setupPlatform].steps.map((step, i) => (
+                  <li key={i} className="flex gap-3 text-sm">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center text-[10px] font-bold mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="text-neutral-300">{step}</span>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="flex gap-3">
+                <a
+                  href={SETUP_INFO[setupPlatform].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-center text-sm font-semibold px-4 py-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition-colors flex items-center justify-center gap-2"
+                >
+                  Open Developer Portal
+                  <ExternalLink size={12} />
+                </a>
+                <button
+                  onClick={() => setSetupPlatform(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-neutral-400 hover:bg-white/10 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
