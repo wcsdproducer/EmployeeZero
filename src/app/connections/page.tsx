@@ -100,9 +100,9 @@ const GOOGLE_SUITE = [
 ];
 
 const SOCIAL_MEDIA = [
-  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true, comingSoon: false, requiresOAuth: true },
+  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true, comingSoon: false, requiresOAuth: true, upgradeRequired: true },
   { id: "instagram", name: "Instagram", description: "Content publishing and insights", icon: Instagram, color: "text-pink-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
-  { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
+  { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false, comingSoon: false, requiresOAuth: true, pendingReview: true },
   { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false, comingSoon: false, requiresOAuth: true },
   { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
 ];
@@ -511,7 +511,8 @@ function ConnectionsPageInner() {
         {(() => {
           const brainDone = brainConfig.verified ? 1 : 0;
           const connDone = Object.values(connections).filter(c => c.connected).length;
-          const totalSetup = 1 + GOOGLE_SUITE.length + SOCIAL_MEDIA.length; // brain + all services
+          const activeSocial = SOCIAL_MEDIA.filter(s => !(s as any).upgradeRequired && !(s as any).pendingReview);
+          const totalSetup = 1 + GOOGLE_SUITE.length + activeSocial.length; // brain + active services
           const completedSetup = brainDone + connDone;
           const pct = Math.round((completedSetup / totalSetup) * 100);
 
@@ -868,6 +869,14 @@ function ConnectionsPageInner() {
                         >
                           Disconnect
                         </button>
+                      ) : (svc as any).upgradeRequired ? (
+                        <span className="text-[11px] text-amber-400/70 font-medium px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          Coming Soon
+                        </span>
+                      ) : (svc as any).pendingReview ? (
+                        <span className="text-[11px] text-amber-400/70 font-medium px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          Coming Soon
+                        </span>
                       ) : (svc as any).requiresOAuth ? (
                         <button
                           onClick={() => connectSocialOAuth(svc.id)}
