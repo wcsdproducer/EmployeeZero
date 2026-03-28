@@ -78,6 +78,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const userWantsNewConv = useRef(false);
   const [employeeName, setEmployeeName] = useState("Employee Zero");
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
   const agents = getAgents(employeeName, employeeAvatar);
@@ -205,8 +206,8 @@ export default function ChatPage() {
           });
         setConversations(convData);
         
-        // Auto-select the most recent conversation on first load
-        if (!activeConvId && convData.length > 0) {
+        // Auto-select the most recent conversation on first load only
+        if (!activeConvId && convData.length > 0 && !userWantsNewConv.current) {
           setActiveConvId(convData[0].id);
         }
       },
@@ -247,6 +248,7 @@ export default function ChatPage() {
           createdAt: Timestamp.now(),
         });
         convId = docRef.id;
+        userWantsNewConv.current = false;
         setActiveConvId(convId);
       } else {
         // Update status to running
@@ -290,7 +292,7 @@ export default function ChatPage() {
               <Button 
                 variant="ghost" 
                 className="w-full justify-between gap-2 border border-white/10 hover:bg-white/5 hover:text-white rounded-lg px-3 py-6 group text-white"
-                onClick={() => setActiveConvId(null)}
+                onClick={() => { userWantsNewConv.current = true; setActiveConvId(null); }}
               >
                 <div className="flex items-center gap-3 font-medium">
                   <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-black">
@@ -338,7 +340,7 @@ export default function ChatPage() {
                 {conversations.slice(0, 20).map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => setActiveConvId(c.id)}
+                    onClick={() => { userWantsNewConv.current = false; setActiveConvId(c.id); }}
                     className={cn(
                       "w-full text-left px-3 py-2.5 rounded-lg text-[13px] truncate transition-all",
                       activeConvId === c.id ? "bg-white/5 text-white" : "text-neutral-500 hover:text-neutral-300"
