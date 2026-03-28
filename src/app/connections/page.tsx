@@ -222,7 +222,7 @@ function ConnectionsPageInner() {
     } else if (error) {
       const messages: Record<string, string> = {
         access_denied: "You denied access. No changes were made.",
-        token_exchange_failed: "Failed to exchange token with Google. Try again.",
+        token_exchange_failed: "Failed to exchange token. Please try again.",
         storage_failed: "Connected but failed to save. Try again.",
         missing_params: "Connection request was missing required information.",
         unknown_platform: "Unknown platform requested.",

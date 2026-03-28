@@ -141,7 +141,7 @@ export async function GET(request: Request) {
       tokenData = await res.json();
     } else {
       // Standard OAuth (Meta, LinkedIn)
-      const params = new URLSearchParams({
+      const tokenBody = new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
         code,
@@ -149,7 +149,11 @@ export async function GET(request: Request) {
         redirect_uri: getRedirectUri(),
       });
 
-      const res = await fetch(`${config.tokenUrl}?${params.toString()}`);
+      const res = await fetch(config.tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: tokenBody,
+      });
       tokenData = await res.json();
     }
 
