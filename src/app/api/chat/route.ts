@@ -568,7 +568,12 @@ The memory_extract section will be automatically processed and NOT shown to the 
             console.error(`[Chat] Tool error:`, err.message);
           }
 
-          // Feed tool result back to Gemini
+          // Feed tool result back to Gemini — response MUST be a plain object
+          const safeResult = Array.isArray(toolResult)
+            ? { results: toolResult }
+            : (typeof toolResult === "object" && toolResult !== null)
+              ? toolResult
+              : { value: toolResult };
           contents.push({
             role: "model" as const,
             parts: [{ functionCall: { name: toolName!, args: args as Record<string, any> } } as any],
@@ -579,7 +584,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
               {
                 functionResponse: {
                   name: toolName!,
-                  response: toolResult,
+                  response: safeResult,
                 },
               } as any,
             ],
