@@ -92,19 +92,19 @@ const LLM_PROVIDERS = [
 ];
 
 const GOOGLE_SUITE = [
-  { id: "gmail", name: "Gmail", description: "Read, send, and manage emails", icon: Mail, color: "text-red-400", requiresOAuth: true },
-  { id: "calendar", name: "Google Calendar", description: "Schedule and manage events", icon: Calendar, color: "text-blue-400", requiresOAuth: true },
-  { id: "drive", name: "Google Drive", description: "Access and manage files", icon: HardDrive, color: "text-yellow-400", requiresOAuth: true },
-  { id: "sheets", name: "Google Sheets", description: "Read and write spreadsheet data", icon: FileSpreadsheet, color: "text-green-400", requiresOAuth: true },
-  { id: "youtube", name: "YouTube", description: "Video analytics and management", icon: Youtube, color: "text-red-500", requiresOAuth: false },
+  { id: "gmail", name: "Gmail", description: "Read, send, and manage emails", icon: Mail, color: "text-red-400", requiresOAuth: true, comingSoon: false },
+  { id: "calendar", name: "Google Calendar", description: "Schedule and manage events", icon: Calendar, color: "text-blue-400", requiresOAuth: true, comingSoon: false },
+  { id: "drive", name: "Google Drive", description: "Access and manage files", icon: HardDrive, color: "text-yellow-400", requiresOAuth: true, comingSoon: true },
+  { id: "sheets", name: "Google Sheets", description: "Read and write spreadsheet data", icon: FileSpreadsheet, color: "text-green-400", requiresOAuth: true, comingSoon: true },
+  { id: "youtube", name: "YouTube", description: "Video analytics and management", icon: Youtube, color: "text-red-500", requiresOAuth: false, comingSoon: true },
 ];
 
 const SOCIAL_MEDIA = [
-  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true },
-  { id: "instagram", name: "Instagram", description: "Content publishing and insights", icon: Instagram, color: "text-pink-400", hasSecret: false },
-  { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false },
-  { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false },
-  { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false },
+  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true, comingSoon: true },
+  { id: "instagram", name: "Instagram", description: "Content publishing and insights", icon: Instagram, color: "text-pink-400", hasSecret: false, comingSoon: true },
+  { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false, comingSoon: true },
+  { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false, comingSoon: true },
+  { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false, comingSoon: true },
 ];
 
 /* ─── Component ─── */
@@ -577,6 +577,10 @@ function ConnectionsPageInner() {
                         >
                           Disconnect
                         </button>
+                      ) : svc.comingSoon ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-neutral-500">
+                          Coming Soon
+                        </span>
                       ) : svc.requiresOAuth ? (
                         <button
                           onClick={() => connectWithOAuth(svc.id)}
@@ -704,6 +708,10 @@ function ConnectionsPageInner() {
                         >
                           Disconnect
                         </button>
+                      ) : svc.comingSoon ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-neutral-500">
+                          Coming Soon
+                        </span>
                       ) : (
                         <button
                           onClick={() => {

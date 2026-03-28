@@ -12,6 +12,14 @@ import {
 } from "@/lib/gmail";
 import { createTask, executeTask } from "@/lib/taskEngine";
 import { browseUrl, clickUrl, submitForm, webSearch } from "@/lib/browser";
+import {
+  listEvents,
+  getEvent,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  findFreeSlots,
+} from "@/lib/calendar";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -213,6 +221,86 @@ const GMAIL_TOOLS = [
   },
 ];
 
+const CALENDAR_TOOLS = [
+  {
+    name: "list_events",
+    description: "List upcoming calendar events. Defaults to next 7 days.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        time_min: { type: Type.STRING, description: "Start of range (ISO 8601). Defaults to now." },
+        time_max: { type: Type.STRING, description: "End of range (ISO 8601). Defaults to 7 days from now." },
+        max_results: { type: Type.NUMBER, description: "Max events to return (default 10, max 50)" },
+      },
+    },
+  },
+  {
+    name: "get_event",
+    description: "Get full details of a specific calendar event",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        event_id: { type: Type.STRING, description: "The calendar event ID" },
+      },
+      required: ["event_id"],
+    },
+  },
+  {
+    name: "create_event",
+    description: "Create a new calendar event",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        summary: { type: Type.STRING, description: "Event title" },
+        start_time: { type: Type.STRING, description: "Start time (ISO 8601)" },
+        end_time: { type: Type.STRING, description: "End time (ISO 8601)" },
+        description: { type: Type.STRING, description: "Event description" },
+        attendees: { type: Type.STRING, description: "Comma-separated email addresses" },
+        location: { type: Type.STRING, description: "Event location" },
+      },
+      required: ["summary", "start_time", "end_time"],
+    },
+  },
+  {
+    name: "update_event",
+    description: "Update an existing calendar event",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        event_id: { type: Type.STRING, description: "The event ID to update" },
+        summary: { type: Type.STRING, description: "New title" },
+        start_time: { type: Type.STRING, description: "New start time" },
+        end_time: { type: Type.STRING, description: "New end time" },
+        description: { type: Type.STRING, description: "New description" },
+        location: { type: Type.STRING, description: "New location" },
+      },
+      required: ["event_id"],
+    },
+  },
+  {
+    name: "delete_event",
+    description: "Delete a calendar event",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        event_id: { type: Type.STRING, description: "The event ID to delete" },
+      },
+      required: ["event_id"],
+    },
+  },
+  {
+    name: "find_free_slots",
+    description: "Check availability / free time on a specific date (8 AM - 6 PM)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        date: { type: Type.STRING, description: "Date to check (YYYY-MM-DD)" },
+      },
+      required: ["date"],
+    },
+  },
+];
+
 const BROWSER_TOOLS = [
   {
     name: "browse_url",
@@ -299,6 +387,24 @@ async function executeTool(
     }
     case "web_search":
       return await webSearch(args.query);
+    // Calendar tools
+    case "list_events":
+      return await listEvents(userId, args.time_min, args.time_max, args.max_results || 10);
+    case "get_event":
+      return await getEvent(userId, args.event_id);
+    case "create_event": {
+      const attendeeList = args.attendees ? args.attendees.split(",").map((e: string) => e.trim()) : undefined;
+      return await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location);
+    }
+    case "update_event":
+      return await updateEvent(userId, args.event_id, {
+        summary: args.summary, description: args.description,
+        startTime: args.start_time, endTime: args.end_time, location: args.location,
+      });
+    case "delete_event":
+      return await deleteEvent(userId, args.event_id);
+    case "find_free_slots":
+      return await findFreeSlots(userId, args.date);
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -534,10 +640,13 @@ The memory_extract section will be automatically processed and NOT shown to the 
         const config: any = {
           systemInstruction: systemPrompt,
         };
-        // Always include browser tools, add Gmail if connected
+        // Always include browser tools, add Gmail/Calendar if connected
         const allTools: any[] = [...BROWSER_TOOLS];
         if (hasGmailTools) {
           allTools.push(...GMAIL_TOOLS);
+        }
+        if (connections.calendar?.connected) {
+          allTools.push(...CALENDAR_TOOLS);
         }
         config.tools = [{ functionDeclarations: allTools }];
 
