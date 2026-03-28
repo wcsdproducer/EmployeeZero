@@ -266,7 +266,15 @@ async function getApiKey(userId: string): Promise<string> {
     const brainSnap = await adminDb.doc(`users/${userId}/settings/brain`).get();
     if (brainSnap.exists) {
       const brain = brainSnap.data() as { apiKey?: string };
-      if (brain.apiKey && brain.apiKey.length > 10) return brain.apiKey;
+      if (
+        brain.apiKey &&
+        brain.apiKey.length > 20 &&
+        !brain.apiKey.includes("dummy") &&
+        !brain.apiKey.includes("placeholder") &&
+        !brain.apiKey.includes("your-api-key")
+      ) {
+        return brain.apiKey;
+      }
     }
   } catch {}
   return platformKey;

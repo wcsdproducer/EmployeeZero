@@ -325,7 +325,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Get API key — platform key first, user override if configured
+    // 1. Get API key — platform key first, user override only if valid + different
     const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || "";
     let apiKey = platformKey;
     let provider = "gemini";
@@ -334,7 +334,14 @@ export async function POST(request: Request) {
     if (brainSnap.exists) {
       const brain = brainSnap.data() as { provider: string; apiKey: string };
       if (brain.provider) provider = brain.provider;
-      if (brain.apiKey && brain.apiKey.length > 10) {
+      // Only use user key if it looks real (not a dummy/placeholder)
+      if (
+        brain.apiKey &&
+        brain.apiKey.length > 20 &&
+        !brain.apiKey.includes("dummy") &&
+        !brain.apiKey.includes("placeholder") &&
+        !brain.apiKey.includes("your-api-key")
+      ) {
         apiKey = brain.apiKey;
       }
     }
