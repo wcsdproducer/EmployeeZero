@@ -100,11 +100,11 @@ const GOOGLE_SUITE = [
 ];
 
 const SOCIAL_MEDIA = [
-  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true, comingSoon: true },
-  { id: "instagram", name: "Instagram", description: "Content publishing and insights", icon: Instagram, color: "text-pink-400", hasSecret: false, comingSoon: true },
-  { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false, comingSoon: true },
-  { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false, comingSoon: true },
-  { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false, comingSoon: true },
+  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true, comingSoon: false, requiresOAuth: true },
+  { id: "instagram", name: "Instagram", description: "Content publishing and insights", icon: Instagram, color: "text-pink-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
+  { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
+  { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false, comingSoon: false, requiresOAuth: true },
+  { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
 ];
 
 /* ─── Component ─── */
@@ -241,6 +241,31 @@ function ConnectionsPageInner() {
     if (!user?.uid) return;
     // Full-page redirect to our OAuth initiation endpoint
     window.location.href = `/api/auth/google?service=${serviceId}&userId=${user.uid}`;
+  };
+
+  // Social media platforms use their own OAuth
+  const SOCIAL_PLATFORM_IDS = ["twitter", "instagram", "tiktok", "linkedin", "facebook"];
+
+  const connectSocialOAuth = (platformId: string) => {
+    if (!user?.uid) return;
+    window.location.href = `/api/auth/social?platform=${platformId}&userId=${user.uid}`;
+  };
+
+  const disconnectSocialOAuth = async (platformId: string) => {
+    if (!user?.uid) return;
+    setSavingConnection(platformId);
+    try {
+      await setDoc(
+        doc(db, "users", user.uid, "settings", "connections"),
+        { [platformId]: { connected: false, accessToken: "", refreshToken: "" } },
+        { merge: true }
+      );
+      setConnections((prev) => ({ ...prev, [platformId]: { connected: false } }));
+    } catch (err) {
+      console.error("Failed to disconnect:", err);
+    } finally {
+      setSavingConnection(null);
+    }
   };
 
   const disconnectOAuthService = async (serviceId: string) => {
@@ -703,27 +728,21 @@ function ConnectionsPageInner() {
                         </button>
                       ) : isConnected ? (
                         <button
-                          onClick={() => disconnectService(svc.id)}
+                          onClick={() => disconnectSocialOAuth(svc.id)}
                           className="text-[11px] text-red-400/70 hover:text-red-400 font-medium transition-colors"
                         >
                           Disconnect
                         </button>
-                      ) : svc.comingSoon ? (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-neutral-500">
-                          Coming Soon
-                        </span>
-                      ) : (
+                      ) : (svc as any).requiresOAuth ? (
                         <button
-                          onClick={() => {
-                            setEditingKey(svc.id);
-                            setEditValue(conn?.apiKey || "");
-                            setEditSecret(conn?.apiSecret || "");
-                          }}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center gap-1"
+                          onClick={() => connectSocialOAuth(svc.id)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-white transition-all flex items-center gap-1.5 group"
                         >
-                          Connect <ChevronRight size={12} />
+                          <Plug size={12} className="opacity-60" />
+                          Connect
+                          <ExternalLink size={10} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
