@@ -47,7 +47,7 @@ const PLATFORM_CONFIGS: Record<string, OAuthConfig> = {
   linkedin: {
     authorizeUrl: "https://www.linkedin.com/oauth/v2/authorization",
     tokenUrl: "https://www.linkedin.com/oauth/v2/accessToken",
-    scopes: ["w_member_social"],
+    scopes: ["openid", "profile", "w_member_social"],
     clientIdEnv: "LINKEDIN_CLIENT_ID",
     clientSecretEnv: "LINKEDIN_CLIENT_SECRET",
   },
