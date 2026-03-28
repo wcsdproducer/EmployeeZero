@@ -26,6 +26,26 @@ import {
   listCustomWorkflows,
   deleteCustomWorkflow,
 } from "@/lib/customWorkflows";
+import {
+  listFiles,
+  getFile,
+  readFileContent,
+  uploadFile,
+  createFolder,
+} from "@/lib/drive";
+import {
+  listSpreadsheets,
+  readSheet,
+  writeSheet,
+  appendRows,
+  createSpreadsheet,
+} from "@/lib/sheets";
+import {
+  listChannels,
+  listVideos,
+  getVideoAnalytics,
+  searchYouTube,
+} from "@/lib/youtube";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -399,6 +419,173 @@ const WORKFLOW_TOOLS = [
   },
 ];
 
+const DRIVE_TOOLS = [
+  {
+    name: "list_drive_files",
+    description: "Search and list files in Google Drive. Returns file names, types, and links.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search query to filter files by name. Leave empty for recent files." },
+        max_results: { type: Type.NUMBER, description: "Max files to return (default 10)" },
+      },
+    },
+  },
+  {
+    name: "get_drive_file",
+    description: "Get metadata for a specific Google Drive file",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        file_id: { type: Type.STRING, description: "The Drive file ID" },
+      },
+      required: ["file_id"],
+    },
+  },
+  {
+    name: "read_drive_file",
+    description: "Read the text content of a Google Drive file (Google Docs, text files, etc.)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        file_id: { type: Type.STRING, description: "The Drive file ID to read" },
+      },
+      required: ["file_id"],
+    },
+  },
+  {
+    name: "upload_drive_file",
+    description: "Upload/create a new file in Google Drive",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING, description: "File name (e.g. 'meeting-notes.txt')" },
+        content: { type: Type.STRING, description: "File content (text)" },
+        mime_type: { type: Type.STRING, description: "MIME type (default 'text/plain')" },
+        folder_id: { type: Type.STRING, description: "Optional folder ID to upload into" },
+      },
+      required: ["name", "content"],
+    },
+  },
+  {
+    name: "create_drive_folder",
+    description: "Create a new folder in Google Drive",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING, description: "Folder name" },
+        parent_id: { type: Type.STRING, description: "Optional parent folder ID" },
+      },
+      required: ["name"],
+    },
+  },
+];
+
+const SHEETS_TOOLS = [
+  {
+    name: "list_spreadsheets",
+    description: "List recent Google Sheets spreadsheets",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        max_results: { type: Type.NUMBER, description: "Max spreadsheets to return (default 10)" },
+      },
+    },
+  },
+  {
+    name: "read_sheet",
+    description: "Read data from a range in a Google Sheets spreadsheet",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID" },
+        range: { type: Type.STRING, description: "A1 notation range (e.g. 'Sheet1!A1:D10')" },
+      },
+      required: ["spreadsheet_id", "range"],
+    },
+  },
+  {
+    name: "write_sheet",
+    description: "Write data to a range in a Google Sheets spreadsheet",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID" },
+        range: { type: Type.STRING, description: "A1 notation range (e.g. 'Sheet1!A1')" },
+        values: { type: Type.STRING, description: "JSON array of arrays, e.g. [[\"Name\",\"Age\"],[\"Jack\",\"30\"]]" },
+      },
+      required: ["spreadsheet_id", "range", "values"],
+    },
+  },
+  {
+    name: "append_to_sheet",
+    description: "Append rows to the end of a Google Sheets spreadsheet",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID" },
+        range: { type: Type.STRING, description: "Sheet name or range to append to (e.g. 'Sheet1')" },
+        values: { type: Type.STRING, description: "JSON array of arrays to append" },
+      },
+      required: ["spreadsheet_id", "range", "values"],
+    },
+  },
+  {
+    name: "create_spreadsheet",
+    description: "Create a new Google Sheets spreadsheet",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING, description: "Spreadsheet title" },
+        sheet_names: { type: Type.STRING, description: "Comma-separated sheet tab names (default 'Sheet1')" },
+      },
+      required: ["title"],
+    },
+  },
+];
+
+const YOUTUBE_TOOLS = [
+  {
+    name: "list_youtube_channels",
+    description: "List the user's YouTube channels with subscriber count and stats",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "list_youtube_videos",
+    description: "List videos from a YouTube channel with view counts and stats",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        channel_id: { type: Type.STRING, description: "YouTube channel ID (leave empty for user's own channel)" },
+        max_results: { type: Type.NUMBER, description: "Max videos to return (default 10)" },
+      },
+    },
+  },
+  {
+    name: "get_youtube_analytics",
+    description: "Get detailed analytics for a specific YouTube video",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        video_id: { type: Type.STRING, description: "YouTube video ID" },
+      },
+      required: ["video_id"],
+    },
+  },
+  {
+    name: "search_youtube",
+    description: "Search YouTube for videos",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search query" },
+        max_results: { type: Type.NUMBER, description: "Max results (default 5)" },
+      },
+      required: ["query"],
+    },
+  },
+];
+
 // ── Tool executor ───────────────────────────────────────────────
 
 async function executeTool(
@@ -453,16 +640,53 @@ async function executeTool(
       return await deleteEvent(userId, args.event_id);
     case "find_free_slots":
       return await findFreeSlots(userId, args.date);
+    // Drive tools
+    case "list_drive_files":
+      return await listFiles(userId, args.query, args.max_results || 10);
+    case "get_drive_file":
+      return await getFile(userId, args.file_id);
+    case "read_drive_file":
+      return await readFileContent(userId, args.file_id);
+    case "upload_drive_file":
+      return await uploadFile(userId, args.name, args.content, args.mime_type, args.folder_id);
+    case "create_drive_folder":
+      return await createFolder(userId, args.name, args.parent_id);
+    // Sheets tools
+    case "list_spreadsheets":
+      return await listSpreadsheets(userId, args.max_results || 10);
+    case "read_sheet":
+      return await readSheet(userId, args.spreadsheet_id, args.range);
+    case "write_sheet": {
+      const values = typeof args.values === "string" ? JSON.parse(args.values) : args.values;
+      return await writeSheet(userId, args.spreadsheet_id, args.range, values);
+    }
+    case "append_to_sheet": {
+      const appendValues = typeof args.values === "string" ? JSON.parse(args.values) : args.values;
+      return await appendRows(userId, args.spreadsheet_id, args.range, appendValues);
+    }
+    case "create_spreadsheet": {
+      const sheetNames = args.sheet_names ? args.sheet_names.split(",").map((s: string) => s.trim()) : undefined;
+      return await createSpreadsheet(userId, args.title, sheetNames);
+    }
+    // YouTube tools
+    case "list_youtube_channels":
+      return await listChannels(userId);
+    case "list_youtube_videos":
+      return await listVideos(userId, args.channel_id, args.max_results || 10);
+    case "get_youtube_analytics":
+      return await getVideoAnalytics(userId, args.video_id);
+    case "search_youtube":
+      return await searchYouTube(userId, args.query, args.max_results || 5);
     // Workflow tools
     case "create_workflow": {
-      const connections = args.required_connections
+      const wfConnections = args.required_connections
         ? args.required_connections.split(",").map((c: string) => c.trim()).filter(Boolean)
         : [];
       return await createCustomWorkflow(userId, {
         name: args.name,
         description: args.description,
         goal: args.goal,
-        requiredConnections: connections,
+        requiredConnections: wfConnections,
       });
     }
     case "list_my_workflows":
@@ -661,6 +885,7 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
     if (connections.calendar?.connected) connectedServices.push("Google Calendar");
     if (connections.drive?.connected) connectedServices.push("Google Drive");
     if (connections.sheets?.connected) connectedServices.push("Google Sheets");
+    if (connections.youtube?.connected) connectedServices.push("YouTube");
 
     if (connectedServices.length > 0) {
       systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
@@ -671,6 +896,18 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 
       if (connections.calendar?.connected) {
         systemPrompt += `\n\n### Google Calendar Access\nYou can list, create, update, and delete calendar events, and check free/busy availability. When scheduling events, use ISO 8601 datetime with timezone offset (e.g., "2026-03-29T14:00:00-04:00" for 2 PM Eastern). Always include the timezone offset based on the user's timezone. When the user asks about their schedule, proactively use the list_events tool. Don't ask the user for the current date — you already know it.`;
+      }
+
+      if (connections.drive?.connected) {
+        systemPrompt += `\n\n### Google Drive Access\nYou can list, search, read, upload files and create folders in the user's Google Drive. Use list_drive_files to search, read_drive_file to read document contents, and upload_drive_file to create files.`;
+      }
+
+      if (connections.sheets?.connected) {
+        systemPrompt += `\n\n### Google Sheets Access\nYou can list spreadsheets, read/write cell data, append rows, and create new spreadsheets. Use read_sheet with A1 notation ranges (e.g. 'Sheet1!A1:D10'). For writing, pass values as a JSON array of arrays.`;
+      }
+
+      if (connections.youtube?.connected) {
+        systemPrompt += `\n\n### YouTube Access\nYou can list the user's YouTube channels, view their videos with analytics (views, likes, comments), and search YouTube. Use this to help with content strategy and performance tracking.`;
       }
     } else {
       systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
@@ -731,6 +968,15 @@ The memory_extract section will be automatically processed and NOT shown to the 
         }
         if (connections.calendar?.connected) {
           allTools.push(...CALENDAR_TOOLS);
+        }
+        if (connections.drive?.connected) {
+          allTools.push(...DRIVE_TOOLS);
+        }
+        if (connections.sheets?.connected) {
+          allTools.push(...SHEETS_TOOLS);
+        }
+        if (connections.youtube?.connected) {
+          allTools.push(...YOUTUBE_TOOLS);
         }
         config.tools = [{ functionDeclarations: allTools }];
 

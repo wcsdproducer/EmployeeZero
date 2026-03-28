@@ -9,6 +9,15 @@ import {
   listEvents, getEvent, createEvent, updateEvent,
   deleteEvent, findFreeSlots,
 } from "@/lib/calendar";
+import {
+  listFiles, getFile, readFileContent, uploadFile, createFolder,
+} from "@/lib/drive";
+import {
+  listSpreadsheets, readSheet, writeSheet, appendRows, createSpreadsheet,
+} from "@/lib/sheets";
+import {
+  listChannels, listVideos, getVideoAnalytics, searchYouTube,
+} from "@/lib/youtube";
 
 /* ─── Types ─── */
 
@@ -319,6 +328,43 @@ async function executeTool(
       return await deleteEvent(userId, args.event_id);
     case "find_free_slots":
       return await findFreeSlots(userId, args.date);
+    // Drive tools
+    case "list_drive_files":
+      return await listFiles(userId, args.query, args.max_results || 10);
+    case "get_drive_file":
+      return await getFile(userId, args.file_id);
+    case "read_drive_file":
+      return await readFileContent(userId, args.file_id);
+    case "upload_drive_file":
+      return await uploadFile(userId, args.name, args.content, args.mime_type, args.folder_id);
+    case "create_drive_folder":
+      return await createFolder(userId, args.name, args.parent_id);
+    // Sheets tools
+    case "list_spreadsheets":
+      return await listSpreadsheets(userId, args.max_results || 10);
+    case "read_sheet":
+      return await readSheet(userId, args.spreadsheet_id, args.range);
+    case "write_sheet": {
+      const vals = typeof args.values === "string" ? JSON.parse(args.values) : args.values;
+      return await writeSheet(userId, args.spreadsheet_id, args.range, vals);
+    }
+    case "append_to_sheet": {
+      const appendVals = typeof args.values === "string" ? JSON.parse(args.values) : args.values;
+      return await appendRows(userId, args.spreadsheet_id, args.range, appendVals);
+    }
+    case "create_spreadsheet": {
+      const sheetNames = args.sheet_names ? args.sheet_names.split(",").map((s: string) => s.trim()) : undefined;
+      return await createSpreadsheet(userId, args.title, sheetNames);
+    }
+    // YouTube tools
+    case "list_youtube_channels":
+      return await listChannels(userId);
+    case "list_youtube_videos":
+      return await listVideos(userId, args.channel_id, args.max_results || 10);
+    case "get_youtube_analytics":
+      return await getVideoAnalytics(userId, args.video_id);
+    case "search_youtube":
+      return await searchYouTube(userId, args.query, args.max_results || 5);
     case "report_progress":
       return { acknowledged: true };
     case "task_complete":

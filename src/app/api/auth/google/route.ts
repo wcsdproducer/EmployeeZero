@@ -19,6 +19,11 @@ const SCOPE_MAP: Record<string, string[]> = {
   ],
   sheets: [
     "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive.readonly",
+  ],
+  youtube: [
+    "https://www.googleapis.com/auth/youtube.readonly",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
   ],
 };
 
