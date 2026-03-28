@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/admin";
-import { getAccessToken } from "@/lib/twitter-oauth1";
-import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +9,18 @@ interface TokenConfig {
   tokenUrl: string;
   clientIdEnv: string;
   clientSecretEnv: string;
+  usePKCE?: boolean;
+  useBasicAuth?: boolean;
 }
 
 const TOKEN_CONFIGS: Record<string, TokenConfig> = {
+  twitter: {
+    tokenUrl: "https://api.twitter.com/2/oauth2/token",
+    clientIdEnv: "TWITTER_CLIENT_ID",
+    clientSecretEnv: "TWITTER_CLIENT_SECRET",
+    usePKCE: true,
+    useBasicAuth: true,
+  },
   instagram: {
     tokenUrl: "https://graph.facebook.com/v21.0/oauth/access_token",
     clientIdEnv: "META_APP_ID",
@@ -43,6 +50,7 @@ function getRedirectUri() {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  const code = searchParams.get("code");
   const stateRaw = searchParams.get("state");
   const error = searchParams.get("error");
 
@@ -55,13 +63,13 @@ export async function GET(request: Request) {
     );
   }
 
-  if (!stateRaw) {
+  if (!code || !stateRaw) {
     return NextResponse.redirect(
-      `${base}/connections?error=missing_state`
+      `${base}/connections?error=missing_code_or_state`
     );
   }
 
-  let state: { platform: string; userId: string; oauth1?: boolean };
+  let state: { platform: string; userId: string; codeVerifier?: string };
   try {
     state = JSON.parse(stateRaw);
   } catch {
@@ -70,81 +78,11 @@ export async function GET(request: Request) {
     );
   }
 
-  const { platform, userId } = state;
+  const { platform, userId, codeVerifier } = state;
 
   if (!platform || !userId) {
     return NextResponse.redirect(
       `${base}/connections?error=incomplete_state`
-    );
-  }
-
-  /* ─── Twitter OAuth 1.0a callback ─── */
-  if (platform === "twitter" && state.oauth1) {
-    const oauthToken = searchParams.get("oauth_token");
-    const oauthVerifier = searchParams.get("oauth_verifier");
-
-    // Check if user denied
-    const denied = searchParams.get("denied");
-    if (denied) {
-      return NextResponse.redirect(
-        `${base}/connections?error=access_denied`
-      );
-    }
-
-    if (!oauthToken || !oauthVerifier) {
-      return NextResponse.redirect(
-        `${base}/connections?error=missing_oauth_params`
-      );
-    }
-
-    // Get the stored token secret from cookie
-    const cookieStore = await cookies();
-    const tokenSecret = cookieStore.get("twitter_oauth_token_secret")?.value || "";
-
-    try {
-      const result = await getAccessToken(oauthToken, tokenSecret, oauthVerifier);
-
-      // Store tokens in Firestore
-      const connectionsRef = adminDb.doc(`users/${userId}/settings/connections`);
-      await connectionsRef.set(
-        {
-          twitter: {
-            connected: true,
-            tokenType: "oauth1",
-            accessToken: result.oauth_token,
-            accessTokenSecret: result.oauth_token_secret,
-            twitterUserId: result.user_id,
-            screenName: result.screen_name,
-            connectedAt: new Date().toISOString(),
-          },
-        },
-        { merge: true }
-      );
-
-      console.log(
-        `[Twitter OAuth 1.0a] Connected @${result.screen_name} for user ${userId}`
-      );
-
-      // Clear the cookie and redirect
-      const response = NextResponse.redirect(
-        `${base}/connections?connected=twitter`
-      );
-      response.cookies.delete("twitter_oauth_token_secret");
-      return response;
-    } catch (err: any) {
-      console.error("[Twitter OAuth 1.0a] Access token exchange failed:", err.message);
-      return NextResponse.redirect(
-        `${base}/connections?error=token_exchange_failed&detail=${encodeURIComponent(err.message)}`
-      );
-    }
-  }
-
-  /* ─── Standard OAuth 2.0 callback ─── */
-  const code = searchParams.get("code");
-
-  if (!code) {
-    return NextResponse.redirect(
-      `${base}/connections?error=missing_code`
     );
   }
 
@@ -182,6 +120,26 @@ export async function GET(request: Request) {
         }),
       });
       tokenData = await res.json();
+    } else if (config.useBasicAuth) {
+      // Twitter uses Basic Auth + PKCE
+      const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+      const body: Record<string, string> = {
+        code,
+        grant_type: "authorization_code",
+        redirect_uri: getRedirectUri(),
+      };
+      if (codeVerifier) body.code_verifier = codeVerifier;
+
+      const res = await fetch(config.tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Basic ${credentials}`,
+        },
+        body: new URLSearchParams(body),
+      });
+      tokenData = await res.json();
+      console.log(`[Social OAuth] Token response for ${platform}:`, JSON.stringify(tokenData));
     } else {
       // Standard OAuth (Meta, LinkedIn)
       const tokenBody = new URLSearchParams({
