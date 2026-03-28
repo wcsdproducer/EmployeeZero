@@ -81,6 +81,15 @@ async function loadConnections(userId: string): Promise<Record<string, any>> {
   }
 }
 
+async function loadUserTimezone(userId: string): Promise<string> {
+  try {
+    const snap = await adminDb.doc(`users/${userId}/settings/preferences`).get();
+    return snap.exists ? (snap.data()?.timezone || "UTC") : "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 // ── Conversation window + summarization ─────────────────────────
 
 const MAX_CONTEXT_MESSAGES = 20; // Send at most 20 recent messages to Gemini
@@ -593,10 +602,11 @@ export async function POST(request: Request) {
     // 3. Update status to running
     await convRef.update({ status: "running" });
 
-    // 4. Load memories + connections
-    const [memories, connections] = await Promise.all([
+    // 4. Load memories + connections + preferences
+    const [memories, connections, userTimezone] = await Promise.all([
       loadMemories(userId),
       loadConnections(userId),
+      loadUserTimezone(userId),
     ]);
 
     // 4b. Sliding window + rolling summarization
@@ -632,7 +642,7 @@ export async function POST(request: Request) {
 You have persistent memory. You remember everything the user has told you across all conversations.
 
 ## Current Date & Time
-Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. The current time is ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}. The user's timezone is America/New_York (Eastern Time). Always use this timezone for scheduling unless the user specifies otherwise.`;
+Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: userTimezone })}. The current time is ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: userTimezone })}. The user's timezone is ${userTimezone}. Always use this timezone for scheduling unless the user specifies otherwise.`;
 
     // Connection awareness
     const connectedServices: string[] = [];
