@@ -459,7 +459,7 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
       });
       contents.push({
         role: "user",
-        parts: [{ functionResponse: { name: toolName, response: { acknowledged: true } } }],
+        parts: [{ functionResponse: { name: toolName, response: { acknowledged: true } } } as any],
       });
       continue;
     }
@@ -513,14 +513,21 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
       return finalResult;
     }
 
-    // Feed result back to Gemini
+    // Feed result back to Gemini — response MUST be an object (not array)
+    const safeResult = Array.isArray(toolResult)
+      ? { results: toolResult }
+      : (typeof toolResult === "object" && toolResult !== null)
+        ? toolResult
+        : { value: toolResult };
     contents.push({
       role: "model",
-      parts: [{ functionCall: { name: toolName!, args: args as Record<string, any> } }],
+      parts: [{ functionCall: { name: toolName!, args: args as Record<string, any> } } as any],
     });
     contents.push({
       role: "user",
-      parts: [{ functionResponse: { name: toolName!, response: toolResult } }],
+      parts: [
+        { functionResponse: { name: toolName!, response: safeResult } } as any,
+      ],
     });
   }
 
