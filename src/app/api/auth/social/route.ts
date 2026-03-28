@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { getRequestToken, getAuthorizeUrl } from "@/lib/twitter-oauth1";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,12 @@ interface OAuthConfig {
 
 const PLATFORM_CONFIGS: Record<string, OAuthConfig> = {
   twitter: {
-    authorizeUrl: "https://twitter.com/i/oauth2/authorize",
-    tokenUrl: "https://api.twitter.com/2/oauth2/token",
-    scopes: ["tweet.read", "tweet.write", "users.read", "offline.access"],
-    clientIdEnv: "TWITTER_CLIENT_ID",
-    clientSecretEnv: "TWITTER_CLIENT_SECRET",
-    usePKCE: true,
+    // OAuth 1.0a — handled separately, these are just placeholders
+    authorizeUrl: "https://api.twitter.com/oauth/authorize",
+    tokenUrl: "https://api.twitter.com/oauth/access_token",
+    scopes: [],
+    clientIdEnv: "TWITTER_CONSUMER_KEY",
+    clientSecretEnv: "TWITTER_CONSUMER_SECRET",
   },
   instagram: {
     authorizeUrl: "https://www.facebook.com/v21.0/dialog/oauth",
@@ -83,9 +84,40 @@ export async function GET(request: Request) {
   }
 
   const redirectUri = getRedirectUri(platform);
-  const state = JSON.stringify({ platform, userId });
 
-  // Build authorization URL
+  /* ─── Twitter OAuth 1.0a flow ─── */
+  if (platform === "twitter") {
+    try {
+      // The callback URL includes the userId in the state via query params
+      const callbackWithState = `${redirectUri}?state=${encodeURIComponent(JSON.stringify({ platform, userId, oauth1: true }))}`;
+      const { oauth_token, oauth_token_secret } = await getRequestToken(callbackWithState);
+
+      // Store token secret temporarily (we need it for step 3)
+      // Using a cookie since we can't use server-side state easily in Next.js API routes
+      const authorizeUrl = getAuthorizeUrl(oauth_token);
+      const response = NextResponse.redirect(authorizeUrl);
+
+      // Store oauth_token_secret in a secure cookie for the callback
+      response.cookies.set("twitter_oauth_token_secret", oauth_token_secret, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        maxAge: 600, // 10 minutes
+        path: "/",
+      });
+
+      return response;
+    } catch (err: any) {
+      console.error("[Twitter OAuth 1.0a] Failed to get request token:", err.message);
+      const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
+      return NextResponse.redirect(
+        `${base}/connections?error=token_exchange_failed&detail=${encodeURIComponent(err.message)}`
+      );
+    }
+  }
+
+  /* ─── Standard OAuth 2.0 flow ─── */
+  const state = JSON.stringify({ platform, userId });
   const params = new URLSearchParams();
 
   if (platform === "tiktok") {
@@ -101,23 +133,6 @@ export async function GET(request: Request) {
     params.set("redirect_uri", redirectUri);
     if (config.scopes.length > 0) params.set("scope", config.scopes.join(" "));
     params.set("state", state);
-
-    if (config.usePKCE) {
-      // PKCE for Twitter
-      const codeVerifier = crypto.randomBytes(32).toString("base64url");
-      const codeChallenge = crypto
-        .createHash("sha256")
-        .update(codeVerifier)
-        .digest("base64url");
-
-      params.set("code_challenge", codeChallenge);
-      params.set("code_challenge_method", "S256");
-
-      // Store code_verifier temporarily — we'll need it in the callback
-      // Using state to pass it (encoded in the state JSON)
-      const stateWithPKCE = JSON.stringify({ platform, userId, codeVerifier });
-      params.set("state", stateWithPKCE);
-    }
   }
 
   const authUrl = `${config.authorizeUrl}?${params.toString()}`;

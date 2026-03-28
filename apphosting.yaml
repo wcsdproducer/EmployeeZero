@@ -42,3 +42,7 @@ env:
     secret: META_APP_ID
   - variable: META_APP_SECRET
     secret: META_APP_SECRET
+  - variable: TWITTER_CONSUMER_KEY
+    secret: TWITTER_CONSUMER_KEY
+  - variable: TWITTER_CONSUMER_SECRET
+    secret: TWITTER_CONSUMER_SECRET

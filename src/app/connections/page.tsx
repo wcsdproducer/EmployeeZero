@@ -100,7 +100,7 @@ const GOOGLE_SUITE = [
 ];
 
 const SOCIAL_MEDIA = [
-  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true, comingSoon: false, requiresOAuth: true, upgradeRequired: true },
+  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true, comingSoon: false, requiresOAuth: true },
   { id: "instagram", name: "Instagram", description: "Content publishing and insights", icon: Instagram, color: "text-pink-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
   { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false, comingSoon: false, requiresOAuth: true, pendingReview: true },
   { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false, comingSoon: false, requiresOAuth: true },
