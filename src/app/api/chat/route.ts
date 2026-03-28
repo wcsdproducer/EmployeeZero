@@ -50,6 +50,9 @@ import {
   getProfile as getLinkedInProfile,
   createPost as createLinkedInPost,
   createPostWithLink as createLinkedInPostWithLink,
+  getPosts as getLinkedInPosts,
+  deletePost as deleteLinkedInPost,
+  createImagePost as createLinkedInImagePost,
 } from "@/lib/linkedin";
 import {
   getProfile as getTwitterProfile,
@@ -641,6 +644,39 @@ const LINKEDIN_TOOLS = [
       required: ["text", "url"],
     },
   },
+  {
+    name: "get_linkedin_posts",
+    description: "Get the user's recent LinkedIn posts with text and engagement data",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        count: { type: Type.NUMBER, description: "Number of posts to return (default 10)" },
+      },
+    },
+  },
+  {
+    name: "delete_linkedin_post",
+    description: "Delete a LinkedIn post by its ID",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        post_id: { type: Type.STRING, description: "The LinkedIn post ID to delete" },
+      },
+      required: ["post_id"],
+    },
+  },
+  {
+    name: "create_linkedin_image_post",
+    description: "Create a LinkedIn post with an image. Downloads the image and uploads it to LinkedIn.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        text: { type: Type.STRING, description: "Post caption/text" },
+        image_url: { type: Type.STRING, description: "Public URL of the image to upload" },
+      },
+      required: ["text", "image_url"],
+    },
+  },
 ];
 
 const TWITTER_TOOLS = [
@@ -874,6 +910,12 @@ async function executeTool(
       return await createLinkedInPost(userId, args.text);
     case "create_linkedin_post_with_link":
       return await createLinkedInPostWithLink(userId, args.text, args.url, args.title);
+    case "get_linkedin_posts":
+      return await getLinkedInPosts(userId, args.count || 10);
+    case "delete_linkedin_post":
+      return await deleteLinkedInPost(userId, args.post_id);
+    case "create_linkedin_image_post":
+      return await createLinkedInImagePost(userId, args.text, args.image_url);
     // Twitter/X tools
     case "get_twitter_profile":
       return await getTwitterProfile(userId);

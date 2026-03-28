@@ -113,3 +113,119 @@ export async function createPostWithLink(userId: string, text: string, url: stri
 
   return { success: true, postId: result.id, message: "Link shared on LinkedIn" };
 }
+
+export async function getPosts(userId: string, count: number = 10) {
+  const { accessToken } = await getLinkedInTokens(userId);
+
+  const profile = await linkedInFetch(accessToken, "https://api.linkedin.com/v2/userinfo");
+  const personUrn = `urn:li:person:${profile.sub}`;
+
+  const result = await linkedInFetch(
+    accessToken,
+    `https://api.linkedin.com/v2/ugcPosts?q=authors&authors=List(${encodeURIComponent(personUrn)})&count=${count}`
+  );
+
+  return (result.elements || []).map((post: any) => ({
+    id: post.id,
+    text: post.specificContent?.["com.linkedin.ugc.ShareContent"]?.shareCommentary?.text || "",
+    mediaCategory: post.specificContent?.["com.linkedin.ugc.ShareContent"]?.shareMediaCategory,
+    visibility: post.visibility?.["com.linkedin.ugc.MemberNetworkVisibility"],
+    createdAt: post.created?.time ? new Date(post.created.time).toISOString() : null,
+  }));
+}
+
+export async function deletePost(userId: string, postId: string) {
+  const { accessToken } = await getLinkedInTokens(userId);
+
+  const res = await fetch(`https://api.linkedin.com/v2/ugcPosts/${encodeURIComponent(postId)}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "X-RestLi-Protocol-Version": "2.0.0",
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`LinkedIn delete failed ${res.status}: ${text}`);
+  }
+
+  return { success: true, message: "Post deleted from LinkedIn" };
+}
+
+export async function createImagePost(userId: string, text: string, imageUrl: string) {
+  const { accessToken } = await getLinkedInTokens(userId);
+
+  const profile = await linkedInFetch(accessToken, "https://api.linkedin.com/v2/userinfo");
+  const personUrn = `urn:li:person:${profile.sub}`;
+
+  // Step 1: Register image upload
+  const registerBody = {
+    registerUploadRequest: {
+      recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+      owner: personUrn,
+      serviceRelationships: [
+        { relationshipType: "OWNER", identifier: "urn:li:userGeneratedContent" },
+      ],
+    },
+  };
+
+  const registerResult = await linkedInFetch(
+    accessToken,
+    "https://api.linkedin.com/v2/assets?action=registerUpload",
+    { method: "POST", body: JSON.stringify(registerBody) }
+  );
+
+  const uploadUrl = registerResult.value?.uploadMechanism?.["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?.uploadUrl;
+  const assetUrn = registerResult.value?.asset;
+
+  if (!uploadUrl || !assetUrn) {
+    throw new Error("Failed to register image upload with LinkedIn");
+  }
+
+  // Step 2: Download the image and upload to LinkedIn
+  const imageRes = await fetch(imageUrl);
+  if (!imageRes.ok) throw new Error(`Failed to download image from ${imageUrl}`);
+  const imageBuffer = await imageRes.arrayBuffer();
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/octet-stream",
+    },
+    body: imageBuffer,
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error(`Failed to upload image to LinkedIn: ${uploadRes.status}`);
+  }
+
+  // Step 3: Create the post with the uploaded image
+  const postBody = {
+    author: personUrn,
+    lifecycleState: "PUBLISHED",
+    specificContent: {
+      "com.linkedin.ugc.ShareContent": {
+        shareCommentary: { text },
+        shareMediaCategory: "IMAGE",
+        media: [
+          {
+            status: "READY",
+            media: assetUrn,
+          },
+        ],
+      },
+    },
+    visibility: {
+      "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+    },
+  };
+
+  const result = await linkedInFetch(accessToken, "https://api.linkedin.com/v2/ugcPosts", {
+    method: "POST",
+    body: JSON.stringify(postBody),
+  });
+
+  return { success: true, postId: result.id, message: "Image post published to LinkedIn" };
+}
