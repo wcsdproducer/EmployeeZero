@@ -383,7 +383,7 @@ export async function POST(request: Request) {
 
       // Start execution in background
       const executionPromise = executeTask(taskId, apiKey).then(async (result) => {
-        // Write result back to conversation
+        // Write result back to conversation (user message already exists from client)
         const convRef = adminDb.doc(`conversations/${conversationId}`);
         const convSnap = await convRef.get();
         const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
@@ -391,7 +391,6 @@ export async function POST(request: Request) {
         await convRef.update({
           messages: [
             ...existingMsgs,
-            { role: "user", content: message, timestamp: now },
             { role: "model", content: `🔄 **Task Completed**\n\n${result}\n\n_Task ID: ${taskId}_`, timestamp: now },
           ],
           status: "idle",
@@ -405,7 +404,6 @@ export async function POST(request: Request) {
         await convRef.update({
           messages: [
             ...existingMsgs,
-            { role: "user", content: message, timestamp: now },
             { role: "model", content: `⚠️ Task failed: ${err.message}`, timestamp: now },
           ],
           status: "error",
@@ -414,18 +412,9 @@ export async function POST(request: Request) {
       });
 
       // Update conversation status to running immediately
-      const convRef = adminDb.doc(`conversations/${conversationId}`);
-      const convSnap = await convRef.get();
-      if (convSnap.exists) {
-        const existingMsgs = convSnap.data()?.messages || [];
-        await convRef.update({
-          messages: [
-            ...existingMsgs,
-            { role: "user", content: message, timestamp: new Date().toISOString() },
-          ],
-          status: "running",
-        });
-      }
+      await adminDb.doc(`conversations/${conversationId}`).update({
+        status: "running",
+      });
 
       return NextResponse.json({
         status: "task_started",
@@ -636,13 +625,15 @@ The memory_extract section will be automatically processed and NOT shown to the 
       result = result.replace(/<memory_extract>[\s\S]*?<\/memory_extract>/, "").trim();
     }
 
-    // 9. Append both messages to conversation doc
-    //    Use allMessages (which may have been trimmed by summarization)
+    // 9. Append messages to conversation doc
+    //    The client may have already added the user message — avoid duplicating it
     const now = new Date().toISOString();
+    const lastMsg = allMessages[allMessages.length - 1];
+    const userAlreadyAdded = lastMsg?.role === "user" && lastMsg?.content === message;
     const updatedMessages: ChatMessage[] = [
       ...allMessages,
-      { role: "user", content: message, timestamp: now },
-      { role: "model", content: result, timestamp: now },
+      ...(userAlreadyAdded ? [] : [{ role: "user" as const, content: message, timestamp: now }]),
+      { role: "model" as const, content: result, timestamp: now },
     ];
 
     const updatePayload: Record<string, any> = {
