@@ -116,3 +116,139 @@ export async function getProfile(userId: string) {
 
   return await res.json();
 }
+
+async function getPageToken(userId: string, pageId: string): Promise<string> {
+  const pages = await getPages(userId);
+  const page = pages.find((p: any) => p.id === pageId);
+  if (!page) throw new Error(`Page ${pageId} not found. Use get_facebook_pages first.`);
+  return page._pageAccessToken;
+}
+
+export async function getPageInsights(userId: string, pageId: string, period: string = "day", days: number = 7) {
+  const token = await getPageToken(userId, pageId);
+
+  const since = Math.floor(Date.now() / 1000) - (days * 86400);
+  const until = Math.floor(Date.now() / 1000);
+
+  const res = await fetch(
+    `${GRAPH_API}/${pageId}/insights?metric=page_impressions,page_engaged_users,page_post_engagements,page_fans,page_views_total&period=${period}&since=${since}&until=${until}&access_token=${token}`
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Facebook insights error: ${text}`);
+  }
+
+  const result = await res.json();
+  return (result.data || []).map((metric: any) => ({
+    name: metric.name,
+    period: metric.period,
+    values: metric.values,
+    title: metric.title,
+    description: metric.description,
+  }));
+}
+
+export async function getPostComments(userId: string, postId: string) {
+  const { accessToken } = await getFacebookTokens(userId);
+
+  const res = await fetch(
+    `${GRAPH_API}/${postId}/comments?fields=id,message,from,created_time,like_count,comment_count&access_token=${accessToken}`
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Facebook comments error: ${text}`);
+  }
+
+  const result = await res.json();
+  return (result.data || []).map((c: any) => ({
+    id: c.id,
+    message: c.message,
+    from: c.from?.name,
+    createdTime: c.created_time,
+    likes: c.like_count,
+    replies: c.comment_count,
+  }));
+}
+
+export async function replyToComment(userId: string, commentId: string, message: string) {
+  const { accessToken } = await getFacebookTokens(userId);
+
+  const res = await fetch(`${GRAPH_API}/${commentId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, access_token: accessToken }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Facebook reply failed: ${text}`);
+  }
+
+  const result = await res.json();
+  return { success: true, commentId: result.id, message: "Reply posted on Facebook" };
+}
+
+export async function deletePagePost(userId: string, postId: string) {
+  const { accessToken } = await getFacebookTokens(userId);
+
+  const res = await fetch(`${GRAPH_API}/${postId}?access_token=${accessToken}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Facebook delete failed: ${text}`);
+  }
+
+  return { success: true, message: "Post deleted from Facebook" };
+}
+
+export async function createPagePhotoPost(userId: string, pageId: string, imageUrl: string, caption: string) {
+  const token = await getPageToken(userId, pageId);
+
+  const res = await fetch(`${GRAPH_API}/${pageId}/photos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: imageUrl,
+      caption,
+      access_token: token,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Facebook photo post failed: ${text}`);
+  }
+
+  const result = await res.json();
+  return { success: true, postId: result.id, message: "Photo posted to Facebook page" };
+}
+
+export async function schedulePagePost(userId: string, pageId: string, message: string, scheduledTime: number, link?: string) {
+  const token = await getPageToken(userId, pageId);
+
+  const body: Record<string, any> = {
+    message,
+    published: false,
+    scheduled_publish_time: scheduledTime,
+    access_token: token,
+  };
+  if (link) body.link = link;
+
+  const res = await fetch(`${GRAPH_API}/${pageId}/feed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Facebook schedule failed: ${text}`);
+  }
+
+  const result = await res.json();
+  return { success: true, postId: result.id, message: `Post scheduled for ${new Date(scheduledTime * 1000).toISOString()}` };
+}

@@ -61,6 +61,14 @@ import {
   getTimeline as getTwitterTimeline,
   createTweet,
   searchTweets,
+  deleteTweet,
+  replyToTweet,
+  retweet,
+  undoRetweet,
+  likeTweet,
+  unlikeTweet,
+  getMentions as getTwitterMentions,
+  getFollowers as getTwitterFollowers,
 } from "@/lib/twitter";
 import {
   getProfile as getInstagramProfile,
@@ -81,6 +89,12 @@ import {
   getPages as getFacebookPages,
   getPagePosts as getFacebookPagePosts,
   createPagePost as createFacebookPagePost,
+  getPageInsights as getFacebookPageInsights,
+  getPostComments as getFacebookPostComments,
+  replyToComment as replyToFacebookComment,
+  deletePagePost as deleteFacebookPost,
+  createPagePhotoPost as createFacebookPhotoPost,
+  schedulePagePost as scheduleFacebookPost,
 } from "@/lib/facebook";
 import {
   getProfile as getTikTokProfile,
@@ -753,6 +767,93 @@ const TWITTER_TOOLS = [
       required: ["query"],
     },
   },
+  {
+    name: "delete_tweet",
+    description: "Delete a tweet by its ID",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tweet_id: { type: Type.STRING, description: "Tweet ID to delete" },
+      },
+      required: ["tweet_id"],
+    },
+  },
+  {
+    name: "reply_to_tweet",
+    description: "Reply to a tweet. Always confirm reply content with user.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tweet_id: { type: Type.STRING, description: "Tweet ID to reply to" },
+        text: { type: Type.STRING, description: "Reply text (max 280 characters)" },
+      },
+      required: ["tweet_id", "text"],
+    },
+  },
+  {
+    name: "retweet",
+    description: "Retweet a tweet",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tweet_id: { type: Type.STRING, description: "Tweet ID to retweet" },
+      },
+      required: ["tweet_id"],
+    },
+  },
+  {
+    name: "undo_retweet",
+    description: "Undo a retweet",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tweet_id: { type: Type.STRING, description: "Tweet ID to undo retweet" },
+      },
+      required: ["tweet_id"],
+    },
+  },
+  {
+    name: "like_tweet",
+    description: "Like a tweet",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tweet_id: { type: Type.STRING, description: "Tweet ID to like" },
+      },
+      required: ["tweet_id"],
+    },
+  },
+  {
+    name: "unlike_tweet",
+    description: "Unlike a tweet",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tweet_id: { type: Type.STRING, description: "Tweet ID to unlike" },
+      },
+      required: ["tweet_id"],
+    },
+  },
+  {
+    name: "get_twitter_mentions",
+    description: "Get recent tweets that mention the user",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
+      },
+    },
+  },
+  {
+    name: "get_twitter_followers",
+    description: "Get a list of the user's X/Twitter followers with their profile info",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        max_results: { type: Type.NUMBER, description: "Max followers to return (default 20, max 100)" },
+      },
+    },
+  },
 ];
 
 const INSTAGRAM_TOOLS = [
@@ -918,6 +1019,80 @@ const FACEBOOK_TOOLS = [
       required: ["page_id", "message"],
     },
   },
+  {
+    name: "get_facebook_page_insights",
+    description: "Get analytics for a Facebook Page (impressions, engagement, fans, views) over a period",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        page_id: { type: Type.STRING, description: "Facebook Page ID" },
+        period: { type: Type.STRING, description: "Period: day, week, days_28 (default: day)" },
+        days: { type: Type.NUMBER, description: "Days to look back (default 7)" },
+      },
+      required: ["page_id"],
+    },
+  },
+  {
+    name: "get_facebook_post_comments",
+    description: "Get comments on a Facebook post",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        post_id: { type: Type.STRING, description: "Facebook post ID" },
+      },
+      required: ["post_id"],
+    },
+  },
+  {
+    name: "reply_to_facebook_comment",
+    description: "Reply to a comment on a Facebook post",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        comment_id: { type: Type.STRING, description: "Comment ID to reply to" },
+        message: { type: Type.STRING, description: "Reply text" },
+      },
+      required: ["comment_id", "message"],
+    },
+  },
+  {
+    name: "delete_facebook_post",
+    description: "Delete a Facebook post by its ID",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        post_id: { type: Type.STRING, description: "Post ID to delete" },
+      },
+      required: ["post_id"],
+    },
+  },
+  {
+    name: "create_facebook_photo_post",
+    description: "Post a photo to a Facebook Page. Requires a public image URL. Always confirm before posting.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        page_id: { type: Type.STRING, description: "Facebook Page ID" },
+        image_url: { type: Type.STRING, description: "Public URL of the image" },
+        caption: { type: Type.STRING, description: "Photo caption" },
+      },
+      required: ["page_id", "image_url", "caption"],
+    },
+  },
+  {
+    name: "schedule_facebook_post",
+    description: "Schedule a post on a Facebook Page for a future time",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        page_id: { type: Type.STRING, description: "Facebook Page ID" },
+        message: { type: Type.STRING, description: "Post text content" },
+        scheduled_time: { type: Type.NUMBER, description: "Unix timestamp for when to publish" },
+        link: { type: Type.STRING, description: "Optional link to share" },
+      },
+      required: ["page_id", "message", "scheduled_time"],
+    },
+  },
 ];
 
 const TIKTOK_TOOLS = [
@@ -1061,6 +1236,22 @@ async function executeTool(
       return await createTweet(userId, args.text);
     case "search_tweets":
       return await searchTweets(userId, args.query, args.max_results || 10);
+    case "delete_tweet":
+      return await deleteTweet(userId, args.tweet_id);
+    case "reply_to_tweet":
+      return await replyToTweet(userId, args.tweet_id, args.text);
+    case "retweet":
+      return await retweet(userId, args.tweet_id);
+    case "undo_retweet":
+      return await undoRetweet(userId, args.tweet_id);
+    case "like_tweet":
+      return await likeTweet(userId, args.tweet_id);
+    case "unlike_tweet":
+      return await unlikeTweet(userId, args.tweet_id);
+    case "get_twitter_mentions":
+      return await getTwitterMentions(userId, args.max_results || 10);
+    case "get_twitter_followers":
+      return await getTwitterFollowers(userId, args.max_results || 20);
     // Instagram tools
     case "get_instagram_profile":
       return await getInstagramProfile(userId);
@@ -1095,6 +1286,18 @@ async function executeTool(
       return await getFacebookPagePosts(userId, args.page_id, args.max_results || 10);
     case "create_facebook_page_post":
       return await createFacebookPagePost(userId, args.page_id, args.message, args.link);
+    case "get_facebook_page_insights":
+      return await getFacebookPageInsights(userId, args.page_id, args.period || "day", args.days || 7);
+    case "get_facebook_post_comments":
+      return await getFacebookPostComments(userId, args.post_id);
+    case "reply_to_facebook_comment":
+      return await replyToFacebookComment(userId, args.comment_id, args.message);
+    case "delete_facebook_post":
+      return await deleteFacebookPost(userId, args.post_id);
+    case "create_facebook_photo_post":
+      return await createFacebookPhotoPost(userId, args.page_id, args.image_url, args.caption);
+    case "schedule_facebook_post":
+      return await scheduleFacebookPost(userId, args.page_id, args.message, args.scheduled_time, args.link);
     // TikTok tools
     case "get_tiktok_profile":
       return await getTikTokProfile(userId);
