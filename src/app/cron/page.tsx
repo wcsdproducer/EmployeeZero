@@ -130,6 +130,7 @@ export default function CronPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [customWorkflows, setCustomWorkflows] = useState<WorkflowOption[]>([]);
 
   // Load cron jobs with real-time listener
   useEffect(() => {
@@ -144,6 +145,25 @@ export default function CronPage() {
       (err) => console.warn("Cron listener error:", err.message)
     );
     return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Load custom workflows
+  useEffect(() => {
+    if (!user?.uid) return;
+    fetch(`/api/workflows?userId=${user.uid}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const customs = (data.workflows || []).map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          icon: <Sparkles size={16} />,
+          iconBg: "from-purple-500/20 to-indigo-500/20 border-purple-500/30 text-purple-400",
+          defaultSchedule: "Daily 8 AM",
+          defaultCron: "0 8 * * *",
+        }));
+        setCustomWorkflows(customs);
+      })
+      .catch(() => {});
   }, [user?.uid]);
 
   // Auto-dismiss toast
@@ -466,7 +486,7 @@ export default function CronPage() {
               <div className="mb-6">
                 <p className="text-[10px] text-neutral-600 font-mono uppercase tracking-widest mb-3">1. Select Workflow</p>
                 <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
-                  {WORKFLOW_OPTIONS.map((wf) => (
+                  {[...WORKFLOW_OPTIONS, ...customWorkflows].map((wf) => (
                     <button
                       key={wf.id}
                       onClick={() => {
