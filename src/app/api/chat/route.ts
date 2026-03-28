@@ -53,6 +53,8 @@ import {
   getPosts as getLinkedInPosts,
   deletePost as deleteLinkedInPost,
   createImagePost as createLinkedInImagePost,
+  commentOnPost as commentOnLinkedInPost,
+  reactToPost as reactToLinkedInPost,
 } from "@/lib/linkedin";
 import {
   getProfile as getTwitterProfile,
@@ -677,6 +679,30 @@ const LINKEDIN_TOOLS = [
       required: ["text", "image_url"],
     },
   },
+  {
+    name: "comment_on_linkedin_post",
+    description: "Comment on a LinkedIn post. Use after get_linkedin_posts to get post IDs.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        post_urn: { type: Type.STRING, description: "The LinkedIn post URN/ID to comment on" },
+        text: { type: Type.STRING, description: "Comment text" },
+      },
+      required: ["post_urn", "text"],
+    },
+  },
+  {
+    name: "react_to_linkedin_post",
+    description: "React to a LinkedIn post (like, celebrate, support, love, insightful, funny)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        post_urn: { type: Type.STRING, description: "The LinkedIn post URN/ID to react to" },
+        reaction_type: { type: Type.STRING, description: "Reaction type: LIKE, CELEBRATE, SUPPORT, LOVE, INSIGHTFUL, or FUNNY (default LIKE)" },
+      },
+      required: ["post_urn"],
+    },
+  },
 ];
 
 const TWITTER_TOOLS = [
@@ -916,6 +942,10 @@ async function executeTool(
       return await deleteLinkedInPost(userId, args.post_id);
     case "create_linkedin_image_post":
       return await createLinkedInImagePost(userId, args.text, args.image_url);
+    case "comment_on_linkedin_post":
+      return await commentOnLinkedInPost(userId, args.post_urn, args.text);
+    case "react_to_linkedin_post":
+      return await reactToLinkedInPost(userId, args.post_urn, args.reaction_type || "LIKE");
     // Twitter/X tools
     case "get_twitter_profile":
       return await getTwitterProfile(userId);

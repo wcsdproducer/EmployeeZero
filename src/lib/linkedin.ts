@@ -229,3 +229,47 @@ export async function createImagePost(userId: string, text: string, imageUrl: st
 
   return { success: true, postId: result.id, message: "Image post published to LinkedIn" };
 }
+
+export async function commentOnPost(userId: string, postUrn: string, text: string) {
+  const { accessToken } = await getLinkedInTokens(userId);
+
+  const profile = await linkedInFetch(accessToken, "https://api.linkedin.com/v2/userinfo");
+  const personUrn = `urn:li:person:${profile.sub}`;
+
+  const body = {
+    actor: personUrn,
+    object: postUrn,
+    message: { text },
+  };
+
+  const result = await linkedInFetch(accessToken, "https://api.linkedin.com/v2/socialActions/${encodeURIComponent(postUrn)}/comments", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  return { success: true, commentId: result.id, message: "Comment posted on LinkedIn" };
+}
+
+export async function reactToPost(userId: string, postUrn: string, reactionType: string = "LIKE") {
+  const { accessToken } = await getLinkedInTokens(userId);
+
+  const profile = await linkedInFetch(accessToken, "https://api.linkedin.com/v2/userinfo");
+  const personUrn = `urn:li:person:${profile.sub}`;
+
+  // Valid types: LIKE, CELEBRATE, SUPPORT, LOVE, INSIGHTFUL, FUNNY
+  const validReactions = ["LIKE", "CELEBRATE", "SUPPORT", "LOVE", "INSIGHTFUL", "FUNNY"];
+  const reaction = validReactions.includes(reactionType.toUpperCase()) ? reactionType.toUpperCase() : "LIKE";
+
+  const body = {
+    root: postUrn,
+    reactionType: reaction,
+  };
+
+  await linkedInFetch(
+    accessToken,
+    `https://api.linkedin.com/v2/socialActions/${encodeURIComponent(postUrn)}/likes`,
+    { method: "POST", body: JSON.stringify(body) }
+  );
+
+  return { success: true, message: `Reacted with ${reaction} on LinkedIn post` };
+}
