@@ -26,20 +26,14 @@ const PLATFORM_CONFIGS: Record<string, OAuthConfig> = {
   instagram: {
     authorizeUrl: "https://www.facebook.com/v21.0/dialog/oauth",
     tokenUrl: "https://graph.facebook.com/v21.0/oauth/access_token",
-    scopes: [
-      "public_profile",
-      "email",
-    ],
+    scopes: [],
     clientIdEnv: "META_APP_ID",
     clientSecretEnv: "META_APP_SECRET",
   },
   facebook: {
     authorizeUrl: "https://www.facebook.com/v21.0/dialog/oauth",
     tokenUrl: "https://graph.facebook.com/v21.0/oauth/access_token",
-    scopes: [
-      "public_profile",
-      "email",
-    ],
+    scopes: [],
     clientIdEnv: "META_APP_ID",
     clientSecretEnv: "META_APP_SECRET",
   },
@@ -53,7 +47,7 @@ const PLATFORM_CONFIGS: Record<string, OAuthConfig> = {
   linkedin: {
     authorizeUrl: "https://www.linkedin.com/oauth/v2/authorization",
     tokenUrl: "https://www.linkedin.com/oauth/v2/accessToken",
-    scopes: ["openid", "profile", "w_member_social"],
+    scopes: ["w_member_social"],
     clientIdEnv: "LINKEDIN_CLIENT_ID",
     clientSecretEnv: "LINKEDIN_CLIENT_SECRET",
   },
@@ -98,14 +92,14 @@ export async function GET(request: Request) {
     // TikTok uses different param names
     params.set("client_key", clientId);
     params.set("response_type", "code");
-    params.set("scope", config.scopes.join(","));
+    if (config.scopes.length > 0) params.set("scope", config.scopes.join(","));
     params.set("redirect_uri", redirectUri);
     params.set("state", state);
   } else {
     params.set("client_id", clientId);
     params.set("response_type", "code");
     params.set("redirect_uri", redirectUri);
-    params.set("scope", config.scopes.join(" "));
+    if (config.scopes.length > 0) params.set("scope", config.scopes.join(" "));
     params.set("state", state);
 
     if (config.usePKCE) {
