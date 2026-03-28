@@ -357,12 +357,16 @@ export async function POST(request: Request) {
 
     // 1b. Intent detection — route complex tasks to the task engine
     const complexPatterns = [
-      /\b(clean up|organize|triage|sort through|go through)\b.*\b(inbox|emails|mail)\b/i,
+      /\b(clean up|organize|triage|sort through|go through)\b.*\b(inbox|emails|mail|gmail)\b/i,
       /\b(archive|delete|trash)\b.*\b(all|every|older than|from last)\b/i,
       /\b(draft|write|compose)\b.*\b(replies|responses)\b.*\b(all|each|every)\b/i,
       /\b(morning briefing|daily summary|end.of.day|weekly report)\b/i,
       /\b(run|execute|start|trigger)\b.*\b(workflow|automation|briefing)\b/i,
       /\b(follow up|reach out)\b.*\b(all|each|every|batch)\b/i,
+      /\b(unsubscribe|opt.out)\b.*\b(from|all|every|emails)\b/i,
+      /\b(build|create|make|set up)\b.*\b(workflow|automation|process|routine)\b/i,
+      /\b(scan|check|review|audit)\b.*\b(inbox|emails|gmail|mail)\b.*\b(and|then|,)\b/i,
+      /\b(clean|purge|clear)\b.*\b(spam|junk|gmail|inbox|promotions)\b/i,
     ];
     const isComplexTask = complexPatterns.some((p) => p.test(message));
 
@@ -482,7 +486,7 @@ You have persistent memory. You remember everything the user has told you across
       systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
 
       if (connections.gmail?.connected) {
-        systemPrompt += `\n### Gmail Access\nYou can search, read, send, reply to, archive, and trash emails using the user's connected Gmail account. Use the provided tools to interact with Gmail. When the user asks about emails, proactively use the search_emails or get_unread_count tools. Before sending or replying to emails, always confirm the content with the user first unless they explicitly asked you to send it.`;
+        systemPrompt += `\n### Gmail Access\nYou can search, read, send, reply to, archive, and trash emails using the user's connected Gmail account. Use the provided tools to interact with Gmail. When the user asks about emails, proactively use the search_emails or get_unread_count tools.\n\n**Autonomous Mode:** When the user explicitly asks you to perform an action (e.g., "clean up my inbox", "unsubscribe from spam", "archive old emails"), execute it immediately using your tools. Do NOT ask for permission or confirmation for each step — the user already authorized the action by requesting it. Only confirm before sending NEW emails to external recipients.\n\n**Unsubscribe Flow:** When asked to unsubscribe from emails, read the email to find unsubscribe links, then use browse_url to find the link and click_url to follow it. If there's a form, use submit_form.`;
       }
     } else {
       systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
