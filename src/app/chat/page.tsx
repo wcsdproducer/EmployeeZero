@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
@@ -92,6 +93,42 @@ export default function ChatPage() {
     setVisibleWorkflows(shuffled.slice(0, 4));
     setWfKey((k) => k + 1);
   }, [activeConvId]);
+
+  // Handle ?workflow= query param (from workflows page "Run Now")
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const workflowTriggered = useRef(false);
+  useEffect(() => {
+    const wfId = searchParams.get("workflow");
+    if (!wfId || !user || workflowTriggered.current) return;
+    workflowTriggered.current = true;
+    // Find workflow name
+    const wf = WORKFLOW_SUGGESTIONS.find((w) => w.id === wfId);
+    const wfName = wf?.name || wfId;
+    const workflowMessage = `Run the ${wfName} workflow`;
+    // Create conversation and trigger
+    (async () => {
+      try {
+        const docRef = await addDoc(collection(db, "conversations"), {
+          userId: user.uid,
+          title: `⚡ ${wfName}`,
+          messages: [{ role: "user", content: workflowMessage, timestamp: new Date().toISOString() }],
+          status: "running",
+          createdAt: Timestamp.now(),
+        });
+        setActiveConvId(docRef.id);
+        fetch("/api/workflows/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.uid, conversationId: docRef.id, workflowId: wfId }),
+        }).catch((err) => console.error("Workflow API error:", err));
+        // Clean up URL
+        router.replace("/chat", { scroll: false });
+      } catch (err) {
+        console.error("Failed to start workflow from URL:", err);
+      }
+    })();
+  }, [searchParams, user]);
   const [selectedAgentId, setSelectedAgentId] = useState("primary");
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
   const [submitting, setSubmitting] = useState(false);
@@ -505,10 +542,41 @@ export default function ChatPage() {
                       className="grid grid-cols-2 gap-3"
                     >
                       {visibleWorkflows.map((wf) => (
-                        <Link
+                        <button
                           key={wf.id}
-                          href="/workflows"
-                          className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group"
+                          onClick={async () => {
+                            if (!user || submitting) return;
+                            const workflowMessage = `Run the ${wf.name} workflow`;
+                            setInput("");
+                            setSubmitting(true);
+                            try {
+                              // Create a new conversation for this workflow
+                              const docRef = await addDoc(collection(db, "conversations"), {
+                                userId: user.uid,
+                                title: `⚡ ${wf.name}`,
+                                messages: [{ role: "user", content: workflowMessage, timestamp: new Date().toISOString() }],
+                                status: "running",
+                                createdAt: Timestamp.now(),
+                              });
+                              setActiveConvId(docRef.id);
+                              // Fire the workflow execution API
+                              fetch("/api/workflows/run", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  userId: user.uid,
+                                  conversationId: docRef.id,
+                                  workflowId: wf.id,
+                                }),
+                              }).catch((err) => console.error("Workflow API error:", err));
+                            } catch (err) {
+                              console.error("Failed to start workflow:", err);
+                            } finally {
+                              setSubmitting(false);
+                            }
+                          }}
+                          disabled={submitting}
+                          className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group cursor-pointer disabled:opacity-50"
                         >
                           <div className="flex items-center gap-2.5 mb-2">
                             <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br border flex items-center justify-center flex-shrink-0", wf.iconBg)}>
@@ -522,7 +590,7 @@ export default function ChatPage() {
                               <span key={s} className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-500">{s}</span>
                             ))}
                           </div>
-                        </Link>
+                        </button>
                       ))}
                     </motion.div>
                   </AnimatePresence>

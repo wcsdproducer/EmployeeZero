@@ -561,29 +561,40 @@ export default function WorkflowsPage() {
                           </div>
                         </div>
 
-                        {/* Activate Button */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            isInstalled ? uninstallWorkflow(wf.id) : installWorkflow(wf.id);
-                          }}
-                          disabled={isInstalling}
-                          className={cn(
-                            "w-full py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2",
-                            isInstalling && "opacity-50 cursor-not-allowed",
-                            isInstalled
-                              ? "bg-white/5 border border-white/10 text-neutral-400 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400"
-                              : "bg-white text-black hover:bg-neutral-200"
-                          )}
-                        >
-                          {isInstalling ? (
-                            <><Loader2 size={14} className="animate-spin" /> Processing...</>
-                          ) : isInstalled ? (
-                            <><X size={14} /> Deactivate Workflow</>
-                          ) : (
-                            <><Zap size={14} /> Activate Workflow</>
-                          )}
-                        </button>
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          {/* Run Now */}
+                          <Link
+                            href={`/chat?workflow=${wf.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-white text-black hover:bg-neutral-200"
+                          >
+                            <Zap size={14} /> Run Now
+                          </Link>
+                          {/* Activate / Deactivate */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              isInstalled ? uninstallWorkflow(wf.id) : installWorkflow(wf.id);
+                            }}
+                            disabled={isInstalling}
+                            className={cn(
+                              "flex-1 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2",
+                              isInstalling && "opacity-50 cursor-not-allowed",
+                              isInstalled
+                                ? "bg-white/5 border border-white/10 text-neutral-400 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400"
+                                : "bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10"
+                            )}
+                          >
+                            {isInstalling ? (
+                              <><Loader2 size={14} className="animate-spin" /> Processing...</>
+                            ) : isInstalled ? (
+                              <><X size={14} /> Deactivate</>
+                            ) : (
+                              <><CheckCircle2 size={14} /> Activate</>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </motion.div>
                   )}
