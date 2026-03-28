@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/admin";
+import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
 import { getWorkflowGoal } from "@/lib/workflowDefinitions";
 import { createTask, executeTask } from "@/lib/taskEngine";
 
@@ -9,15 +10,22 @@ import { createTask, executeTask } from "@/lib/taskEngine";
  * Executes a workflow by creating a task with the workflow's goal
  * and running it through the autonomous task engine.
  * 
- * Body: { userId, conversationId, workflowId }
+ * Body: { conversationId, workflowId }
  */
 export async function POST(request: Request) {
-  try {
-    const { userId, conversationId, workflowId } = await request.json();
+  const auth = await verifyAuth(request);
+  if (auth.error) return auth.error;
+  const userId = auth.userId;
 
-    if (!userId || !conversationId || !workflowId) {
+  const rateCheck = checkRateLimit(userId);
+  if (!rateCheck.allowed) return rateLimitResponse(rateCheck.retryAfter!);
+
+  try {
+    const { conversationId, workflowId } = await request.json();
+
+    if (!conversationId || !workflowId) {
       return NextResponse.json(
-        { error: "Missing userId, conversationId, or workflowId" },
+        { error: "Missing conversationId or workflowId" },
         { status: 400 }
       );
     }

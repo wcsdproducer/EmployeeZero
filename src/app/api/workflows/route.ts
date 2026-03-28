@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
 import {
   listCustomWorkflows,
   createCustomWorkflow,
@@ -9,16 +10,12 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * GET — List all custom workflows for a user
- * Query: ?userId=xxx
+ * GET — List all custom workflows for the authenticated user
  */
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
+  const auth = await verifyAuth(request);
+  if (auth.error) return auth.error;
+  const userId = auth.userId;
 
   try {
     const workflows = await listCustomWorkflows(userId);
@@ -30,16 +27,23 @@ export async function GET(request: Request) {
 
 /**
  * POST — Create a new custom workflow
- * Body: { userId, name, description, goal, requiredConnections?, schedule? }
+ * Body: { name, description, goal, requiredConnections?, schedule? }
  */
 export async function POST(request: Request) {
+  const auth = await verifyAuth(request);
+  if (auth.error) return auth.error;
+  const userId = auth.userId;
+
+  const rateCheck = checkRateLimit(userId);
+  if (!rateCheck.allowed) return rateLimitResponse(rateCheck.retryAfter!);
+
   try {
     const body = await request.json();
-    const { userId, name, description, goal, requiredConnections, schedule } = body;
+    const { name, description, goal, requiredConnections, schedule } = body;
 
-    if (!userId || !name || !goal) {
+    if (!name || !goal) {
       return NextResponse.json(
-        { error: "Missing required fields: userId, name, goal" },
+        { error: "Missing required fields: name, goal" },
         { status: 400 }
       );
     }
@@ -60,16 +64,20 @@ export async function POST(request: Request) {
 
 /**
  * DELETE — Delete a custom workflow
- * Body: { userId, workflowId }
+ * Body: { workflowId }
  */
 export async function DELETE(request: Request) {
+  const auth = await verifyAuth(request);
+  if (auth.error) return auth.error;
+  const userId = auth.userId;
+
   try {
     const body = await request.json();
-    const { userId, workflowId } = body;
+    const { workflowId } = body;
 
-    if (!userId || !workflowId) {
+    if (!workflowId) {
       return NextResponse.json(
-        { error: "Missing userId or workflowId" },
+        { error: "Missing workflowId" },
         { status: 400 }
       );
     }
@@ -87,16 +95,20 @@ export async function DELETE(request: Request) {
 
 /**
  * PATCH — Update a custom workflow
- * Body: { userId, workflowId, ...updates }
+ * Body: { workflowId, ...updates }
  */
 export async function PATCH(request: Request) {
+  const auth = await verifyAuth(request);
+  if (auth.error) return auth.error;
+  const userId = auth.userId;
+
   try {
     const body = await request.json();
-    const { userId, workflowId, ...updates } = body;
+    const { workflowId, ...updates } = body;
 
-    if (!userId || !workflowId) {
+    if (!workflowId) {
       return NextResponse.json(
-        { error: "Missing userId or workflowId" },
+        { error: "Missing workflowId" },
         { status: 400 }
       );
     }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/admin";
+import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
 import { GoogleGenAI, Type } from "@google/genai";
 import {
   listEmails,
@@ -476,8 +477,16 @@ async function executeTool(
 // ── Main handler ────────────────────────────────────────────────
 
 export async function POST(request: Request) {
+  // ── Auth: Verify Firebase ID token ──
+  const auth = await verifyAuth(request);
+  if (auth.error) return auth.error;
+  const verifiedUserId = auth.userId;
+
+  // ── Rate limit: generous for real users, blocks bots ──
+  const rateCheck = checkRateLimit(verifiedUserId);
+  if (!rateCheck.allowed) return rateLimitResponse(rateCheck.retryAfter!);
+
   let parsedBody: {
-    userId?: string;
     conversationId?: string;
     message?: string;
     agentName?: string;
@@ -485,11 +494,13 @@ export async function POST(request: Request) {
 
   try {
     parsedBody = await request.json();
-    const { userId, conversationId, message, agentName } = parsedBody;
+    const { conversationId, message, agentName } = parsedBody;
+    // Use verified userId from token — never trust client body
+    const userId = verifiedUserId;
 
-    if (!userId || !conversationId || !message) {
+    if (!conversationId || !message) {
       return NextResponse.json(
-        { error: "Missing userId, conversationId, or message" },
+        { error: "Missing conversationId or message" },
         { status: 400 }
       );
     }

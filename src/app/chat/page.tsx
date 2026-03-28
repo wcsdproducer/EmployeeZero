@@ -10,6 +10,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
+import { authFetch } from "@/lib/authFetch";
 import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 
 interface AgentDoc {
@@ -129,10 +130,9 @@ function ChatPageInner() {
           createdAt: Timestamp.now(),
         });
         setActiveConvId(docRef.id);
-        fetch("/api/workflows/run", {
+        authFetch("/api/workflows/run", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: user.uid, conversationId: docRef.id, workflowId: wfId }),
+          body: JSON.stringify({ conversationId: docRef.id, workflowId: wfId }),
         }).catch((err) => console.error("Workflow API error:", err));
         // Clean up URL
         router.replace("/chat", { scroll: false });
@@ -303,11 +303,9 @@ function ChatPageInner() {
       }
 
       // Fire the chat API (don't await — Firestore listener handles updates)
-      fetch("/api/chat", {
+      authFetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user.uid,
           conversationId: convId,
           message,
           agentName: selectedAgent.name,
@@ -572,11 +570,9 @@ function ChatPageInner() {
                               });
                               setActiveConvId(docRef.id);
                               // Fire the workflow execution API
-                              fetch("/api/workflows/run", {
+                              authFetch("/api/workflows/run", {
                                 method: "POST",
-                                headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
-                                  userId: user.uid,
                                   conversationId: docRef.id,
                                   workflowId: wf.id,
                                 }),
@@ -751,11 +747,9 @@ function ChatPageInner() {
                 className="w-full h-14 bg-white text-black hover:bg-neutral-200 text-base font-bold rounded-2xl transition-all"
                 onClick={async () => {
                   try {
-                    const res = await fetch("/api/checkout", {
+                    const res = await authFetch("/api/checkout", {
                       method: "POST",
-                      headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        userId: user.uid,
                         email: user.email,
                       }),
                     });

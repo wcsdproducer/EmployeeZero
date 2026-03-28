@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
+import { authFetch } from "@/lib/authFetch";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -150,7 +151,7 @@ export default function CronPage() {
   // Load custom workflows
   useEffect(() => {
     if (!user?.uid) return;
-    fetch(`/api/workflows?userId=${user.uid}`)
+    authFetch("/api/workflows")
       .then((res) => res.json())
       .then((data) => {
         const customs = (data.workflows || []).map((w: any) => ({

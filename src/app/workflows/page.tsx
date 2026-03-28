@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
+import { authFetch } from "@/lib/authFetch";
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -286,7 +287,7 @@ export default function WorkflowsPage() {
   useEffect(() => {
     if (!user?.uid) return;
     setCustomLoading(true);
-    fetch(`/api/workflows?userId=${user.uid}`)
+    authFetch("/api/workflows")
       .then((res) => res.json())
       .then((data) => setCustomWorkflows(data.workflows || []))
       .catch(() => {})
@@ -456,10 +457,9 @@ export default function WorkflowsPage() {
                           if (!user?.uid) return;
                           setDeletingId(cw.id);
                           try {
-                            await fetch("/api/workflows", {
+                            await authFetch("/api/workflows", {
                               method: "DELETE",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ userId: user.uid, workflowId: cw.id }),
+                              body: JSON.stringify({ workflowId: cw.id }),
                             });
                             setCustomWorkflows((prev) => prev.filter((w) => w.id !== cw.id));
                             setToast({ message: `"${cw.name}" deleted.`, type: "success" });
