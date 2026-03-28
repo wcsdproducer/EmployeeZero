@@ -197,8 +197,6 @@ export default function ChatPage() {
       (snapshot) => {
         const convData = snapshot.docs
           .map(d => ({ id: d.id, ...d.data() }) as Conversation)
-          // Only show conversations that have at least 1 message
-          .filter(c => c.messages && c.messages.length > 0)
           .sort((a, b) => {
             const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds * 1000 || 0;
             const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds * 1000 || 0;
@@ -244,7 +242,7 @@ export default function ChatPage() {
         const docRef = await addDoc(collection(db, "conversations"), {
           userId: user.uid,
           title: message.slice(0, 80),
-          messages: [],
+          messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
           status: "running",
           createdAt: Timestamp.now(),
         });
