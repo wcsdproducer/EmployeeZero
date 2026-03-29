@@ -2139,13 +2139,20 @@ You have persistent memory. You remember everything the user has told you across
 ## Current Date & Time
 Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: userTimezone })}. The current time is ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: userTimezone })}. The user's timezone is ${userTimezone}. Always use this timezone for scheduling unless the user specifies otherwise.`;
 
-    // Connection awareness
+    // Connection awareness — all 17 possible services
     const connectedServices: string[] = [];
     if (connections.gmail?.connected) connectedServices.push("Gmail");
     if (connections.calendar?.connected) connectedServices.push("Google Calendar");
     if (connections.drive?.connected) connectedServices.push("Google Drive");
     if (connections.sheets?.connected) connectedServices.push("Google Sheets");
+    if (connections.docs?.connected) connectedServices.push("Google Docs");
+    if (connections.slides?.connected) connectedServices.push("Google Slides");
+    if (connections.forms?.connected) connectedServices.push("Google Forms");
+    if (connections.tasks?.connected) connectedServices.push("Google Tasks");
     if (connections.youtube?.connected) connectedServices.push("YouTube");
+    if (connections.analytics?.connected) connectedServices.push("Google Analytics");
+    if (connections.business?.connected) connectedServices.push("Google Business Profile");
+    if (connections.contacts?.connected) connectedServices.push("Google Contacts");
     if (connections.linkedin?.connected) connectedServices.push("LinkedIn");
     if (connections.twitter?.connected) connectedServices.push("X/Twitter");
     if (connections.instagram?.connected) connectedServices.push("Instagram");
@@ -2194,6 +2201,34 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
       if (connections.tiktok?.connected) {
         systemPrompt += `\n\n### TikTok Access\nYou can view the user's TikTok profile with follower count and video stats. Posting is not yet available (pending API approval).`;
       }
+
+      if (connections.tasks?.connected) {
+        systemPrompt += `\n\n### Google Tasks Access\nYou can list task lists, list tasks, create new tasks with due dates and notes, mark tasks complete, and delete tasks. Use this for to-do management and action item tracking.`;
+      }
+
+      if (connections.docs?.connected) {
+        systemPrompt += `\n\n### Google Docs Access\nYou can create new Google Docs, append text content to existing docs, and read doc metadata. Use for reports, meeting minutes, proposals, and any document creation.`;
+      }
+
+      if (connections.slides?.connected) {
+        systemPrompt += `\n\n### Google Slides Access\nYou can create presentations, add slides with different layouts (TITLE, TITLE_AND_BODY, etc.), and insert text into placeholders. Use for pitch decks, reports, and presentations.`;
+      }
+
+      if (connections.forms?.connected) {
+        systemPrompt += `\n\n### Google Forms Access\nYou can create forms, add questions (SHORT_ANSWER, PARAGRAPH, MULTIPLE_CHOICE, CHECKBOX, SCALE, DATE, TIME), get form details, and read responses. Use for surveys, feedback, and data gathering.`;
+      }
+
+      if (connections.analytics?.connected) {
+        systemPrompt += `\n\n### Google Analytics Access\nYou can list GA4 properties, run reports with custom dimensions/metrics, and get real-time active user counts. Use for website performance, traffic analysis, and data-driven insights.`;
+      }
+
+      if (connections.business?.connected) {
+        systemPrompt += `\n\n### Google Business Profile Access\nYou can list business accounts/locations, get and reply to customer reviews, and create posts. Use for reputation management, review responses, and local marketing.`;
+      }
+
+      if (connections.contacts?.connected || connections.gmail?.connected) {
+        systemPrompt += `\n\n### Google Contacts Access\nYou can list, search, create, update, and delete contacts. Use for CRM, relationship tracking, and contact enrichment.`;
+      }
     } else {
       systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
     }
@@ -2201,7 +2236,24 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
     // Browser capabilities (always available)
     systemPrompt += `\n\n### Web Browsing\nYou can browse any website, read web pages, follow links (like unsubscribe URLs), submit forms, and search the web. Use browse_url to read pages, click_url to follow action links, submit_form for form submissions, and web_search to find information.`;
 
+    // Notes (always available)
+    systemPrompt += `\n\n### Notes & Knowledge Base\nYou can create, list, read, update, delete, and search notes. Notes persist across conversations and serve as your knowledge base. Use create_note to save reports, research, and important information for later reference.`;
+
     systemPrompt += `\n\n### Custom Workflows\nYou have workflow management tools: create_workflow, list_my_workflows, delete_workflow.\n\n**IMPORTANT:** When the user asks to "create a workflow", "set up an automation", or "build a routine", use the **create_workflow** tool to SAVE a workflow definition. Do NOT actually execute the workflow steps — just save the definition so the user can run it later from their Workflows page.\n\nThe "goal" field should contain detailed, step-by-step instructions for another AI agent to follow when the workflow is eventually executed. Include specific tool names (like search_emails, list_events, web_search) and formatting requirements.\n\nExample: If the user says "create a workflow that checks my email every morning", save it with create_workflow — don't start scanning emails.`;
+
+    // ── Available Built-in Workflows ──
+    systemPrompt += `\n\n## Available Built-in Workflows
+These are pre-built workflows the user can run from the **Workflows** page or ask you to run. If the user mentions a topic matching one of these, suggest the relevant workflow.
+
+**Email & Productivity:** Morning Briefing, Inbox Commander, Meeting Prep, End-of-Day Wrap-Up, Daily Standup, Meeting Follow-Up, Week Planner
+**Sales & CRM:** Lead Tracker, Appointment Scheduler, Client Onboarding, CRM Sync, Customer Birthday Checker, Contact Manager
+**Social Media:** Social Engagement Sweep, Social Post All Platforms, Social Analytics Report, Twitter Growth Engine, Instagram Content Machine, LinkedIn Thought Leader, Facebook Page Manager, TikTok Scout, Brand Mention Monitor
+**Content & Research:** Content Calendar, Social Autopilot, Visual Content Batch, Competitor Intel, Market Research, SEO Audit, YouTube Channel Manager
+**Finance:** Invoice Tracker, Expense Logger, Revenue Tracker
+**Documents & Files:** Drive Cleanup, Weekly File Report, Notes Digest, Auto Report Generator, Meeting Minutes Doc, Pitch Deck Builder, Survey Creator
+**Business Intelligence:** Business Pulse, Website Performance, Review Guardian, Client Feedback Analyzer
+**Team & HR:** Hiring Pipeline, Team Newsletter
+**Power Workflows:** Full Business Autopilot (everything in one run), End-of-Week Everything, Task Master`;
 
     // Inject conversation summary for long conversations
     if (conversationSummary) {
