@@ -29,6 +29,9 @@ import {
   Zap,
   Lock,
   ExternalLink,
+  Contact,
+  StickyNote,
+  Image,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -97,6 +100,9 @@ const GOOGLE_SUITE = [
   { id: "drive", name: "Google Drive", description: "Access and manage files", icon: HardDrive, color: "text-yellow-400", requiresOAuth: true, comingSoon: false },
   { id: "sheets", name: "Google Sheets", description: "Read and write spreadsheet data", icon: FileSpreadsheet, color: "text-green-400", requiresOAuth: true, comingSoon: false },
   { id: "youtube", name: "YouTube", description: "Video analytics and management", icon: Youtube, color: "text-red-500", requiresOAuth: true, comingSoon: false },
+  { id: "contacts", name: "Google Contacts", description: "Manage contacts — auto-connects with Google", icon: Contact, color: "text-indigo-400", requiresOAuth: true, comingSoon: false },
+  { id: "notes", name: "Notes & KB", description: "Persistent notes & knowledge base — always available", icon: StickyNote, color: "text-amber-400", requiresOAuth: false, comingSoon: false },
+  { id: "imagen", name: "Image Generation", description: "AI image creation via Imagen 3 — always available", icon: Image, color: "text-purple-400", requiresOAuth: false, comingSoon: false },
 ];
 
 const SOCIAL_MEDIA = [
@@ -114,6 +120,9 @@ const TOOL_MAP: Record<string, string[]> = {
   drive: ["List Files", "Get File", "Read Content", "Upload File", "Create Folder"],
   sheets: ["List Spreadsheets", "Read Sheet", "Write Sheet", "Append Rows", "Create Spreadsheet"],
   youtube: ["List Channels", "List Videos", "Analytics", "Search", "Playlists", "Add to Playlist", "Comments", "Reply to Comment"],
+  contacts: ["List Contacts", "Search Contacts", "Create Contact", "Delete Contact"],
+  notes: ["Create Note", "List Notes", "Update Note", "Delete Note", "Search Notes", "Knowledge Base"],
+  imagen: ["Generate Image"],
   twitter: ["Profile", "Timeline", "Tweet", "Search", "Delete", "Reply", "Retweet", "Like", "Unlike", "Mentions", "Followers", "Bookmark", "Bookmarks", "Liked Tweets", "Follow", "Unfollow", "Mute", "Block"],
   instagram: ["Profile", "Media", "Post", "Comments", "Reply", "Carousel", "Reel", "Post Insights", "Account Insights", "Stories", "Hashtag Search", "Delete Post", "Create Story", "Story Insights", "Tagged Media"],
   facebook: ["Profile", "Pages", "Page Posts", "Create Post", "Insights", "Comments", "Reply", "Delete Post", "Photo Post", "Schedule Post", "Video Upload", "Create Reel", "Scheduled Posts", "Cancel Scheduled"],
@@ -708,8 +717,11 @@ function ConnectionsPageInner() {
             {GOOGLE_SUITE.map((svc) => {
               const conn = connections[svc.id];
               const isEditing = editingKey === svc.id;
-              const isConnected = conn?.connected;
-              const isOAuth = conn?.tokenType === "oauth";
+              // Contacts auto-connects with any Google connection; Notes & Imagen are always available
+              const isAlwaysOn = svc.id === "notes" || svc.id === "imagen";
+              const isAutoGoogle = svc.id === "contacts" && (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected);
+              const isConnected = isAlwaysOn || isAutoGoogle || conn?.connected;
+              const isOAuth = isAlwaysOn || isAutoGoogle || conn?.tokenType === "oauth";
               const Icon = svc.icon;
 
               return (

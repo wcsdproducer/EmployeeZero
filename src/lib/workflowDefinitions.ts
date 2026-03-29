@@ -862,6 +862,91 @@ This is the ultimate "run my business for me" workflow.`,
 This is the "everything in one place" Friday report.`,
     requiredConnections: ["gmail"],
   },
+
+  // ═══════════════════════════════════════════════════════
+  // STANDALONE PLATFORM WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "facebook-page-manager": {
+    id: "facebook-page-manager",
+    goal: `You are running the Facebook Page Manager workflow. Do the following:
+
+1. **Facebook**: Get the user's page details and page insights.
+2. **Facebook**: Get recent page posts and their engagement (likes, comments, shares).
+3. **Facebook**: Get comments on the last 5 posts. Reply to genuine comments with helpful, on-brand responses.
+4. Analyze which post types perform best (text, photo, video, reel).
+5. Search the web for trending topics in the user's niche.
+6. Create 2 new posts:
+   - **Post 1**: Value-driven post with a question to drive comments
+   - **Post 2**: Photo post with an engaging caption
+7. Generate an image using the image generation tool for the photo post.
+8. Compile a page health report:
+   - 📊 **Page Stats**: Followers, reach, engagement rate
+   - 🔥 **Top Posts**: Best-performing recent content
+   - 💬 **Comments Handled**: Replies sent
+   - 📝 **New Content Created**: Posts published
+   - 🎯 **Recommendations**: Content strategy suggestions
+9. Save as a note titled "Facebook Report [date]".`,
+    requiredConnections: ["facebook"],
+  },
+
+  "tiktok-scout": {
+    id: "tiktok-scout",
+    goal: `You are running the TikTok Scout workflow. Do the following:
+
+1. **TikTok**: Get the user's TikTok profile stats (followers, likes, video count).
+2. Search the web for trending TikTok sounds, challenges, and content formats right now.
+3. Search the web for viral TikTok videos in the user's niche.
+4. Analyze what makes the trending content successful (hooks, duration, formats).
+5. Generate 5 TikTok video concepts including:
+   - **Concept 1**: Trending sound + custom take
+   - **Concept 2**: "Day in the life" style
+   - **Concept 3**: Quick tips or hacks (under 30 seconds)
+   - **Concept 4**: Duet/Stitch response to a viral video
+   - **Concept 5**: Before/After or transformation
+6. For each concept, provide:
+   - Hook (first 2 seconds)
+   - Script/outline
+   - Suggested hashtags (10-15)
+   - Best posting time
+7. Compile a TikTok strategy report:
+   - 📊 **Profile Status**: Current followers and engagement
+   - 🔥 **Trending Now**: Sounds, challenges, formats
+   - 🎬 **Content Ideas**: 5 detailed concepts
+   - 📈 **Growth Strategy**: Recommendations for growth
+8. Save as a note titled "TikTok Strategy [date]".
+
+Note: TikTok posting is currently read-only. Video concepts are prepared for manual upload.`,
+    requiredConnections: ["tiktok"],
+  },
+
+  "contact-manager": {
+    id: "contact-manager",
+    goal: `You are running the Contact Manager workflow. Organize and enrich your contacts:
+
+1. **Contacts**: List all contacts (up to 50).
+2. Analyze the contact list:
+   - Count total contacts
+   - Identify contacts without complete information (missing email, phone, company)
+   - Look for potential duplicates (similar names or emails)
+3. **Email**: Search recent sent emails to find new people you've been communicating with.
+4. For each new person not in contacts:
+   - Create a new contact with their name and email
+5. Cross-reference contacts with social media:
+   - Search LinkedIn for professional context on key contacts
+   - Note any social media profiles found
+6. Compile a contact health report:
+   - 👥 **Total Contacts**: Count and breakdown
+   - ➕ **New Contacts Added**: From recent emails
+   - ⚠️ **Incomplete Profiles**: Contacts missing info
+   - 🔄 **Potential Duplicates**: Contacts that might be the same person
+   - 🌐 **Social Enrichment**: LinkedIn profiles found
+   - 🎯 **VIP Contacts**: Most frequently contacted people
+7. Save as a note titled "Contact Manager Report [date]".
+
+Do NOT delete contacts without permission.`,
+    requiredConnections: ["gmail"],
+  },
 };
 
 /**

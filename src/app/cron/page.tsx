@@ -128,6 +128,10 @@ const WORKFLOW_OPTIONS: WorkflowOption[] = [
   { id: "drive-cleanup", name: "Drive Cleanup", icon: <FileSpreadsheet size={16} />, iconBg: "from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
   { id: "weekly-file-report", name: "Weekly File Report", icon: <FileSpreadsheet size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
   { id: "notes-digest", name: "Notes Digest", icon: <Sparkles size={16} />, iconBg: "from-purple-500/20 to-indigo-500/20 border-purple-500/30 text-purple-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
+  // ─── STANDALONE PLATFORM ───
+  { id: "facebook-page-manager", name: "Facebook Page Manager", icon: <TrendingUp size={16} />, iconBg: "from-blue-500/20 to-blue-600/20 border-blue-500/30 text-blue-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
+  { id: "tiktok-scout", name: "TikTok Scout", icon: <TrendingUp size={16} />, iconBg: "from-cyan-500/20 to-teal-500/20 border-cyan-500/30 text-cyan-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
+  { id: "contact-manager", name: "Contact Manager", icon: <Users size={16} />, iconBg: "from-indigo-500/20 to-blue-500/20 border-indigo-500/30 text-indigo-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
 ];
 
 /* ─── Helpers ─── */
