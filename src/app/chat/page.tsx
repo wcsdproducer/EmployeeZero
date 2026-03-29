@@ -47,25 +47,34 @@ interface WorkflowSuggestion {
   id: string;
   name: string;
   tagline: string;
+  description: string;
   icon: React.ReactNode;
   iconBg: string;
   skills: string[];
+  connections: string[];
+  frequency: string;
 }
 
+const CONNECTION_ICONS: Record<string, string> = {
+  Gmail: "📧", "Google Calendar": "📅", "Google Tasks": "✅", "Google Contacts": "👤",
+  "Google Drive": "📁", "Google Docs": "📄", "Business Profile": "🏢", "Google Analytics": "📊",
+  "Google Sheets": "📊", "Google Forms": "📋", "Google Slides": "📽️",
+};
+
 const WORKFLOW_SUGGESTIONS: WorkflowSuggestion[] = [
-  { id: "morning-briefing", name: "Morning Briefing", tagline: "Start every day knowing what matters", icon: <Sparkles size={16} />, iconBg: "from-amber-500/20 to-orange-500/20 border-amber-500/30 text-amber-400", skills: ["Email Scanning", "Calendar Analysis"] },
-  { id: "inbox-commander", name: "Inbox Commander", tagline: "Your inbox, triaged and handled", icon: <Mail size={16} />, iconBg: "from-red-500/20 to-pink-500/20 border-red-500/30 text-red-400", skills: ["Email Triage", "Auto-Reply Drafting"] },
-  { id: "meeting-prep", name: "Meeting Prep", tagline: "Walk into meetings already informed", icon: <Users size={16} />, iconBg: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400", skills: ["Attendee Research", "Talking Points"] },
-  { id: "eod-wrapup", name: "End-of-Day Wrap-Up", tagline: "Close every day with clarity", icon: <Clock size={16} />, iconBg: "from-purple-500/20 to-violet-500/20 border-purple-500/30 text-purple-400", skills: ["Activity Review", "Priority Setting"] },
-  { id: "lead-tracker", name: "Lead Tracker", tagline: "Never lose a lead again", icon: <Target size={16} />, iconBg: "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400", skills: ["Lead Detection", "Follow-Up Sequences"] },
-  { id: "appointment-scheduler", name: "Appointment Scheduler", tagline: "Clients book via email — no Calendly", icon: <Calendar size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", skills: ["Availability Check", "Booking"] },
-  { id: "review-responder", name: "Review Responder", tagline: "Every review gets a thoughtful reply", icon: <Star size={16} />, iconBg: "from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-400", skills: ["Sentiment Analysis", "Response Drafting"] },
-  { id: "invoice-tracker", name: "Invoice Tracker", tagline: "Every dollar tracked automatically", icon: <FileSpreadsheet size={16} />, iconBg: "from-green-500/20 to-lime-500/20 border-green-500/30 text-green-400", skills: ["Invoice Detection", "Expense Logging"] },
-  { id: "weekly-report", name: "Weekly Report", tagline: "One-click executive summary", icon: <BarChart3 size={16} />, iconBg: "from-indigo-500/20 to-purple-500/20 border-indigo-500/30 text-indigo-400", skills: ["Data Aggregation", "Trend Analysis"] },
-  { id: "content-calendar", name: "Content Calendar", tagline: "A week of content in 10 seconds", icon: <Globe size={16} />, iconBg: "from-pink-500/20 to-rose-500/20 border-pink-500/30 text-pink-400", skills: ["Copy Generation", "Calendar Planning"] },
-  { id: "competitor-intel", name: "Competitor Intel", tagline: "Know what competitors do first", icon: <Search size={16} />, iconBg: "from-orange-500/20 to-red-500/20 border-orange-500/30 text-orange-400", skills: ["Web Monitoring", "Competitive Analysis"] },
-  { id: "social-autopilot", name: "Social Autopilot", tagline: "Create once, publish everywhere", icon: <TrendingUp size={16} />, iconBg: "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400", skills: ["Platform Adapt", "Scheduling"] },
-  { id: "business-pulse", name: "Business Pulse", tagline: "\"How's business?\" — answered instantly", icon: <Briefcase size={16} />, iconBg: "from-violet-500/20 to-purple-500/20 border-violet-500/30 text-violet-400", skills: ["KPI Tracking", "Insight Generation"] },
+  { id: "morning-briefing", name: "Morning Briefing", tagline: "Start every day knowing what matters", description: "Scans your email, calendar, and files every morning. Delivers a prioritized summary with today's meetings, urgent emails, and suggested priorities — straight to your chat.", icon: <Sparkles size={16} />, iconBg: "from-amber-500/20 to-orange-500/20 border-amber-500/30 text-amber-400", skills: ["Email Scanning", "Calendar Analysis", "Priority Scoring"], connections: ["Gmail", "Google Calendar"], frequency: "Daily at your wake-up time" },
+  { id: "inbox-commander", name: "Inbox Commander", tagline: "Your inbox, triaged and handled", description: "Categorizes every email as urgent, action-needed, FYI, or noise. Drafts replies for urgent items, auto-archives junk, and delivers a clean digest every 30 minutes.", icon: <Mail size={16} />, iconBg: "from-red-500/20 to-pink-500/20 border-red-500/30 text-red-400", skills: ["Email Triage", "Auto-Reply Drafting", "Smart Archiving"], connections: ["Gmail"], frequency: "Every 30 minutes" },
+  { id: "meeting-prep", name: "Meeting Prep", tagline: "Walk into meetings already informed", description: "15 minutes before each meeting, researches attendees by checking past email threads. Generates a briefing with context, talking points, and open items.", icon: <Users size={16} />, iconBg: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400", skills: ["Attendee Research", "Email History Search", "Talking Points"], connections: ["Gmail", "Google Calendar"], frequency: "Before every meeting" },
+  { id: "eod-wrapup", name: "End-of-Day Wrap-Up", tagline: "Close every day with clarity", description: "Reviews your day's emails, calendar events, and completed tasks. Generates a summary of accomplishments, pending items, and priorities for tomorrow.", icon: <Clock size={16} />, iconBg: "from-purple-500/20 to-violet-500/20 border-purple-500/30 text-purple-400", skills: ["Activity Review", "Priority Setting", "Summary Generation"], connections: ["Gmail", "Google Calendar"], frequency: "Daily at your chosen time" },
+  { id: "lead-tracker", name: "Lead Tracker", tagline: "Never lose a lead again", description: "Scans incoming emails for potential leads and new business opportunities. Enriches contacts and sets up automatic follow-up sequences.", icon: <Target size={16} />, iconBg: "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400", skills: ["Lead Detection", "Contact Enrichment", "Follow-Up Sequences"], connections: ["Gmail", "Google Contacts"], frequency: "Every 2 hours" },
+  { id: "appointment-scheduler", name: "Appointment Scheduler", tagline: "Clients book via email — no Calendly", description: "Monitors emails for scheduling requests. Checks your calendar availability, proposes times, and books confirmed appointments automatically.", icon: <Calendar size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", skills: ["Availability Check", "Time Proposal", "Email Negotiation", "Booking"], connections: ["Gmail", "Google Calendar"], frequency: "Every 30 minutes" },
+  { id: "review-responder", name: "Review Responder", tagline: "Every review gets a thoughtful reply", description: "Monitors your Google Business Profile for new reviews. Crafts professional, on-brand responses for both positive and negative feedback.", icon: <Star size={16} />, iconBg: "from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-400", skills: ["Sentiment Analysis", "Response Drafting", "Brand Voice"], connections: ["Business Profile"], frequency: "Every 2 hours" },
+  { id: "invoice-tracker", name: "Invoice Tracker", tagline: "Every dollar tracked automatically", description: "Scans emails for invoices and payment notifications. Logs amounts, due dates, and vendors into a spreadsheet for easy tracking.", icon: <FileSpreadsheet size={16} />, iconBg: "from-green-500/20 to-lime-500/20 border-green-500/30 text-green-400", skills: ["Invoice Detection", "Expense Logging", "Payment Tracking"], connections: ["Gmail", "Google Sheets"], frequency: "Daily" },
+  { id: "weekly-report", name: "Weekly Report", tagline: "One-click executive summary", description: "Aggregates your week's email volume, meetings attended, tasks completed, and key metrics into a polished executive summary.", icon: <BarChart3 size={16} />, iconBg: "from-indigo-500/20 to-purple-500/20 border-indigo-500/30 text-indigo-400", skills: ["Data Aggregation", "Trend Analysis", "Report Generation"], connections: ["Gmail", "Google Calendar"], frequency: "Weekly on Fridays" },
+  { id: "content-calendar", name: "Content Calendar", tagline: "A week of content in 10 seconds", description: "Generates a full week of social media posts tailored to your brand voice and industry. Includes hooks, copy, and optimal posting times.", icon: <Globe size={16} />, iconBg: "from-pink-500/20 to-rose-500/20 border-pink-500/30 text-pink-400", skills: ["Copy Generation", "Calendar Planning", "Platform Optimization"], connections: ["Google Docs"], frequency: "Weekly on Mondays" },
+  { id: "competitor-intel", name: "Competitor Intel", tagline: "Know what competitors do first", description: "Monitors competitor websites and social channels for changes, new products, and announcements. Delivers a weekly intelligence briefing.", icon: <Search size={16} />, iconBg: "from-orange-500/20 to-red-500/20 border-orange-500/30 text-orange-400", skills: ["Web Monitoring", "Competitive Analysis", "Alert Generation"], connections: ["Google Docs"], frequency: "Weekly" },
+  { id: "social-autopilot", name: "Social Autopilot", tagline: "Create once, publish everywhere", description: "Takes a single content piece and adapts it for multiple platforms, adjusting tone, length, and format for each audience.", icon: <TrendingUp size={16} />, iconBg: "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400", skills: ["Platform Adapt", "Copy Rewriting", "Scheduling"], connections: ["Google Docs"], frequency: "On demand" },
+  { id: "business-pulse", name: "Business Pulse", tagline: "\"How's business?\" — answered instantly", description: "Aggregates signals from your email, calendar, and business profile to give you an instant health check on your business.", icon: <Briefcase size={16} />, iconBg: "from-violet-500/20 to-purple-500/20 border-violet-500/30 text-violet-400", skills: ["KPI Tracking", "Insight Generation", "Trend Analysis"], connections: ["Gmail", "Business Profile"], frequency: "Daily" },
 ];
 
 function getAgents(employeeName: string, avatarId: string | null) {
@@ -175,6 +184,7 @@ function ChatPageInner() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showHireModal, setShowHireModal] = useState(false);
+  const [previewWorkflow, setPreviewWorkflow] = useState<WorkflowSuggestion | null>(null);
   const [foundingCount, setFoundingCount] = useState<number | null>(null);
   const [purchasedAgents, setPurchasedAgents] = useState<AgentDoc[]>([]);
   const [setupAgent, setSetupAgent] = useState<AgentDoc | null>(null);
@@ -582,37 +592,8 @@ function ChatPageInner() {
                       {visibleWorkflows.map((wf) => (
                         <button
                           key={wf.id}
-                          onClick={async () => {
-                            if (!user || submitting) return;
-                            const workflowMessage = `Run the ${wf.name} workflow`;
-                            setInput("");
-                            setSubmitting(true);
-                            try {
-                              // Create a new conversation for this workflow
-                              const docRef = await addDoc(collection(db, "conversations"), {
-                                userId: user.uid,
-                                title: `⚡ ${wf.name}`,
-                                messages: [{ role: "user", content: workflowMessage, timestamp: new Date().toISOString() }],
-                                status: "running",
-                                createdAt: Timestamp.now(),
-                              });
-                              setActiveConvId(docRef.id);
-                              // Fire the workflow execution API
-                              authFetch("/api/workflows/run", {
-                                method: "POST",
-                                body: JSON.stringify({
-                                  conversationId: docRef.id,
-                                  workflowId: wf.id,
-                                }),
-                              }).catch((err) => console.error("Workflow API error:", err));
-                            } catch (err) {
-                              console.error("Failed to start workflow:", err);
-                            } finally {
-                              setSubmitting(false);
-                            }
-                          }}
-                          disabled={submitting}
-                          className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group cursor-pointer disabled:opacity-50"
+                          onClick={() => setPreviewWorkflow(wf)}
+                          className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group cursor-pointer"
                         >
                           <div className="flex items-center gap-2.5 mb-2">
                             <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br border flex items-center justify-center flex-shrink-0", wf.iconBg)}>
@@ -622,9 +603,12 @@ function ChatPageInner() {
                           </div>
                           <p className="text-[12px] text-neutral-500 leading-relaxed mb-2">{wf.tagline}</p>
                           <div className="flex gap-1.5">
-                            {wf.skills.map((s) => (
+                            {wf.skills.slice(0, 2).map((s) => (
                               <span key={s} className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-500">{s}</span>
                             ))}
+                            {wf.skills.length > 2 && (
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-500">+{wf.skills.length - 2}</span>
+                            )}
                           </div>
                         </button>
                       ))}
@@ -672,6 +656,128 @@ function ChatPageInner() {
           </div>
         </div>
       </main>
+
+      {/* Workflow Preview Modal */}
+      <AnimatePresence>
+        {previewWorkflow && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            onClick={() => setPreviewWorkflow(null)}
+          >
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md bg-[#111111] border border-white/10 rounded-3xl p-8 shadow-2xl shadow-black/50"
+            >
+              {/* Close */}
+              <button
+                onClick={() => setPreviewWorkflow(null)}
+                className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors p-1"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Icon + Title */}
+              <div className="flex items-center gap-4 mb-5">
+                <div className={cn("w-14 h-14 rounded-2xl bg-gradient-to-br border flex items-center justify-center", previewWorkflow.iconBg)}>
+                  {previewWorkflow.icon}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">{previewWorkflow.name}</h2>
+                  <p className="text-sm text-neutral-400">{previewWorkflow.tagline}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              <p className="text-sm text-neutral-300 leading-relaxed mb-6">
+                {previewWorkflow.description}
+              </p>
+
+              {/* Skills */}
+              <div className="mb-5">
+                <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Included Skills</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {previewWorkflow.skills.map((skill) => (
+                    <span key={skill} className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 flex items-center gap-1">
+                      <Sparkles size={10} className="text-purple-400" />
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Connections */}
+              <div className="mb-5">
+                <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Required Connections</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {previewWorkflow.connections.map((conn) => (
+                    <span key={conn} className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-blue-500/5 border border-blue-500/15 text-blue-300 flex items-center gap-1.5">
+                      <span className="text-xs">{CONNECTION_ICONS[conn] || "🔗"}</span>
+                      {conn}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Frequency */}
+              <div className="flex items-center gap-2 mb-8 text-sm text-neutral-400">
+                <Clock size={14} className="text-neutral-500" />
+                <span>Runs: <strong className="text-neutral-200">{previewWorkflow.frequency}</strong></span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    if (!user || submitting) return;
+                    const wf = previewWorkflow;
+                    setPreviewWorkflow(null);
+                    const workflowMessage = `Run the ${wf.name} workflow`;
+                    setInput("");
+                    setSubmitting(true);
+                    try {
+                      const docRef = await addDoc(collection(db, "conversations"), {
+                        userId: user.uid,
+                        title: `⚡ ${wf.name}`,
+                        messages: [{ role: "user", content: workflowMessage, timestamp: new Date().toISOString() }],
+                        status: "running",
+                        createdAt: Timestamp.now(),
+                      });
+                      setActiveConvId(docRef.id);
+                      authFetch("/api/workflows/run", {
+                        method: "POST",
+                        body: JSON.stringify({ conversationId: docRef.id, workflowId: wf.id }),
+                      }).catch((err) => console.error("Workflow API error:", err));
+                    } catch (err) {
+                      console.error("Failed to start workflow:", err);
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                  className="flex-1 py-3.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-white text-black hover:bg-neutral-200 disabled:opacity-50"
+                >
+                  <Zap size={14} /> Run Now
+                </button>
+                <Link
+                  href="/workflows"
+                  onClick={() => setPreviewWorkflow(null)}
+                  className="px-5 py-3.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10"
+                >
+                  View All →
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hire Agent Modal */}
       <AnimatePresence>
