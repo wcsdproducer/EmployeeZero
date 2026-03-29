@@ -2288,6 +2288,32 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
       // Custom workflows query failed — non-critical, skip
     }
 
+    // Scheduled jobs from Firestore (/cron page)
+    try {
+      const cronDoc = await adminDb.doc(`users/${userId}/settings/cron`).get();
+      if (cronDoc.exists) {
+        const cronJobs = (cronDoc.data()?.jobs || []) as Array<{
+          workflowId: string; name: string; schedule: string;
+          cronExpression: string; enabled: boolean; lastRun?: string;
+          lastStatus?: string;
+        }>;
+        const activeJobs = cronJobs.filter(j => j.enabled);
+        const pausedJobs = cronJobs.filter(j => !j.enabled);
+        if (activeJobs.length > 0 || pausedJobs.length > 0) {
+          let cronSection = `\n\n## Scheduled Jobs (${activeJobs.length} active, ${pausedJobs.length} paused)`;
+          if (activeJobs.length > 0) {
+            cronSection += `\n**Active:**\n${activeJobs.map(j => `- ${j.name}: ${j.schedule} (cron: ${j.cronExpression})${j.lastRun ? ` — last ran ${j.lastStatus || "unknown"}` : ""}`).join("\n")}`;
+          }
+          if (pausedJobs.length > 0) {
+            cronSection += `\n**Paused:**\n${pausedJobs.map(j => `- ${j.name}: ${j.schedule}`).join("\n")}`;
+          }
+          systemPrompt += cronSection;
+        }
+      }
+    } catch (err) {
+      // Cron query failed — non-critical, skip
+    }
+
     // Inject conversation summary for long conversations
     if (conversationSummary) {
       systemPrompt += `\n\n## Earlier Conversation Context\nSummary of earlier parts of this conversation (older messages have been condensed to save processing):\n${conversationSummary}`;
