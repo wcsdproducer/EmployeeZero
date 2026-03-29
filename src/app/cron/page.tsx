@@ -231,6 +231,19 @@ function getNextRun(cronExpression: string): string {
     const next = new Date(now.getTime() + mins * 60000);
     return next.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   }
+  if (parts[1]?.startsWith("*/")) {
+    const hrs = parseInt(parts[1].slice(2));
+    const currentHour = now.getHours();
+    const nextHour = Math.ceil((currentHour + 1) / hrs) * hrs;
+    const next = new Date(now);
+    next.setHours(nextHour >= 24 ? hrs : nextHour, parseInt(parts[0]) || 0, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    return `${next.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
+  if (parts[1] === "*") {
+    const next = new Date(now.getTime() + 60 * 60000);
+    return next.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
   const hour = parseInt(parts[1] || "0");
   const minute = parseInt(parts[0] || "0");
   const next = new Date(now);
