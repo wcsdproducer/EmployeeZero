@@ -1110,25 +1110,20 @@ Note: Do NOT send the email without user approval. Just draft it.`,
 
   "pitch-deck-builder": {
     id: "pitch-deck-builder",
-    goal: `You are running the Pitch Deck Builder workflow. Create a professional presentation:
+    goal: `You are running the Pitch Deck Builder workflow. Create a professional presentation EFFICIENTLY.
 
-1. Search the web for the user's business/industry context.
-2. **Slides**: Create a new presentation titled "Business Overview - [Business Name]".
-3. **Slides**: Add slides with this structure:
-   - **Slide 1 (TITLE)**: Company name and tagline
-   - **Slide 2 (TITLE_AND_BODY)**: Problem Statement — what pain point you solve
-   - **Slide 3 (TITLE_AND_BODY)**: Solution — your product/service overview
-   - **Slide 4 (TITLE_AND_BODY)**: Key Features — top 3-5 differentiators
-   - **Slide 5 (TITLE_AND_BODY)**: Market Opportunity — industry size and growth
-   - **Slide 6 (TITLE_AND_BODY)**: Business Model — how you make money
-   - **Slide 7 (TITLE_AND_BODY)**: Traction — key metrics and milestones
-   - **Slide 8 (TITLE_AND_BODY)**: Contact — call to action and contact info
-4. **Slides**: Insert relevant text into each slide's body placeholder.
-5. Generate a brand image for the title slide using image generation.
-6. Share the presentation URL.
-7. Save as a note titled "Pitch Deck [date]".
+IMPORTANT: Be fast — create the presentation, add ALL slides first, THEN insert text into each. Do NOT search the web unless absolutely necessary. Use info from user memory.
 
-Note: User should review and customize the content after generation.`,
+1. Create a new presentation titled "[Business Name] - Overview".
+2. Add exactly 4 slides (use layout TITLE_AND_BODY for all).
+3. Insert text for each slide:
+   - Slide 1: Problem & Solution — what pain point you solve and your approach
+   - Slide 2: Key Features — top 3-5 differentiators with bullet points
+   - Slide 3: Market & Business Model — target market size and how you make money
+   - Slide 4: Contact & Next Steps — call to action
+4. Share the presentation URL with the user.
+
+Be concise in slide text. Use bullet points. Complete this as fast as possible.`,
     requiredConnections: ["slides"],
   },
 

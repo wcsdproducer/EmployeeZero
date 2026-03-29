@@ -176,7 +176,7 @@ export interface Task {
 const MAX_STEPS = 25;
 const MAX_RETRIES_PER_STEP = 2;
 const TOOL_TIMEOUT_MS = 30_000; // 30s per tool call
-const TASK_TIMEOUT_MS = 4 * 60_000; // 4 min global timeout
+const TASK_TIMEOUT_MS = 8 * 60_000; // 8 min global timeout
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
