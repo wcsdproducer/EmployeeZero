@@ -2241,19 +2241,52 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 
     systemPrompt += `\n\n### Custom Workflows\nYou have workflow management tools: create_workflow, list_my_workflows, delete_workflow.\n\n**IMPORTANT:** When the user asks to "create a workflow", "set up an automation", or "build a routine", use the **create_workflow** tool to SAVE a workflow definition. Do NOT actually execute the workflow steps — just save the definition so the user can run it later from their Workflows page.\n\nThe "goal" field should contain detailed, step-by-step instructions for another AI agent to follow when the workflow is eventually executed. Include specific tool names (like search_emails, list_events, web_search) and formatting requirements.\n\nExample: If the user says "create a workflow that checks my email every morning", save it with create_workflow — don't start scanning emails.`;
 
-    // ── Available Built-in Workflows ──
-    systemPrompt += `\n\n## Available Built-in Workflows
-These are pre-built workflows the user can run from the **Workflows** page or ask you to run. If the user mentions a topic matching one of these, suggest the relevant workflow.
+    // ── Dynamically built workflow awareness ──
+    const connectedKeys = new Set(
+      Object.entries(connections)
+        .filter(([, v]) => v?.connected)
+        .map(([k]) => k)
+    );
 
-**Email & Productivity:** Morning Briefing, Inbox Commander, Meeting Prep, End-of-Day Wrap-Up, Daily Standup, Meeting Follow-Up, Week Planner
-**Sales & CRM:** Lead Tracker, Appointment Scheduler, Client Onboarding, CRM Sync, Customer Birthday Checker, Contact Manager
-**Social Media:** Social Engagement Sweep, Social Post All Platforms, Social Analytics Report, Twitter Growth Engine, Instagram Content Machine, LinkedIn Thought Leader, Facebook Page Manager, TikTok Scout, Brand Mention Monitor
-**Content & Research:** Content Calendar, Social Autopilot, Visual Content Batch, Competitor Intel, Market Research, SEO Audit, YouTube Channel Manager
-**Finance:** Invoice Tracker, Expense Logger, Revenue Tracker
-**Documents & Files:** Drive Cleanup, Weekly File Report, Notes Digest, Auto Report Generator, Meeting Minutes Doc, Pitch Deck Builder, Survey Creator
-**Business Intelligence:** Business Pulse, Website Performance, Review Guardian, Client Feedback Analyzer
-**Team & HR:** Hiring Pipeline, Team Newsletter
-**Power Workflows:** Full Business Autopilot (everything in one run), End-of-Week Everything, Task Master`;
+    const runnableWorkflows: string[] = [];
+    const blockedWorkflows: string[] = [];
+    for (const [wfId, wfDef] of Object.entries(WORKFLOW_DEFINITIONS)) {
+      const name = wfId.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      if (wfDef.connectionOptional || wfDef.requiredConnections.length === 0) {
+        runnableWorkflows.push(name);
+      } else if (wfDef.requiredConnections.every(c => connectedKeys.has(c))) {
+        runnableWorkflows.push(name);
+      } else {
+        const missing = wfDef.requiredConnections.filter(c => !connectedKeys.has(c));
+        blockedWorkflows.push(`${name} (needs: ${missing.join(", ")})`);
+      }
+    }
+
+    if (runnableWorkflows.length > 0) {
+      systemPrompt += `\n\n## Available Workflows (${runnableWorkflows.length} ready)\nThese built-in workflows are ready to run with the user's current connections. Suggest relevant ones when the user's request matches:\n${runnableWorkflows.join(", ")}`;
+    }
+    if (blockedWorkflows.length > 0) {
+      systemPrompt += `\n\n### Workflows Needing More Connections\nThese require additional service connections before they can run:\n${blockedWorkflows.join(", ")}`;
+    }
+
+    // User's custom workflows from Firestore
+    try {
+      const customWfs = await listCustomWorkflows(userId);
+      if (customWfs.length > 0) {
+        const scheduled = customWfs.filter(w => w.schedule && w.enabled);
+        const manual = customWfs.filter(w => !w.schedule || !w.enabled);
+        let customSection = `\n\n## User's Custom Workflows (${customWfs.length} total)`;
+        if (scheduled.length > 0) {
+          customSection += `\n**Scheduled (active cron jobs):**\n${scheduled.map(w => `- ${w.name}: ${w.description} (cron: ${w.schedule})`).join("\n")}`;
+        }
+        if (manual.length > 0) {
+          customSection += `\n**Manual:**\n${manual.map(w => `- ${w.name}: ${w.description}`).join("\n")}`;
+        }
+        systemPrompt += customSection;
+      }
+    } catch (err) {
+      // Custom workflows query failed — non-critical, skip
+    }
 
     // Inject conversation summary for long conversations
     if (conversationSummary) {
