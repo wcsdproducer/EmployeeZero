@@ -193,6 +193,7 @@ function ChatPageInner() {
   const [setupAvatar, setSetupAvatar] = useState("robot");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
   const FOUNDING_LIMIT = 100;
@@ -478,16 +479,53 @@ function ChatPageInner() {
             </div>
 
             <div className="p-3 border-t border-white/5">
-              <div className="flex items-center gap-3 px-3 py-2">
+              <div className="flex items-center gap-3 px-3 py-2 relative">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neutral-700 to-neutral-500 flex items-center justify-center text-[10px] font-bold">
                   {user.email?.[0].toUpperCase()}
                 </div>
                 <div className="flex-1 truncate">
                   <p className="text-[13px] font-medium truncate">{user.email}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500">
+                <div className="relative">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("h-8 w-8 transition-colors", showUserMenu ? "text-white bg-white/10" : "text-neutral-500 hover:text-neutral-300")}
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                  >
                     <MoreHorizontal size={14} />
-                </Button>
+                  </Button>
+                  <AnimatePresence>
+                    {showUserMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 bottom-10 z-50 w-48 bg-[#151515] border border-white/10 rounded-xl shadow-2xl shadow-black/60 overflow-hidden"
+                        >
+                          <div className="p-1">
+                            <Link href="/connections" onClick={() => setShowUserMenu(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-white hover:bg-white/5 transition-all">
+                              <Plug size={14} /> Connections
+                            </Link>
+                            <Link href="/workflows" onClick={() => setShowUserMenu(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-white hover:bg-white/5 transition-all">
+                              <Zap size={14} /> Workflows
+                            </Link>
+                            <div className="h-px bg-white/5 my-1" />
+                            <button
+                              onClick={() => { signOut(); setShowUserMenu(false); }}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
+                            >
+                              <LogOut size={14} /> Sign Out
+                            </button>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
           </motion.aside>
