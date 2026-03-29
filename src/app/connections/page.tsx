@@ -107,6 +107,20 @@ const SOCIAL_MEDIA = [
   { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
 ];
 
+/* ─── Tool Map ─── */
+const TOOL_MAP: Record<string, string[]> = {
+  gmail: ["Search Emails", "Read Email", "Send Email", "Reply", "Unread Count", "Archive", "Trash"],
+  calendar: ["List Events", "Get Event", "Create Event", "Update Event", "Delete Event", "Find Free Slots"],
+  drive: ["List Files", "Get File", "Read Content", "Upload File", "Create Folder"],
+  sheets: ["List Spreadsheets", "Read Sheet", "Write Sheet", "Append Rows", "Create Spreadsheet"],
+  youtube: ["List Channels", "List Videos", "Analytics", "Search", "Playlists", "Add to Playlist", "Comments", "Reply to Comment"],
+  twitter: ["Profile", "Timeline", "Tweet", "Search", "Delete", "Reply", "Retweet", "Like", "Unlike", "Mentions", "Followers", "Bookmark", "Bookmarks", "Liked Tweets", "Follow", "Unfollow", "Mute", "Block"],
+  instagram: ["Profile", "Media", "Post", "Comments", "Reply", "Carousel", "Reel", "Post Insights", "Account Insights", "Stories", "Hashtag Search", "Delete Post", "Create Story", "Story Insights", "Tagged Media"],
+  facebook: ["Profile", "Pages", "Page Posts", "Create Post", "Insights", "Comments", "Reply", "Delete Post", "Photo Post", "Schedule Post", "Video Upload", "Create Reel", "Scheduled Posts", "Cancel Scheduled"],
+  tiktok: ["Profile"],
+  linkedin: ["Profile", "Create Post", "Post with Link", "Get Posts", "Delete Post", "Image Post", "Comment", "React"],
+};
+
 /* ─── Component ─── */
 export default function ConnectionsPage() {
   return (
@@ -812,6 +826,27 @@ function ConnectionsPageInner() {
                       </div>
                     </div>
                   )}
+
+                  {/* Tools list */}
+                  {TOOL_MAP[svc.id] && (
+                    <div className="px-4 pb-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {TOOL_MAP[svc.id].map((tool) => (
+                          <span
+                            key={tool}
+                            className={cn(
+                              "text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                              isConnected
+                                ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400/70"
+                                : "bg-white/[0.02] border-white/5 text-neutral-600"
+                            )}
+                          >
+                            {tool}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -889,6 +924,27 @@ function ConnectionsPageInner() {
                       ) : null}
                     </div>
                   </div>
+
+                  {/* Tools list */}
+                  {TOOL_MAP[svc.id] && (
+                    <div className="px-4 pb-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {TOOL_MAP[svc.id].map((tool) => (
+                          <span
+                            key={tool}
+                            className={cn(
+                              "text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                              isConnected
+                                ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400/70"
+                                : "bg-white/[0.02] border-white/5 text-neutral-600"
+                            )}
+                          >
+                            {tool}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Edit row */}
                   {isEditing && (
