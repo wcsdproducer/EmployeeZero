@@ -79,19 +79,55 @@ interface WorkflowOption {
 }
 
 const WORKFLOW_OPTIONS: WorkflowOption[] = [
+  // ─── DAILY ESSENTIALS ───
   { id: "morning-briefing", name: "Morning Briefing", icon: <Sparkles size={16} />, iconBg: "from-amber-500/20 to-orange-500/20 border-amber-500/30 text-amber-400", defaultSchedule: "Daily 8 AM", defaultCron: "0 8 * * *" },
+  { id: "daily-standup", name: "Daily Standup", icon: <Calendar size={16} />, iconBg: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Daily 8 AM", defaultCron: "0 8 * * *" },
   { id: "inbox-commander", name: "Inbox Commander", icon: <Mail size={16} />, iconBg: "from-red-500/20 to-pink-500/20 border-red-500/30 text-red-400", defaultSchedule: "Every 30 min", defaultCron: "*/30 * * * *" },
-  { id: "meeting-prep", name: "Meeting Prep", icon: <Users size={16} />, iconBg: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Hourly", defaultCron: "0 * * * *" },
   { id: "eod-wrapup", name: "End-of-Day Wrap-Up", icon: <Clock size={16} />, iconBg: "from-purple-500/20 to-violet-500/20 border-purple-500/30 text-purple-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
-  { id: "lead-tracker", name: "Lead Tracker", icon: <Target size={16} />, iconBg: "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400", defaultSchedule: "Every 2 hours", defaultCron: "0 */2 * * *" },
+  { id: "full-business-autopilot", name: "Full Business Autopilot", icon: <Zap size={16} />, iconBg: "from-yellow-500/20 to-orange-500/20 border-yellow-500/30 text-yellow-400", defaultSchedule: "Daily 8 AM", defaultCron: "0 8 * * *" },
+  // ─── CALENDAR & MEETINGS ───
+  { id: "meeting-prep", name: "Meeting Prep", icon: <Users size={16} />, iconBg: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Hourly", defaultCron: "0 * * * *" },
+  { id: "meeting-follow-up", name: "Meeting Follow-Up", icon: <Send size={16} />, iconBg: "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
+  { id: "week-planner", name: "Week Planner", icon: <Calendar size={16} />, iconBg: "from-indigo-500/20 to-blue-500/20 border-indigo-500/30 text-indigo-400", defaultSchedule: "Sun 8 PM", defaultCron: "0 20 * * 0" },
   { id: "appointment-scheduler", name: "Appointment Scheduler", icon: <Calendar size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Every 15 min", defaultCron: "*/15 * * * *" },
-  { id: "review-responder", name: "Review Responder", icon: <Star size={16} />, iconBg: "from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-400", defaultSchedule: "Every 2 hours", defaultCron: "0 */2 * * *" },
-  { id: "invoice-tracker", name: "Invoice Tracker", icon: <FileSpreadsheet size={16} />, iconBg: "from-green-500/20 to-lime-500/20 border-green-500/30 text-green-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
-  { id: "weekly-report", name: "Weekly Report", icon: <BarChart3 size={16} />, iconBg: "from-indigo-500/20 to-purple-500/20 border-indigo-500/30 text-indigo-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
-  { id: "content-calendar", name: "Content Calendar", icon: <Globe size={16} />, iconBg: "from-pink-500/20 to-rose-500/20 border-pink-500/30 text-pink-400", defaultSchedule: "Sun 8 PM", defaultCron: "0 20 * * 0" },
-  { id: "competitor-intel", name: "Competitor Intel", icon: <Search size={16} />, iconBg: "from-orange-500/20 to-red-500/20 border-orange-500/30 text-orange-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
+  // ─── SOCIAL MEDIA ───
+  { id: "social-engagement-sweep", name: "Social Engagement Sweep", icon: <TrendingUp size={16} />, iconBg: "from-pink-500/20 to-rose-500/20 border-pink-500/30 text-pink-400", defaultSchedule: "Every 2 hours", defaultCron: "0 */2 * * *" },
+  { id: "social-post-all-platforms", name: "Cross-Platform Post", icon: <Globe size={16} />, iconBg: "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400", defaultSchedule: "Weekdays 8 AM", defaultCron: "0 8 * * 1-5" },
+  { id: "social-analytics-report", name: "Social Analytics Report", icon: <BarChart3 size={16} />, iconBg: "from-violet-500/20 to-purple-500/20 border-violet-500/30 text-violet-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
   { id: "social-autopilot", name: "Social Autopilot", icon: <TrendingUp size={16} />, iconBg: "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400", defaultSchedule: "Weekdays 8 AM", defaultCron: "0 8 * * 1-5" },
+  { id: "twitter-growth-engine", name: "Twitter Growth Engine", icon: <TrendingUp size={16} />, iconBg: "from-neutral-500/20 to-neutral-600/20 border-neutral-500/30 text-neutral-300", defaultSchedule: "Every 2 hours", defaultCron: "0 */2 * * *" },
+  { id: "instagram-content-machine", name: "Instagram Content Machine", icon: <TrendingUp size={16} />, iconBg: "from-pink-500/20 to-fuchsia-500/20 border-pink-500/30 text-pink-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
+  { id: "linkedin-thought-leader", name: "LinkedIn Thought Leader", icon: <Briefcase size={16} />, iconBg: "from-blue-600/20 to-blue-500/20 border-blue-600/30 text-blue-400", defaultSchedule: "Weekdays 8 AM", defaultCron: "0 8 * * 1-5" },
+  { id: "youtube-channel-manager", name: "YouTube Channel Manager", icon: <TrendingUp size={16} />, iconBg: "from-red-500/20 to-red-600/20 border-red-500/30 text-red-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
+  // ─── CONTENT & BRAND ───
+  { id: "content-calendar", name: "Content Calendar", icon: <Globe size={16} />, iconBg: "from-pink-500/20 to-rose-500/20 border-pink-500/30 text-pink-400", defaultSchedule: "Sun 8 PM", defaultCron: "0 20 * * 0" },
+  { id: "visual-content-batch", name: "Visual Content Batch", icon: <Sparkles size={16} />, iconBg: "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "brand-mention-monitor", name: "Brand Mention Monitor", icon: <Search size={16} />, iconBg: "from-amber-500/20 to-orange-500/20 border-amber-500/30 text-amber-400", defaultSchedule: "Every 2 hours", defaultCron: "0 */2 * * *" },
+  // ─── CRM & CONTACTS ───
+  { id: "lead-tracker", name: "Lead Tracker", icon: <Target size={16} />, iconBg: "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400", defaultSchedule: "Every 2 hours", defaultCron: "0 */2 * * *" },
+  { id: "crm-sync", name: "CRM Sync", icon: <Users size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
+  { id: "customer-birthday-checker", name: "Birthday & Anniversary", icon: <Star size={16} />, iconBg: "from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-400", defaultSchedule: "Daily 8 AM", defaultCron: "0 8 * * *" },
+  { id: "review-responder", name: "Review Responder", icon: <Star size={16} />, iconBg: "from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-400", defaultSchedule: "Every 2 hours", defaultCron: "0 */2 * * *" },
+  { id: "client-onboarding", name: "Client Onboarding", icon: <Users size={16} />, iconBg: "from-emerald-500/20 to-green-500/20 border-emerald-500/30 text-emerald-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
+  // ─── FINANCE ───
+  { id: "expense-logger", name: "Expense Logger", icon: <FileSpreadsheet size={16} />, iconBg: "from-green-500/20 to-lime-500/20 border-green-500/30 text-green-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
+  { id: "revenue-tracker", name: "Revenue Tracker", icon: <BarChart3 size={16} />, iconBg: "from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "invoice-tracker", name: "Invoice Tracker", icon: <FileSpreadsheet size={16} />, iconBg: "from-green-500/20 to-lime-500/20 border-green-500/30 text-green-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
+  // ─── REPORTS ───
+  { id: "weekly-report", name: "Weekly Report", icon: <BarChart3 size={16} />, iconBg: "from-indigo-500/20 to-purple-500/20 border-indigo-500/30 text-indigo-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "end-of-week-everything", name: "End-of-Week Everything", icon: <BarChart3 size={16} />, iconBg: "from-violet-500/20 to-indigo-500/20 border-violet-500/30 text-violet-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
   { id: "business-pulse", name: "Business Pulse", icon: <Briefcase size={16} />, iconBg: "from-violet-500/20 to-purple-500/20 border-violet-500/30 text-violet-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  // ─── RESEARCH ───
+  { id: "competitor-intel", name: "Competitor Intel", icon: <Search size={16} />, iconBg: "from-orange-500/20 to-red-500/20 border-orange-500/30 text-orange-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
+  { id: "market-research", name: "Market Research", icon: <Globe size={16} />, iconBg: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "seo-audit", name: "SEO Audit", icon: <Search size={16} />, iconBg: "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  // ─── HR & TEAM ───
+  { id: "hiring-pipeline", name: "Hiring Pipeline", icon: <Users size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
+  { id: "team-newsletter", name: "Team Newsletter", icon: <Send size={16} />, iconBg: "from-pink-500/20 to-rose-500/20 border-pink-500/30 text-pink-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  // ─── DOCUMENTS & KB ───
+  { id: "drive-cleanup", name: "Drive Cleanup", icon: <FileSpreadsheet size={16} />, iconBg: "from-yellow-500/20 to-amber-500/20 border-yellow-500/30 text-yellow-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "weekly-file-report", name: "Weekly File Report", icon: <FileSpreadsheet size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "notes-digest", name: "Notes Digest", icon: <Sparkles size={16} />, iconBg: "from-purple-500/20 to-indigo-500/20 border-purple-500/30 text-purple-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
 ];
 
 /* ─── Helpers ─── */

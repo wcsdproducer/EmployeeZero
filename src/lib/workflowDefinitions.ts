@@ -272,6 +272,596 @@ Present actionable insights, not just raw data.`,
 5. End with a one-sentence "Business Health Score" assessment.`,
     requiredConnections: ["gmail"],
   },
+
+  // ═══════════════════════════════════════════════════════
+  // SOCIAL MEDIA WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "social-engagement-sweep": {
+    id: "social-engagement-sweep",
+    goal: `You are running the Social Engagement Sweep workflow. Check all connected social platforms and respond to engagement:
+
+1. **Twitter/X**: Get mentions and check follower notifications. For each mention:
+   - If it's a positive comment → like it and reply with a brief thank you
+   - If it's a question → reply with a helpful answer
+   - If it's negative → do NOT reply, just flag it for review
+2. **Instagram**: Get recent comments on the latest 5 posts. For each comment:
+   - If compliment or simple reaction → reply with a brief thank you
+   - If question about products/services → reply helpfully
+   - If spam → flag for deletion review
+3. **Facebook**: Get comments on recent page posts. Apply the same logic as Instagram.
+4. **YouTube**: Get comments on the latest 3 videos. Reply to substantive comments.
+5. Save a summary note titled "Social Engagement [today's date]" with:
+   - 📊 **Engagement Summary**: Mentions, comments, replies sent
+   - 🔥 **Hot Topics**: What people are saying most about
+   - ⚠️ **Needs Attention**: Negative items flagged for manual review
+   - 🎯 **Engagement Rate**: Approximate interaction quality
+
+Do NOT delete or block anyone without permission. Be authentic and on-brand in all replies.`,
+    requiredConnections: ["twitter", "instagram"],
+  },
+
+  "social-post-all-platforms": {
+    id: "social-post-all-platforms",
+    goal: `You are running the Cross-Platform Post workflow. Do the following:
+
+1. Ask the user: "What topic would you like to post about? I'll create platform-specific versions."
+2. Once provided, generate content adapted for each connected platform:
+   - **LinkedIn**: Professional, 150-250 words, thought leadership angle, 3-5 relevant hashtags
+   - **Twitter/X**: Punchy hook under 280 characters, optional thread for longer content
+   - **Instagram**: Visual storytelling caption with emojis, 20-30 relevant hashtags at the end
+   - **Facebook**: Conversational tone, 100-200 words, question or CTA at the end
+3. Generate a supporting image using the image generator tool that matches the post theme.
+4. Post to ALL connected platforms simultaneously:
+   - Create LinkedIn post
+   - Send tweet
+   - Create Instagram post with the generated image
+   - Create Facebook page post
+5. Save a note titled "Post Campaign [today's date]" logging what was posted and where.
+
+Present a confirmation summary showing all posted content with links.`,
+    requiredConnections: ["linkedin", "twitter", "instagram", "facebook"],
+  },
+
+  "social-analytics-report": {
+    id: "social-analytics-report",
+    goal: `You are running the Social Analytics Report workflow. Gather metrics from all connected platforms:
+
+1. **Twitter/X**: Get profile stats (followers count), get recent timeline to count likes/retweets, check bookmarks for saved content ideas.
+2. **Instagram**: Get profile stats (followers, posts), get account insights, check post insights for the last 5 posts to find top performers.
+3. **Facebook**: Get page insights, get page details, count recent post engagement.
+4. **LinkedIn**: Get profile info, get recent posts and their reactions.
+5. **YouTube**: Get channel analytics, list recent videos and their view counts.
+6. Compile a comprehensive report and save as a note titled "Social Analytics Report [date]":
+   - 📊 **Platform Overview**: Followers/subscribers per platform
+   - 🔥 **Top Performing Content**: Best posts across all platforms
+   - 📈 **Growth Trends**: Any notable changes
+   - 💡 **Content Recommendations**: What type of content is working best
+   - 🎯 **Action Items**: Specific suggestions for growth
+
+Also log the raw numbers in a Google Sheet (create a new spreadsheet called "Social Analytics" or append to existing).`,
+    requiredConnections: ["twitter", "instagram"],
+  },
+
+  "twitter-growth-engine": {
+    id: "twitter-growth-engine",
+    goal: `You are running the Twitter Growth Engine workflow. Do the following:
+
+1. Search Twitter for trending topics in the user's niche using web search.
+2. Get the user's Twitter profile to understand their brand.
+3. Get the user's recent timeline to analyze what's performing well.
+4. Get liked tweets and bookmarked tweets for content inspiration.
+5. Create 3 high-engagement tweets:
+   - **Tweet 1**: Hot take or insight on a trending topic (use a hook → value → CTA format)
+   - **Tweet 2**: Thread-worthy educational content (send as a reply chain)
+   - **Tweet 3**: Engagement bait (question, poll-style, or "help me decide")
+6. Like and reply to 5 recent tweets from accounts similar to the user (use search to find them).
+7. Save engagement stats and content ideas to notes.
+
+Present what was posted and any engagement opportunities found.`,
+    requiredConnections: ["twitter"],
+  },
+
+  "instagram-content-machine": {
+    id: "instagram-content-machine",
+    goal: `You are running the Instagram Content Machine workflow. Do the following:
+
+1. Search the web for trending content in the user's industry.
+2. Get the user's Instagram profile and recent media to understand their brand.
+3. Check post insights to find top-performing content themes.
+4. Generate 3 images using the image generation tool:
+   - Image 1: Quote graphic with industry insight
+   - Image 2: Product/service showcase style image
+   - Image 3: Behind-the-scenes or lifestyle image
+5. Create 3 Instagram posts using the generated images with optimized captions:
+   - Each caption: Hook (first line), value proposition, call-to-action, 20-30 hashtags
+6. Get recent comments and reply to any unanswered ones.
+7. Search trending hashtags in the niche and save them as a note for future reference.
+
+Present all created content with engagement optimization tips.`,
+    requiredConnections: ["instagram"],
+  },
+
+  "linkedin-thought-leader": {
+    id: "linkedin-thought-leader",
+    goal: `You are running the LinkedIn Thought Leadership workflow. Do the following:
+
+1. Browse the web for the latest industry news, trends, and hot takes.
+2. Get the user's LinkedIn profile for positioning context.
+3. Get their recent LinkedIn posts to see what resonated.
+4. Create 3 LinkedIn posts targeting different engagement types:
+   - **Post 1**: Industry insight with a contrarian take (aim for comments/debate)
+   - **Post 2**: Personal story or lesson learned (aim for resonance)
+   - **Post 3**: Practical tips or framework (aim for saves and shares)
+5. Comment thoughtfully on 3 relevant posts found via web search (industry leaders).
+6. Save all created content and engagement actions to a note.
+
+Each post should be 150-250 words, use line breaks for readability, and end with a question to drive comments.`,
+    requiredConnections: ["linkedin"],
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // CALENDAR + EMAIL WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "daily-standup": {
+    id: "daily-standup",
+    goal: `You are running the Daily Standup workflow. Compile a complete daily overview:
+
+1. **Calendar**: List today's events. For each meeting, note the time, attendees, and purpose.
+2. **Email**: Get unread count and search for urgent emails from the last 12 hours.
+3. **Notes**: Search notes for any active tasks, to-dos, or reminders.
+4. Find free time slots today for deep work or catch-up.
+5. Compile the standup report:
+   - 📅 **Today's Schedule**: All meetings with times and prep notes
+   - 📧 **Inbox Status**: Unread count + urgent items
+   - 📝 **Active Tasks**: From notes
+   - ⏰ **Free Blocks**: Available time for focused work
+   - 🎯 **Top 3 Priorities**: What to focus on today based on urgency
+6. Save this as a note titled "Daily Standup [date]".
+
+Keep it to a 2-minute read.`,
+    requiredConnections: ["gmail", "calendar"],
+  },
+
+  "meeting-follow-up": {
+    id: "meeting-follow-up",
+    goal: `You are running the Meeting Follow-Up workflow. Do the following:
+
+1. **Calendar**: List all events from the past 24 hours (yesterday and today).
+2. For each completed meeting:
+   - Search emails for any prior communication with attendees
+   - Check notes for any existing context about these contacts
+3. Draft follow-up emails for each meeting:
+   - Thank attendees for their time
+   - Summarize key discussion points (use calendar event description if available)
+   - List action items
+   - Propose next steps or next meeting date
+4. Check free slots for the next 5 business days to suggest follow-up meeting times.
+5. Save meeting summaries as notes for future reference.
+6. Present all draft emails for review — do NOT send without approval.
+
+Create one follow-up email per meeting, ready to send.`,
+    requiredConnections: ["gmail", "calendar"],
+  },
+
+  "week-planner": {
+    id: "week-planner",
+    goal: `You are running the Week Planner workflow. Plan the upcoming week:
+
+1. **Calendar**: List events for the next 7 days. Identify busy days vs. open days.
+2. **Calendar**: Find free slots across the week for deep work, follow-ups, and personal time.
+3. **Email**: Search for any emails mentioning deadlines, due dates, or commitments this week.
+4. **Notes**: Search notes for tasks, goals, or priorities that were set previously.
+5. Compile the week plan:
+   - 📅 **Monday-Friday Overview**: Key meetings and commitments per day
+   - 🕐 **Deep Work Blocks**: Recommended focus time slots
+   - 📧 **Email Deadlines**: Items due this week
+   - 📝 **Carry-Over Tasks**: Unfinished items from notes
+   - 🎯 **Weekly Goals**: 3-5 goals based on priorities
+   - ⚡ **Quick Wins**: Easy items to knock out early
+6. Save as a note titled "Week Plan [date range]".`,
+    requiredConnections: ["calendar", "gmail"],
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // CRM & CONTACTS WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "crm-sync": {
+    id: "crm-sync",
+    goal: `You are running the CRM Sync workflow. Keep contacts and communications in sync:
+
+1. **Contacts**: List all contacts (up to 50).
+2. **Email**: Search sent emails from the last 30 days — extract unique recipients.
+3. Cross-reference: Find people you've emailed who are NOT in your contacts.
+4. For each missing contact:
+   - Create a new contact with their name and email
+5. **Email**: For existing contacts, check when you last communicated with them.
+6. Compile a relationship health report:
+   - 🟢 **Active**: Communicated in the last 7 days
+   - 🟡 **Warm**: Communicated in the last 30 days
+   - 🔴 **Cold**: No communication in 30+ days
+   - ➕ **New Contacts Added**: List of auto-created contacts
+7. Flag any important contacts that need re-engagement and draft short check-in emails.
+8. Save the report as a note titled "CRM Sync [date]".
+
+Do NOT send any emails — just draft them for review.`,
+    requiredConnections: ["gmail"],
+  },
+
+  "customer-birthday-checker": {
+    id: "customer-birthday-checker",
+    goal: `You are running the Customer Birthday & Anniversary Checker workflow:
+
+1. **Contacts**: List all contacts and check for any with birthday fields set.
+2. Check if any birthdays are coming up in the next 7 days.
+3. For each upcoming birthday:
+   - Draft a personalized birthday email
+   - If they're on LinkedIn, suggest a birthday post or message
+4. Also search emails for any "anniversary" mentions — client anniversaries, subscription renewals, etc.
+5. For each anniversary:
+   - Draft a congratulatory email with a personal touch
+6. Save all findings as a note titled "Birthdays & Milestones [date]".
+
+Present all draft messages for review. Do NOT send without permission.`,
+    requiredConnections: ["gmail"],
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // CONTENT & BRAND WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "brand-mention-monitor": {
+    id: "brand-mention-monitor",
+    goal: `You are running the Brand Mention Monitor workflow. Track what people say about you:
+
+1. Ask the user for their brand/company name (or use the one from their profile).
+2. **Twitter**: Search tweets mentioning the brand name. For positive mentions → like them. Flag negative ones.
+3. **Web**: Search Google for recent mentions of the brand name.
+4. **Instagram**: Check tagged media — see who tagged the brand in their posts.
+5. **YouTube**: Search YouTube for the brand name — any reviews, unboxings, or mentions.
+6. **Email**: Search emails for the brand name in case of customer feedback.
+7. Compile a Brand Health Report:
+   - 📊 **Mention Volume**: How many mentions found across platforms
+   - 😊 **Sentiment**: Positive / Neutral / Negative breakdown
+   - 🌟 **Top Advocates**: People who mention the brand positively (potential partners)
+   - ⚠️ **Negative Alerts**: Issues that need addressing
+   - 💡 **PR Opportunities**: Positive mentions worth amplifying
+8. Save as a note titled "Brand Monitor [date]".`,
+    requiredConnections: ["twitter"],
+  },
+
+  "youtube-channel-manager": {
+    id: "youtube-channel-manager",
+    goal: `You are running the YouTube Channel Manager workflow:
+
+1. **YouTube**: List channels, get channel analytics for the past 28 days.
+2. **YouTube**: List recent videos (last 10) with view counts and engagement.
+3. **YouTube**: Get comments on the last 5 videos. Reply to substantive comments with thoughtful responses.
+4. Identify top-performing videos and analyze what made them successful (topic, title, thumbnail concept).
+5. Search the web for trending topics in the user's niche.
+6. Generate 3 video title + description suggestions based on what's trending and what works for the channel.
+7. Compile a channel report:
+   - 📊 **Channel Stats**: Subscribers, total views, watch time
+   - 🎬 **Top Performers**: Best videos and why
+   - 💬 **Comment Summary**: Key themes from audience feedback
+   - 🆕 **Content Ideas**: 3 video concepts with titles
+   - ⚠️ **Action Items**: Comments needing replies, community engagement gaps
+8. Save as a note titled "YouTube Report [date]".`,
+    requiredConnections: ["youtube"],
+  },
+
+  "visual-content-batch": {
+    id: "visual-content-batch",
+    goal: `You are running the Visual Content Batch Creator workflow:
+
+1. Ask the user: "What's your content theme this week? (e.g., 'AI productivity tips', 'spring sale', 'team culture')"
+2. Once provided, generate 5 unique images using the image generation tool:
+   - Image 1: Eye-catching quote graphic
+   - Image 2: Product/service showcase
+   - Image 3: Infographic-style tip card
+   - Image 4: Motivational or aspirational image
+   - Image 5: Behind-the-scenes or casual moment
+3. For each image, write captions adapted for:
+   - Instagram (visual storytelling + hashtags)
+   - Facebook (conversational + question)
+   - LinkedIn (professional insight)
+4. Save all images and captions as a note titled "Content Batch [date]".
+5. Present the complete batch for review before posting.
+
+This gives the user a week's worth of visual social media content in one go.`,
+    requiredConnections: [],
+    connectionOptional: true,
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // FINANCE & SPREADSHEET WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "expense-logger": {
+    id: "expense-logger",
+    goal: `You are running the Expense Logger workflow:
+
+1. **Email**: Search for receipt and invoice emails from the last 7 days (subjects containing "receipt", "invoice", "order confirmation", "payment").
+2. Read each email and extract: Date, Vendor, Amount, Category (software, meals, travel, office supplies, etc.).
+3. **Sheets**: Check if a spreadsheet called "Expense Tracker" exists (search spreadsheets).
+   - If yes → append the new expenses as rows
+   - If no → create a new spreadsheet with headers: Date, Vendor, Amount, Category, Notes
+4. Calculate totals by category for the week.
+5. Present a summary:
+   - 💳 **Expenses This Week**: Total spend
+   - 📊 **By Category**: Breakdown with amounts
+   - 📧 **Source Emails**: Quick reference to each receipt
+   - ⚠️ **Large Purchases**: Anything over $100 flagged for review
+6. Save the summary as a note titled "Expenses [date range]".
+
+Automate the tedious receipt-to-spreadsheet process.`,
+    requiredConnections: ["gmail", "sheets"],
+  },
+
+  "revenue-tracker": {
+    id: "revenue-tracker",
+    goal: `You are running the Revenue Tracker workflow:
+
+1. **Email**: Search for payment confirmations, invoice payments, and deposit notifications from the last 30 days. Look for Stripe, PayPal, Zelle, wire transfer, ACH, and check deposit emails.
+2. Extract from each: Date, Client/Source, Amount, Payment Method.
+3. **Sheets**: Check if a "Revenue Tracker" spreadsheet exists.
+   - If yes → append new revenue entries
+   - If no → create one with headers: Date, Client, Amount, Method, Status
+4. Calculate:
+   - Total revenue this month
+   - Average transaction size
+   - Top clients by revenue
+   - Revenue by payment method
+5. Compile a revenue report:
+   - 💰 **Monthly Revenue**: Total and comparison note
+   - 👥 **Top Clients**: By revenue contribution
+   - 📈 **Trend**: Is revenue growing, flat, or declining?
+   - 🎯 **Pipeline**: Pending invoices or expected payments
+6. Save as a note titled "Revenue Report [month/year]".`,
+    requiredConnections: ["gmail", "sheets"],
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // HR & TEAM WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "hiring-pipeline": {
+    id: "hiring-pipeline",
+    goal: `You are running the Hiring Pipeline workflow:
+
+1. **Email**: Search for job application emails from the last 14 days — look for "resume", "application", "apply", "cover letter", "job", "position".
+2. For each applicant found, extract: Name, Email, Position applied for, Date received.
+3. Check for any follow-up emails already sent to each applicant.
+4. Categorize applicants:
+   - 🆕 **New**: No response sent yet
+   - 📧 **In Progress**: Communication ongoing
+   - ✅ **Scheduled**: Interview set up
+   - ❌ **Rejected**: Decline sent
+5. For new applicants without a response:
+   - Draft an acknowledgment email thanking them for applying
+   - If they look promising, draft an interview scheduling email with free calendar slots
+6. **Calendar**: Find free slots for the next 5 days for interviews (30-min blocks).
+7. **Sheets**: Log all applicants in a "Hiring Pipeline" spreadsheet.
+8. Save as a note titled "Hiring Pipeline [date]".
+
+Do NOT send emails without permission.`,
+    requiredConnections: ["gmail", "calendar", "sheets"],
+  },
+
+  "team-newsletter": {
+    id: "team-newsletter",
+    goal: `You are running the Team/Company Newsletter Builder workflow:
+
+1. Gather content from the past week:
+   - **Email**: Search for wins, milestones, announcements, and notable customer feedback
+   - **Social Media**: Check Instagram, Facebook, LinkedIn for any posts that got high engagement
+   - **Notes**: Search for any saved announcements or updates
+2. Search the web for relevant industry news (2-3 highlights).
+3. Compile a newsletter draft:
+   - 📣 **Company Updates**: Big announcements
+   - 🏆 **Wins This Week**: Sales, milestones, testimonials
+   - 📱 **Social Media Highlights**: Top-performing posts
+   - 📰 **Industry News**: Relevant external news
+   - 📅 **Upcoming**: Next week's key dates and events
+   - 💬 **Quote of the Week**: Motivational or industry-relevant
+4. Draft the newsletter as an email (ready to be sent to a mailing list).
+5. Save the draft as a note titled "Newsletter [date]".
+
+Present the newsletter for review before sending.`,
+    requiredConnections: ["gmail"],
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // RESEARCH & INTELLIGENCE WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "market-research": {
+    id: "market-research",
+    goal: `You are running the Market Research workflow. Do the following:
+
+1. Ask the user: "What market, product, or industry should I research?"
+2. Perform comprehensive web research:
+   - Search for market size, trends, and growth projections
+   - Find key players and competitors
+   - Look for recent news and disruptions
+   - Identify emerging technologies or approaches
+3. Search YouTube for recent talks, presentations, or reviews related to the topic.
+4. Search Twitter for industry conversations and sentiment.
+5. Compile a research report:
+   - 📊 **Market Overview**: Size, growth, key trends
+   - 🏢 **Key Players**: Top companies and their positions
+   - 🆕 **Emerging Trends**: What's new and what's changing
+   - 💡 **Opportunities**: Where the user can capitalize
+   - ⚠️ **Threats**: What to watch out for
+   - 🔗 **Sources**: URLs for further reading
+6. Save as a note titled "Market Research: [topic] [date]".`,
+    requiredConnections: [],
+    connectionOptional: true,
+  },
+
+  "seo-audit": {
+    id: "seo-audit",
+    goal: `You are running the SEO Audit workflow. Do the following:
+
+1. Ask the user: "What website URL should I audit?"
+2. Browse the website and analyze:
+   - Page title and meta description
+   - Heading structure (H1, H2, H3)
+   - Content quality and keyword density
+   - Page load speed indicators
+   - Mobile-friendliness indicators
+3. Search Google for the brand/company name to see search visibility.
+4. Search for the top 3 target keywords to see competitor rankings.
+5. Browse competitor websites for comparison.
+6. Compile an SEO report:
+   - 📊 **Technical Score**: Title, meta, headings assessment
+   - 🔍 **Search Visibility**: How the site appears in Google
+   - 🏆 **Competitor Comparison**: Where competitors rank
+   - 🎯 **Keyword Opportunities**: Underserved keywords to target
+   - ⚠️ **Issues Found**: Technical problems to fix
+   - 💡 **Quick Wins**: Easy improvements for fast results
+7. Save as a note titled "SEO Audit: [domain] [date]".`,
+    requiredConnections: [],
+    connectionOptional: true,
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // DRIVE & DOCUMENT WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "drive-cleanup": {
+    id: "drive-cleanup",
+    goal: `You are running the Drive Cleanup & Organization workflow:
+
+1. **Drive**: List all files in the root directory.
+2. Analyze files for organization issues:
+   - Files without clear names
+   - Files in the root that should be in folders
+   - Very old files (by name/context) that may be obsolete
+3. Create an organized folder structure if it doesn't exist:
+   - "Documents", "Receipts", "Contracts", "Reports", "Media"
+4. Present a cleanup plan:
+   - 📂 **Current State**: Number of files, disorganization level
+   - 🗂️ **Suggested Organization**: Which files should go where
+   - 🗑️ **Archive Candidates**: Old files that might be deletable
+   - ✅ **Action Plan**: Steps to organize
+5. Save as a note titled "Drive Cleanup Plan [date]".
+
+Do NOT move or delete files without permission — just recommend.`,
+    requiredConnections: ["drive"],
+  },
+
+  "weekly-file-report": {
+    id: "weekly-file-report",
+    goal: `You are running the Weekly File & Document Report workflow:
+
+1. **Drive**: List recently created or modified files.
+2. **Sheets**: List all spreadsheets to check for recently updated ones.
+3. **Email**: Search for email attachments received in the last 7 days.
+4. Compile a document activity report:
+   - 📄 **New Files**: Recently created documents
+   - ✏️ **Modified Files**: Recently edited documents
+   - 📎 **Email Attachments**: Files received via email (may need saving to Drive)
+   - 📊 **Active Spreadsheets**: Sheets with recent activity
+   - 🗂️ **Storage Overview**: General file organization status
+5. Suggest any email attachments that should be saved to Drive.
+6. Save as a note titled "File Report [date]".`,
+    requiredConnections: ["drive", "sheets", "gmail"],
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // KNOWLEDGE BASE WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "notes-digest": {
+    id: "notes-digest",
+    goal: `You are running the Notes & Knowledge Base Digest workflow:
+
+1. **Notes**: List all notes in the system.
+2. Analyze the knowledge base:
+   - Count total notes
+   - Identify categories/patterns (meeting notes, tasks, ideas, reports)
+   - Find old notes that may be outdated
+   - Look for duplicate or overlapping notes
+3. Search notes for any action items, to-dos, or follow-ups that haven't been completed.
+4. Compile a digest:
+   - 📝 **KB Status**: Total notes, last updated dates
+   - 🏷️ **Categories**: Notes grouped by type
+   - ✅ **Open Action Items**: Tasks found in notes that seem pending
+   - 🗑️ **Cleanup Candidates**: Notes that may be obsolete
+   - 💡 **Insights**: Patterns and trends in what's being tracked
+5. Update any notes that need status changes.
+
+This keeps the knowledge base clean and actionable.`,
+    requiredConnections: [],
+    connectionOptional: true,
+  },
+
+  // ═══════════════════════════════════════════════════════
+  // COMBINED POWER WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "full-business-autopilot": {
+    id: "full-business-autopilot",
+    goal: `You are running the Full Business Autopilot — the most comprehensive daily workflow. Do everything:
+
+1. **EMAIL TRIAGE**:
+   - Get unread count and search for urgent emails
+   - Categorize inbox: Urgent / Action / FYI / Noise
+   - Draft replies for urgent items
+2. **CALENDAR CHECK**:
+   - List today's meetings with prep notes
+   - Find free slots for follow-ups
+3. **SOCIAL MEDIA SCAN**:
+   - Twitter: Check mentions, like positive ones
+   - Instagram: Check latest comments, reply to genuine ones
+   - Facebook: Check page comments
+   - LinkedIn: Check any notifications via recent posts
+4. **CONTENT CREATION**:
+   - Generate 1 social media post for the day based on trending topics
+   - Create a supporting image
+   - Post to the platform with the most engagement recently
+5. **NOTES UPDATE**:
+   - Create a daily log note with everything accomplished
+   - Flag any items needing manual attention
+6. Present the full report:
+   - 📧 Inbox: [unread count] — [urgent items]
+   - 📅 Meetings: [today's schedule]
+   - 📱 Social: [engagement summary]
+   - 📝 Posted: [what was created]
+   - 🎯 Focus: [top 3 priorities for the day]
+
+This is the ultimate "run my business for me" workflow.`,
+    requiredConnections: ["gmail", "calendar"],
+  },
+
+  "end-of-week-everything": {
+    id: "end-of-week-everything",
+    goal: `You are running the End-of-Week Everything Report — a comprehensive weekly summary. Do the following:
+
+1. **Email**: Count emails sent and received this week. Highlight key client interactions.
+2. **Calendar**: List all meetings that happened this week. Note any action items.
+3. **Social Media**: Get engagement stats from all connected platforms this week.
+4. **YouTube**: Check channel analytics for the week if connected.
+5. **Sheets**: Check any tracking spreadsheets for updates (Revenue, Expenses, etc.).
+6. **Notes**: Search for all notes created this week.
+7. Compile the ultimate weekly report:
+   - 📧 **Communications**: Emails in/out, key threads
+   - 📅 **Meetings**: Count, key outcomes
+   - 📱 **Social Media**: Followers gained, top posts, engagement rate
+   - 💰 **Revenue**: From any payment emails detected
+   - 💳 **Expenses**: From any receipt emails detected
+   - 📊 **Content Performance**: What content worked best
+   - 🏆 **Week's Wins**: Top accomplishments
+   - 🎯 **Next Week**: Top priorities and goals
+8. Save as a note titled "Weekly Report [date range]".
+9. Draft a summary email ready to send to stakeholders or team.
+
+This is the "everything in one place" Friday report.`,
+    requiredConnections: ["gmail"],
+  },
 };
 
 /**
