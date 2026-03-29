@@ -32,6 +32,12 @@ import {
   Contact,
   StickyNote,
   Image,
+  ListTodo,
+  FileText,
+  Store,
+  BarChart2,
+  ClipboardList,
+  Presentation,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -101,6 +107,12 @@ const GOOGLE_SUITE = [
   { id: "sheets", name: "Google Sheets", description: "Read and write spreadsheet data", icon: FileSpreadsheet, color: "text-green-400", requiresOAuth: true, comingSoon: false },
   { id: "youtube", name: "YouTube", description: "Video analytics and management", icon: Youtube, color: "text-red-500", requiresOAuth: true, comingSoon: false },
   { id: "contacts", name: "Google Contacts", description: "Manage contacts — auto-connects with Google", icon: Contact, color: "text-indigo-400", requiresOAuth: true, comingSoon: false },
+  { id: "tasks", name: "Google Tasks", description: "To-do lists synced with Gmail & Calendar", icon: ListTodo, color: "text-cyan-400", requiresOAuth: true, comingSoon: false },
+  { id: "docs", name: "Google Docs", description: "Create and edit documents", icon: FileText, color: "text-blue-300", requiresOAuth: true, comingSoon: false },
+  { id: "forms", name: "Google Forms", description: "Create surveys and collect responses", icon: ClipboardList, color: "text-purple-400", requiresOAuth: true, comingSoon: false },
+  { id: "slides", name: "Google Slides", description: "Create presentations", icon: Presentation, color: "text-orange-400", requiresOAuth: true, comingSoon: false },
+  { id: "analytics", name: "Google Analytics", description: "Website traffic and performance data", icon: BarChart2, color: "text-yellow-300", requiresOAuth: true, comingSoon: false },
+  { id: "business", name: "Business Profile", description: "Manage Google Business listing & reviews", icon: Store, color: "text-green-300", requiresOAuth: true, comingSoon: false },
   { id: "notes", name: "Notes & KB", description: "Persistent notes & knowledge base — always available", icon: StickyNote, color: "text-amber-400", requiresOAuth: false, comingSoon: false },
   { id: "imagen", name: "Image Generation", description: "AI image creation via Imagen 3 — always available", icon: Image, color: "text-purple-400", requiresOAuth: false, comingSoon: false },
 ];
@@ -121,6 +133,12 @@ const TOOL_MAP: Record<string, string[]> = {
   sheets: ["List Spreadsheets", "Read Sheet", "Write Sheet", "Append Rows", "Create Spreadsheet"],
   youtube: ["List Channels", "List Videos", "Analytics", "Search", "Playlists", "Add to Playlist", "Comments", "Reply to Comment"],
   contacts: ["List Contacts", "Search Contacts", "Create Contact", "Delete Contact"],
+  tasks: ["List Task Lists", "List Tasks", "Create Task", "Complete Task", "Delete Task", "Clear Completed"],
+  docs: ["Create Document", "Get Document", "Append Text"],
+  forms: ["Create Form", "Add Question", "Get Form", "Get Responses"],
+  slides: ["Create Presentation", "Get Presentation", "Add Slide", "Insert Text"],
+  analytics: ["List Properties", "Run Report", "Realtime Data"],
+  business: ["List Accounts", "List Locations", "Get Reviews", "Reply to Review", "Create Post"],
   notes: ["Create Note", "List Notes", "Update Note", "Delete Note", "Search Notes", "Knowledge Base"],
   imagen: ["Generate Image"],
   twitter: ["Profile", "Timeline", "Tweet", "Search", "Delete", "Reply", "Retweet", "Like", "Unlike", "Mentions", "Followers", "Bookmark", "Bookmarks", "Liked Tweets", "Follow", "Unfollow", "Mute", "Block"],

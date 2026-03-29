@@ -135,6 +135,43 @@ import {
   deleteNote,
   searchNotes,
 } from "@/lib/notes";
+import {
+  listTaskLists,
+  listTasks,
+  createTask as createGoogleTask,
+  completeTask,
+  deleteTask,
+  clearCompleted,
+} from "@/lib/tasks";
+import {
+  createDocument,
+  getDocument,
+  appendText,
+} from "@/lib/docs";
+import {
+  listAccounts as listBusinessAccounts,
+  listLocations,
+  getReviews,
+  replyToReview,
+  createLocalPost,
+} from "@/lib/businessProfile";
+import {
+  listProperties,
+  runReport,
+  getRealtimeData,
+} from "@/lib/analytics";
+import {
+  createForm,
+  addQuestion,
+  getForm,
+  getResponses,
+} from "@/lib/forms";
+import {
+  createPresentation,
+  getPresentation,
+  addSlide,
+  insertSlideText,
+} from "@/lib/slides";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -1483,6 +1520,49 @@ const NOTES_TOOLS = [
   },
 ];
 
+const TASKS_TOOLS = [
+  { name: "list_task_lists", description: "List all Google Task lists", parameters: { type: Type.OBJECT, properties: {} } },
+  { name: "list_google_tasks", description: "List tasks in a task list", parameters: { type: Type.OBJECT, properties: { task_list_id: { type: Type.STRING, description: "Task list ID (use list_task_lists to find)" }, show_completed: { type: Type.BOOLEAN, description: "Include completed tasks (default false)" } }, required: ["task_list_id"] } },
+  { name: "create_google_task", description: "Create a new task in a task list", parameters: { type: Type.OBJECT, properties: { task_list_id: { type: Type.STRING, description: "Task list ID" }, title: { type: Type.STRING, description: "Task title" }, notes: { type: Type.STRING, description: "Optional notes/details" }, due: { type: Type.STRING, description: "Due date (RFC 3339, e.g. 2026-04-01T00:00:00Z)" } }, required: ["task_list_id", "title"] } },
+  { name: "complete_google_task", description: "Mark a task as completed", parameters: { type: Type.OBJECT, properties: { task_list_id: { type: Type.STRING, description: "Task list ID" }, task_id: { type: Type.STRING, description: "Task ID to complete" } }, required: ["task_list_id", "task_id"] } },
+  { name: "delete_google_task", description: "Delete a task", parameters: { type: Type.OBJECT, properties: { task_list_id: { type: Type.STRING, description: "Task list ID" }, task_id: { type: Type.STRING, description: "Task ID to delete" } }, required: ["task_list_id", "task_id"] } },
+  { name: "clear_completed_tasks", description: "Clear all completed tasks from a list", parameters: { type: Type.OBJECT, properties: { task_list_id: { type: Type.STRING, description: "Task list ID" } }, required: ["task_list_id"] } },
+];
+
+const DOCS_TOOLS = [
+  { name: "create_document", description: "Create a new Google Doc and return its URL", parameters: { type: Type.OBJECT, properties: { title: { type: Type.STRING, description: "Document title" } }, required: ["title"] } },
+  { name: "get_document", description: "Get a Google Doc's content (title and text)", parameters: { type: Type.OBJECT, properties: { document_id: { type: Type.STRING, description: "Document ID" } }, required: ["document_id"] } },
+  { name: "append_doc_text", description: "Append text to the end of a Google Doc", parameters: { type: Type.OBJECT, properties: { document_id: { type: Type.STRING, description: "Document ID" }, text: { type: Type.STRING, description: "Text to append" } }, required: ["document_id", "text"] } },
+];
+
+const BUSINESS_PROFILE_TOOLS = [
+  { name: "list_business_accounts", description: "List Google Business Profile accounts", parameters: { type: Type.OBJECT, properties: {} } },
+  { name: "list_business_locations", description: "List locations for a business account", parameters: { type: Type.OBJECT, properties: { account_id: { type: Type.STRING, description: "Account ID (e.g. accounts/123)" } }, required: ["account_id"] } },
+  { name: "get_business_reviews", description: "Get Google reviews for a business location", parameters: { type: Type.OBJECT, properties: { location_name: { type: Type.STRING, description: "Location name (e.g. accounts/123/locations/456)" } }, required: ["location_name"] } },
+  { name: "reply_to_business_review", description: "Reply to a Google review", parameters: { type: Type.OBJECT, properties: { review_name: { type: Type.STRING, description: "Full review name path" }, comment: { type: Type.STRING, description: "Reply text" } }, required: ["review_name", "comment"] } },
+  { name: "create_business_post", description: "Create a Google Business post/update", parameters: { type: Type.OBJECT, properties: { location_name: { type: Type.STRING, description: "Location name" }, summary: { type: Type.STRING, description: "Post text (max 1500 chars)" }, cta_type: { type: Type.STRING, description: "Call-to-action type: BOOK, ORDER, LEARN_MORE, SIGN_UP, CALL (optional)" }, cta_url: { type: Type.STRING, description: "CTA URL (required if cta_type set)" } }, required: ["location_name", "summary"] } },
+];
+
+const ANALYTICS_TOOLS = [
+  { name: "list_analytics_properties", description: "List GA4 properties the user has access to", parameters: { type: Type.OBJECT, properties: {} } },
+  { name: "run_analytics_report", description: "Run a Google Analytics report with custom dimensions and metrics", parameters: { type: Type.OBJECT, properties: { property_id: { type: Type.STRING, description: "GA4 property ID (number only)" }, start_date: { type: Type.STRING, description: "Start date (YYYY-MM-DD or '30daysAgo')" }, end_date: { type: Type.STRING, description: "End date (YYYY-MM-DD or 'today')" }, dimensions: { type: Type.STRING, description: "Comma-separated dimensions (e.g. 'pagePath,country')" }, metrics: { type: Type.STRING, description: "Comma-separated metrics (e.g. 'screenPageViews,sessions,activeUsers')" } }, required: ["property_id", "start_date", "end_date", "metrics"] } },
+  { name: "get_realtime_analytics", description: "Get real-time active users on the website right now", parameters: { type: Type.OBJECT, properties: { property_id: { type: Type.STRING, description: "GA4 property ID" } }, required: ["property_id"] } },
+];
+
+const FORMS_TOOLS = [
+  { name: "create_google_form", description: "Create a new Google Form and return its URL", parameters: { type: Type.OBJECT, properties: { title: { type: Type.STRING, description: "Form title" } }, required: ["title"] } },
+  { name: "add_form_question", description: "Add a question to a Google Form", parameters: { type: Type.OBJECT, properties: { form_id: { type: Type.STRING, description: "Form ID" }, title: { type: Type.STRING, description: "Question text" }, question_type: { type: Type.STRING, description: "Type: SHORT_ANSWER, PARAGRAPH, MULTIPLE_CHOICE, CHECKBOX, DROPDOWN, SCALE" }, options: { type: Type.STRING, description: "Comma-separated options (for MULTIPLE_CHOICE, CHECKBOX, DROPDOWN)" } }, required: ["form_id", "title", "question_type"] } },
+  { name: "get_google_form", description: "Get a Google Form's structure and questions", parameters: { type: Type.OBJECT, properties: { form_id: { type: Type.STRING, description: "Form ID" } }, required: ["form_id"] } },
+  { name: "get_form_responses", description: "Get all responses submitted to a Google Form", parameters: { type: Type.OBJECT, properties: { form_id: { type: Type.STRING, description: "Form ID" } }, required: ["form_id"] } },
+];
+
+const SLIDES_TOOLS = [
+  { name: "create_presentation", description: "Create a new Google Slides presentation", parameters: { type: Type.OBJECT, properties: { title: { type: Type.STRING, description: "Presentation title" } }, required: ["title"] } },
+  { name: "get_presentation", description: "Get a presentation's metadata and slide list", parameters: { type: Type.OBJECT, properties: { presentation_id: { type: Type.STRING, description: "Presentation ID" } }, required: ["presentation_id"] } },
+  { name: "add_presentation_slide", description: "Add a new slide to a presentation", parameters: { type: Type.OBJECT, properties: { presentation_id: { type: Type.STRING, description: "Presentation ID" }, layout: { type: Type.STRING, description: "Slide layout: BLANK, TITLE, TITLE_AND_BODY, TITLE_AND_TWO_COLUMNS, SECTION_HEADER (default TITLE_AND_BODY)" } }, required: ["presentation_id"] } },
+  { name: "insert_slide_text", description: "Insert text into a slide's placeholder", parameters: { type: Type.OBJECT, properties: { presentation_id: { type: Type.STRING, description: "Presentation ID" }, slide_id: { type: Type.STRING, description: "Slide object ID" }, text: { type: Type.STRING, description: "Text to insert" } }, required: ["presentation_id", "slide_id", "text"] } },
+];
+
 // ── Tool executor ───────────────────────────────────────────────
 
 async function executeTool(
@@ -1761,6 +1841,76 @@ async function executeTool(
       return await deleteNote(userId, args.note_id);
     case "search_notes":
       return await searchNotes(userId, args.query, args.max_results || 10);
+
+    // Google Tasks tools
+    case "list_task_lists":
+      return await listTaskLists(userId);
+    case "list_google_tasks":
+      return await listTasks(userId, args.task_list_id, args.show_completed || false);
+    case "create_google_task":
+      return await createGoogleTask(userId, args.task_list_id, args.title, args.notes, args.due);
+    case "complete_google_task":
+      return await completeTask(userId, args.task_list_id, args.task_id);
+    case "delete_google_task":
+      return await deleteTask(userId, args.task_list_id, args.task_id);
+    case "clear_completed_tasks":
+      return await clearCompleted(userId, args.task_list_id);
+
+    // Google Docs tools
+    case "create_document":
+      return await createDocument(userId, args.title);
+    case "get_document":
+      return await getDocument(userId, args.document_id);
+    case "append_doc_text":
+      return await appendText(userId, args.document_id, args.text);
+
+    // Google Business Profile tools
+    case "list_business_accounts":
+      return await listBusinessAccounts(userId);
+    case "list_business_locations":
+      return await listLocations(userId, args.account_id);
+    case "get_business_reviews":
+      return await getReviews(userId, args.location_name);
+    case "reply_to_business_review":
+      return await replyToReview(userId, args.review_name, args.comment);
+    case "create_business_post": {
+      const cta = args.cta_type ? { actionType: args.cta_type, url: args.cta_url } : undefined;
+      return await createLocalPost(userId, args.location_name, args.summary, cta);
+    }
+
+    // Google Analytics tools
+    case "list_analytics_properties":
+      return await listProperties(userId);
+    case "run_analytics_report": {
+      const dims = args.dimensions ? args.dimensions.split(",").map((d: string) => d.trim()) : [];
+      const mets = args.metrics.split(",").map((m: string) => m.trim());
+      return await runReport(userId, args.property_id, args.start_date, args.end_date, dims, mets);
+    }
+    case "get_realtime_analytics":
+      return await getRealtimeData(userId, args.property_id);
+
+    // Google Forms tools
+    case "create_google_form":
+      return await createForm(userId, args.title);
+    case "add_form_question": {
+      const opts = args.options ? args.options.split(",").map((o: string) => o.trim()) : undefined;
+      return await addQuestion(userId, args.form_id, args.title, args.question_type, opts);
+    }
+    case "get_google_form":
+      return await getForm(userId, args.form_id);
+    case "get_form_responses":
+      return await getResponses(userId, args.form_id);
+
+    // Google Slides tools
+    case "create_presentation":
+      return await createPresentation(userId, args.title);
+    case "get_presentation":
+      return await getPresentation(userId, args.presentation_id);
+    case "add_presentation_slide":
+      return await addSlide(userId, args.presentation_id, args.layout || "TITLE_AND_BODY");
+    case "insert_slide_text":
+      return await insertSlideText(userId, args.presentation_id, args.slide_id, args.text);
+
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -2089,6 +2239,25 @@ The memory_extract section will be automatically processed and NOT shown to the 
         // Contacts: use any Google connection
         if (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected) {
           allTools.push(...CONTACTS_TOOLS);
+        }
+        // New Google services
+        if (connections.tasks?.connected) {
+          allTools.push(...TASKS_TOOLS);
+        }
+        if (connections.docs?.connected) {
+          allTools.push(...DOCS_TOOLS);
+        }
+        if (connections.business?.connected) {
+          allTools.push(...BUSINESS_PROFILE_TOOLS);
+        }
+        if (connections.analytics?.connected) {
+          allTools.push(...ANALYTICS_TOOLS);
+        }
+        if (connections.forms?.connected) {
+          allTools.push(...FORMS_TOOLS);
+        }
+        if (connections.slides?.connected) {
+          allTools.push(...SLIDES_TOOLS);
         }
         // Image generation & notes — always available (no connection needed)
         allTools.push(...IMAGE_GEN_TOOLS);

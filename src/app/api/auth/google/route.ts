@@ -25,6 +25,25 @@ const SCOPE_MAP: Record<string, string[]> = {
     "https://www.googleapis.com/auth/youtube.readonly",
     "https://www.googleapis.com/auth/youtube.force-ssl",
   ],
+  tasks: [
+    "https://www.googleapis.com/auth/tasks",
+    "https://www.googleapis.com/auth/tasks.readonly",
+  ],
+  docs: [
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/drive.file",
+  ],
+  analytics: [
+    "https://www.googleapis.com/auth/analytics.readonly",
+  ],
+  forms: [
+    "https://www.googleapis.com/auth/forms.body",
+    "https://www.googleapis.com/auth/forms.responses.readonly",
+  ],
+  slides: [
+    "https://www.googleapis.com/auth/presentations",
+    "https://www.googleapis.com/auth/drive.file",
+  ],
 };
 
 function getRedirectUri() {

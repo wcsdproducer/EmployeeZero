@@ -132,6 +132,15 @@ const WORKFLOW_OPTIONS: WorkflowOption[] = [
   { id: "facebook-page-manager", name: "Facebook Page Manager", icon: <TrendingUp size={16} />, iconBg: "from-blue-500/20 to-blue-600/20 border-blue-500/30 text-blue-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
   { id: "tiktok-scout", name: "TikTok Scout", icon: <TrendingUp size={16} />, iconBg: "from-cyan-500/20 to-teal-500/20 border-cyan-500/30 text-cyan-400", defaultSchedule: "Daily 9 AM", defaultCron: "0 9 * * *" },
   { id: "contact-manager", name: "Contact Manager", icon: <Users size={16} />, iconBg: "from-indigo-500/20 to-blue-500/20 border-indigo-500/30 text-indigo-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  // ─── NEW GOOGLE SERVICES ───
+  { id: "task-master", name: "Task Master", icon: <Target size={16} />, iconBg: "from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-400", defaultSchedule: "Daily 8 AM", defaultCron: "0 8 * * *" },
+  { id: "auto-report-generator", name: "Auto Report Generator", icon: <FileSpreadsheet size={16} />, iconBg: "from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "review-guardian", name: "Review Guardian", icon: <Star size={16} />, iconBg: "from-yellow-500/20 to-orange-500/20 border-yellow-500/30 text-yellow-400", defaultSchedule: "Every 2 hours", defaultCron: "0 */2 * * *" },
+  { id: "website-performance", name: "Website Performance", icon: <BarChart3 size={16} />, iconBg: "from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "survey-creator", name: "Survey Creator", icon: <Globe size={16} />, iconBg: "from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "pitch-deck-builder", name: "Pitch Deck Builder", icon: <Sparkles size={16} />, iconBg: "from-orange-500/20 to-amber-500/20 border-orange-500/30 text-orange-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
+  { id: "meeting-minutes-doc", name: "Meeting Minutes Doc", icon: <Calendar size={16} />, iconBg: "from-blue-500/20 to-cyan-500/20 border-blue-500/30 text-blue-400", defaultSchedule: "Daily 6 PM", defaultCron: "0 18 * * *" },
+  { id: "client-feedback-analyzer", name: "Client Feedback Analyzer", icon: <Search size={16} />, iconBg: "from-emerald-500/20 to-green-500/20 border-emerald-500/30 text-emerald-400", defaultSchedule: "Mon 9 AM", defaultCron: "0 9 * * 1" },
 ];
 
 /* ─── Helpers ─── */

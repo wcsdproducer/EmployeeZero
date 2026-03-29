@@ -947,6 +947,211 @@ Note: TikTok posting is currently read-only. Video concepts are prepared for man
 Do NOT delete contacts without permission.`,
     requiredConnections: ["gmail"],
   },
+
+  // ═══════════════════════════════════════════════════════
+  // NEW GOOGLE SERVICES WORKFLOWS
+  // ═══════════════════════════════════════════════════════
+
+  "task-master": {
+    id: "task-master",
+    goal: `You are running the Task Master workflow. Organize the user's day through Google Tasks:
+
+1. **Tasks**: List all task lists to find the user's default list.
+2. **Tasks**: List all pending tasks (not completed) in the default list.
+3. **Calendar**: Get today's events to cross-reference with tasks.
+4. **Email**: Search for emails containing action items from the last 24 hours (look for phrases like "please", "can you", "need to", "action required").
+5. For each email action item not already in Tasks:
+   - Create a new Google Task with the action item as the title, email context as notes, and a reasonable due date.
+6. Review completed tasks and clear them.
+7. Compile a task overview:
+   - ✅ **Completed Today**: Tasks marked done
+   - 📋 **Active Tasks**: Current to-do list with due dates
+   - ➕ **New Tasks Added**: From email action items
+   - 📅 **Calendar Alignment**: Tasks that relate to today's meetings
+   - 🎯 **Priority Recommendation**: Suggest top 3 tasks to focus on
+8. Save as a note titled "Task Master Report [date]".`,
+    requiredConnections: ["tasks"],
+  },
+
+  "auto-report-generator": {
+    id: "auto-report-generator",
+    goal: `You are running the Auto Report Generator workflow. Create a professional report as a Google Doc:
+
+1. **Email**: Search for important business-related emails from the past week.
+2. **Calendar**: Get this week's completed and upcoming events.
+3. **Analytics** (if connected): Pull website traffic data for the past 7 days.
+4. **Social Media** (if connected): Get engagement stats from any connected platforms.
+5. **Docs**: Create a new Google Doc titled "Weekly Business Report - [date range]".
+6. **Docs**: Append a structured report with these sections:
+   - **📈 Executive Summary**: 2-3 sentence overview of the week
+   - **📧 Key Communications**: Important email threads and outcomes
+   - **📅 Meetings & Events**: Summary of meetings attended/scheduled
+   - **🌐 Website Performance**: Traffic, top pages, trends (if Analytics connected)
+   - **📱 Social Media**: Engagement highlights (if social connected)
+   - **🎯 Action Items**: Tasks carried forward into next week
+   - **💡 Recommendations**: Data-driven suggestions for improvement
+7. Share the Google Doc link.
+8. Save the doc URL as a note titled "Weekly Report Doc [date]".`,
+    requiredConnections: ["docs"],
+  },
+
+  "review-guardian": {
+    id: "review-guardian",
+    goal: `You are running the Review Guardian workflow. Monitor and respond to Google Business reviews:
+
+1. **Business Profile**: List the user's business accounts.
+2. **Business Profile**: List locations for each account.
+3. **Business Profile**: Get reviews for each location.
+4. Analyze all new reviews (last 48 hours):
+   - Categorize by sentiment: Positive (4-5 stars), Neutral (3 stars), Negative (1-2 stars)
+   - Identify common themes in feedback
+5. For each UNREPLIED review:
+   - **Positive**: Craft a warm, personalized thank-you reply mentioning specifics from their review
+   - **Negative**: Craft an empathetic, professional response acknowledging their concern, apologizing, and offering to make it right (suggest contacting directly)
+   - **Neutral**: Thank them and ask how you could improve
+6. **Business Profile**: Post replies to all un-replied reviews.
+7. **Email**: Send the business owner a digest of new reviews.
+8. Compile a review health report:
+   - ⭐ **Average Rating**: Overall and trend
+   - 📊 **Review Volume**: Count by star rating
+   - 💬 **Replies Sent**: Summary of responses posted
+   - ⚠️ **Concerns Flagged**: Recurring negative themes
+   - 🎯 **Recommendations**: How to improve ratings
+9. Save as a note titled "Review Guardian Report [date]".`,
+    requiredConnections: ["business"],
+  },
+
+  "website-performance": {
+    id: "website-performance",
+    goal: `You are running the Website Performance workflow. Analyze Google Analytics data:
+
+1. **Analytics**: List all GA4 properties to find the user's website.
+2. **Analytics**: Run a report for the last 30 days with:
+   - Dimensions: pagePath, country, deviceCategory, sessionSource
+   - Metrics: screenPageViews, sessions, activeUsers, bounceRate, averageSessionDuration
+3. **Analytics**: Run a comparison report (last 30 days vs previous 30 days) for overall trends.
+4. **Analytics**: Get real-time active users right now.
+5. Analyze the data:
+   - Top 10 pages by views
+   - Traffic by device (mobile vs desktop vs tablet)
+   - Top traffic sources (organic, direct, social, referral)
+   - Geographic distribution
+   - Bounce rate analysis
+6. **Sheets** (if connected): Log this week's key metrics to a tracking spreadsheet.
+7. Compile a performance report:
+   - 👥 **Active Now**: Real-time visitors
+   - 📊 **Traffic Summary**: Total views, sessions, users (with % change)
+   - 🏆 **Top Pages**: Best-performing content
+   - 📱 **Device Split**: Mobile vs Desktop breakdown
+   - 🌍 **Geographic Reach**: Top countries
+   - 🔗 **Traffic Sources**: Where visitors come from
+   - 📈 **Trends**: Up or down vs previous period
+   - 🎯 **Recommendations**: SEO and content suggestions
+8. Save as a note titled "Website Performance [date]".`,
+    requiredConnections: ["analytics"],
+  },
+
+  "survey-creator": {
+    id: "survey-creator",
+    goal: `You are running the Survey Creator workflow. Build and distribute a customer feedback form:
+
+1. Ask yourself: What kind of survey does the business likely need? (Customer satisfaction, NPS, product feedback, event feedback)
+2. **Forms**: Create a new Google Form titled "Customer Feedback Survey - [Business Name]".
+3. **Forms**: Add these questions:
+   - Q1: "How would you rate your overall experience?" (SCALE 1-5)
+   - Q2: "What did we do well?" (PARAGRAPH)
+   - Q3: "How could we improve?" (PARAGRAPH)
+   - Q4: "How likely are you to recommend us?" (SCALE 1-10, NPS)
+   - Q5: "Which of our services did you use?" (MULTIPLE_CHOICE with relevant options)
+   - Q6: "Would you like us to follow up?" (MULTIPLE_CHOICE: Yes/No)
+   - Q7: "Your email (optional)" (SHORT_ANSWER)
+4. **Forms**: Get the form to confirm structure and get the share URL.
+5. **Email**: Draft a polished email inviting customers to complete the survey, including the form URL.
+6. Share the form URL and draft email.
+7. Save form details as a note titled "Survey - [date]".
+
+Note: Do NOT send the email without user approval. Just draft it.`,
+    requiredConnections: ["forms"],
+  },
+
+  "pitch-deck-builder": {
+    id: "pitch-deck-builder",
+    goal: `You are running the Pitch Deck Builder workflow. Create a professional presentation:
+
+1. Search the web for the user's business/industry context.
+2. **Slides**: Create a new presentation titled "Business Overview - [Business Name]".
+3. **Slides**: Add slides with this structure:
+   - **Slide 1 (TITLE)**: Company name and tagline
+   - **Slide 2 (TITLE_AND_BODY)**: Problem Statement — what pain point you solve
+   - **Slide 3 (TITLE_AND_BODY)**: Solution — your product/service overview
+   - **Slide 4 (TITLE_AND_BODY)**: Key Features — top 3-5 differentiators
+   - **Slide 5 (TITLE_AND_BODY)**: Market Opportunity — industry size and growth
+   - **Slide 6 (TITLE_AND_BODY)**: Business Model — how you make money
+   - **Slide 7 (TITLE_AND_BODY)**: Traction — key metrics and milestones
+   - **Slide 8 (TITLE_AND_BODY)**: Contact — call to action and contact info
+4. **Slides**: Insert relevant text into each slide's body placeholder.
+5. Generate a brand image for the title slide using image generation.
+6. Share the presentation URL.
+7. Save as a note titled "Pitch Deck [date]".
+
+Note: User should review and customize the content after generation.`,
+    requiredConnections: ["slides"],
+  },
+
+  "meeting-minutes-doc": {
+    id: "meeting-minutes-doc",
+    goal: `You are running the Meeting Minutes Doc workflow. Auto-create Google Docs for meetings:
+
+1. **Calendar**: Get today's events.
+2. For each meeting that has already occurred or is currently happening:
+   - **Docs**: Create a new Google Doc titled "[Meeting Name] - Minutes [date]"
+   - **Docs**: Append a structured template:
+     ## Meeting: [Name]
+     **Date**: [date and time]
+     **Attendees**: [from calendar event]
+     **Agenda**: [from event description if available]
+     
+     ### Discussion Notes
+     [placeholder for notes]
+     
+     ### Action Items
+     - [ ] [placeholder]
+     
+     ### Decisions Made
+     - [placeholder]
+     
+     ### Next Steps
+     - [placeholder]
+3. **Email**: Send each meeting's attendees the doc link.
+4. **Tasks**: Create follow-up tasks from the action items template.
+5. Compile summary of docs created.
+6. Save links as a note titled "Meeting Docs [date]".`,
+    requiredConnections: ["docs", "calendar"],
+  },
+
+  "client-feedback-analyzer": {
+    id: "client-feedback-analyzer",
+    goal: `You are running the Client Feedback Analyzer workflow:
+
+1. **Forms**: Check for any connected forms and get recent responses.
+2. **Business Profile** (if connected): Get recent Google reviews.
+3. **Email**: Search for emails containing feedback keywords (feedback, review, suggest, complaint, love, hate, improve).
+4. Analyze ALL feedback sources:
+   - Sentiment distribution (positive/neutral/negative)
+   - Top recurring themes
+   - Most requested improvements
+   - Biggest strengths mentioned
+5. **Docs**: Create a Google Doc titled "Client Feedback Analysis - [date]" with:
+   - Executive summary
+   - Sentiment breakdown with percentages
+   - Theme analysis
+   - Verbatim quotes (top 5 positive, top 5 negative)
+   - Actionable recommendations
+6. **Sheets** (if connected): Log sentiment scores to a tracking spreadsheet.
+7. Share the analysis doc link.
+8. Save as a note titled "Feedback Analysis [date]".`,
+    requiredConnections: ["forms"],
+  },
 };
 
 /**
