@@ -1,4 +1,5 @@
 import { adminDb } from "@/lib/admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
 import {
   listEmails, getEmail, sendEmail, replyToEmail,
@@ -808,10 +809,13 @@ async function executeTool(
 /* ─── Firestore Helpers ─── */
 
 async function updateTask(taskId: string, updates: Partial<Task>) {
-  await adminDb.doc(`tasks/${taskId}`).update({
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  });
+  // Convert undefined values to FieldValue.delete() for Firestore compatibility
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(updates)) {
+    sanitized[key] = value === undefined ? FieldValue.delete() : value;
+  }
+  sanitized.updatedAt = new Date().toISOString();
+  await adminDb.doc(`tasks/${taskId}`).update(sanitized);
 }
 
 async function addStep(taskId: string, step: TaskStep, steps: TaskStep[]) {
