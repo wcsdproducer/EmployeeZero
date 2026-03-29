@@ -1112,18 +1112,22 @@ Note: Do NOT send the email without user approval. Just draft it.`,
     id: "pitch-deck-builder",
     goal: `You are running the Pitch Deck Builder workflow. Create a professional presentation EFFICIENTLY.
 
-IMPORTANT: Be fast — create the presentation, add ALL slides first, THEN insert text into each. Do NOT search the web unless absolutely necessary. Use info from user memory.
+CRITICAL RULES:
+- Do NOT ask the user any questions. You already have all the info you need from user memory.
+- If user memory contains company details, use them. Otherwise use reasonable defaults.
+- Just create the presentation immediately and report back with the URL.
 
-1. Create a new presentation titled "[Business Name] - Overview".
-2. Add exactly 4 slides (use layout TITLE_AND_BODY for all).
-3. Insert text for each slide:
-   - Slide 1: Problem & Solution — what pain point you solve and your approach
-   - Slide 2: Key Features — top 3-5 differentiators with bullet points
-   - Slide 3: Market & Business Model — target market size and how you make money
-   - Slide 4: Contact & Next Steps — call to action
-4. Share the presentation URL with the user.
+Steps:
+1. Create a new presentation using create_presentation with the user's company name.
+2. Add 4 slides using add_presentation_slide (layout: TITLE_AND_BODY) — add ALL slides first before inserting text.
+3. Insert text into each slide using insert_slide_text:
+   - Slide 1: Problem & Solution — the pain point solved and the approach
+   - Slide 2: Key Features — top 3-5 differentiators as bullet points
+   - Slide 3: Market & Business Model — target market and revenue model
+   - Slide 4: Contact & Next Steps — call to action with contact info
+4. Call task_complete with the presentation URL and a summary of what was created.
 
-Be concise in slide text. Use bullet points. Complete this as fast as possible.`,
+Be concise. Use bullet points. Do NOT browse the web. Just build the deck and report back.`,
     requiredConnections: ["slides"],
   },
 

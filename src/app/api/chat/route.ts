@@ -2030,9 +2030,11 @@ export async function POST(request: Request) {
       // Try to extract a workflow ID from the message and use its structured goal
       let taskGoal = message;
       const lower = message.toLowerCase();
+      const normalizedLower = lower.replace(/-/g, " "); // normalize hyphens to spaces
       for (const [wfId, wfDef] of Object.entries(WORKFLOW_DEFINITIONS)) {
         const readableName = wfId.replace(/-/g, " ");
-        if (lower.includes(readableName)) {
+        // Match against both original (hyphenated) and normalized (spaced) versions
+        if (lower.includes(wfId) || normalizedLower.includes(readableName)) {
           taskGoal = wfDef.goal;
           console.log(`[Chat] Matched workflow '${wfId}' — using structured goal`);
           break;
