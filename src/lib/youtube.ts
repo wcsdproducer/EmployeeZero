@@ -167,3 +167,74 @@ export async function searchYouTube(
     link: `https://youtube.com/watch?v=${item.id?.videoId}`,
   }));
 }
+
+export async function listPlaylists(userId: string): Promise<any[]> {
+  const yt = await getAuthenticatedYouTube(userId);
+
+  const res = await yt.playlists.list({
+    part: ["snippet", "contentDetails"],
+    mine: true,
+    maxResults: 25,
+  });
+
+  return (res.data.items || []).map((pl) => ({
+    id: pl.id,
+    title: pl.snippet?.title,
+    description: pl.snippet?.description?.slice(0, 200),
+    videoCount: pl.contentDetails?.itemCount,
+    thumbnail: pl.snippet?.thumbnails?.medium?.url,
+  }));
+}
+
+export async function addToPlaylist(userId: string, playlistId: string, videoId: string): Promise<any> {
+  const yt = await getAuthenticatedYouTube(userId);
+
+  const res = await yt.playlistItems.insert({
+    part: ["snippet"],
+    requestBody: {
+      snippet: {
+        playlistId,
+        resourceId: { kind: "youtube#video", videoId },
+      },
+    },
+  });
+
+  return { success: true, id: res.data.id, message: "Video added to playlist" };
+}
+
+export async function getVideoComments(userId: string, videoId: string, maxResults = 10): Promise<any[]> {
+  const yt = await getAuthenticatedYouTube(userId);
+
+  const res = await yt.commentThreads.list({
+    part: ["snippet"],
+    videoId,
+    maxResults,
+    order: "relevance",
+  });
+
+  return (res.data.items || []).map((thread) => ({
+    id: thread.id,
+    text: thread.snippet?.topLevelComment?.snippet?.textDisplay,
+    author: thread.snippet?.topLevelComment?.snippet?.authorDisplayName,
+    authorImage: thread.snippet?.topLevelComment?.snippet?.authorProfileImageUrl,
+    likes: thread.snippet?.topLevelComment?.snippet?.likeCount,
+    replyCount: thread.snippet?.totalReplyCount,
+    published: thread.snippet?.topLevelComment?.snippet?.publishedAt,
+  }));
+}
+
+export async function replyToComment(userId: string, commentId: string, text: string): Promise<any> {
+  const yt = await getAuthenticatedYouTube(userId);
+
+  const res = await yt.comments.insert({
+    part: ["snippet"],
+    requestBody: {
+      snippet: {
+        parentId: commentId,
+        textOriginal: text,
+      },
+    },
+  });
+
+  return { success: true, commentId: res.data.id, message: "Reply posted on YouTube" };
+}

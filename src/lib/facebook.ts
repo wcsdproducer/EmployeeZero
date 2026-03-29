@@ -252,3 +252,89 @@ export async function schedulePagePost(userId: string, pageId: string, message: 
   const result = await res.json();
   return { success: true, postId: result.id, message: `Post scheduled for ${new Date(scheduledTime * 1000).toISOString()}` };
 }
+
+export async function uploadPageVideo(userId: string, pageId: string, videoUrl: string, title: string, description?: string) {
+  const token = await getPageToken(userId, pageId);
+
+  const body: Record<string, any> = {
+    file_url: videoUrl,
+    title,
+    access_token: token,
+  };
+  if (description) body.description = description;
+
+  const res = await fetch(`${GRAPH_API}/${pageId}/videos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) throw new Error(`Facebook video upload failed: ${await res.text()}`);
+  const result = await res.json();
+  return { success: true, videoId: result.id, message: "Video uploaded to Facebook page" };
+}
+
+export async function createPageReel(userId: string, pageId: string, videoUrl: string, description?: string) {
+  const token = await getPageToken(userId, pageId);
+
+  const body: Record<string, any> = {
+    upload_phase: "start",
+    access_token: token,
+  };
+
+  // Start upload
+  const startRes = await fetch(`${GRAPH_API}/${pageId}/video_reels`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!startRes.ok) throw new Error(`Reel start failed: ${await startRes.text()}`);
+  const startResult = await startRes.json();
+
+  // Finish/publish
+  const finishBody: Record<string, any> = {
+    upload_phase: "finish",
+    video_id: startResult.video_id,
+    video_url: videoUrl,
+    access_token: token,
+  };
+  if (description) finishBody.description = description;
+
+  const finishRes = await fetch(`${GRAPH_API}/${pageId}/video_reels`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(finishBody),
+  });
+  if (!finishRes.ok) throw new Error(`Reel publish failed: ${await finishRes.text()}`);
+  const finishResult = await finishRes.json();
+
+  return { success: true, reelId: finishResult.video_id || startResult.video_id, message: "Reel published to Facebook page" };
+}
+
+export async function getScheduledPosts(userId: string, pageId: string) {
+  const token = await getPageToken(userId, pageId);
+
+  const res = await fetch(
+    `${GRAPH_API}/${pageId}/scheduled_posts?fields=id,message,created_time,scheduled_publish_time&access_token=${token}`
+  );
+  if (!res.ok) throw new Error(`Get scheduled posts failed: ${await res.text()}`);
+  const result = await res.json();
+
+  return (result.data || []).map((post: any) => ({
+    id: post.id,
+    message: post.message,
+    createdTime: post.created_time,
+    scheduledFor: post.scheduled_publish_time,
+  }));
+}
+
+export async function cancelScheduledPost(userId: string, postId: string) {
+  const { accessToken } = await getFacebookTokens(userId);
+
+  const res = await fetch(`${GRAPH_API}/${postId}?access_token=${accessToken}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Cancel scheduled post failed: ${await res.text()}`);
+
+  return { success: true, message: "Scheduled post cancelled" };
+}

@@ -229,3 +229,84 @@ export async function getFollowers(userId: string, maxResults: number = 20) {
     profileImage: user.profile_image_url,
   }));
 }
+
+export async function bookmarkTweet(userId: string, tweetId: string) {
+  const { accessToken } = await getTwitterTokens(userId);
+  const me = await twitterFetch(accessToken, "https://api.twitter.com/2/users/me");
+  await twitterFetch(accessToken, `https://api.twitter.com/2/users/${me.data.id}/bookmarks`, {
+    method: "POST",
+    body: JSON.stringify({ tweet_id: tweetId }),
+  });
+  return { success: true, message: "Tweet bookmarked" };
+}
+
+export async function getBookmarks(userId: string, maxResults: number = 10) {
+  const { accessToken } = await getTwitterTokens(userId);
+  const me = await twitterFetch(accessToken, "https://api.twitter.com/2/users/me");
+  const result = await twitterFetch(
+    accessToken,
+    `https://api.twitter.com/2/users/${me.data.id}/bookmarks?max_results=${Math.min(maxResults, 100)}&tweet.fields=created_at,public_metrics,text`
+  );
+  return (result.data || []).map((tweet: any) => ({
+    id: tweet.id,
+    text: tweet.text,
+    createdAt: tweet.created_at,
+    likes: tweet.public_metrics?.like_count,
+    retweets: tweet.public_metrics?.retweet_count,
+  }));
+}
+
+export async function getLikedTweets(userId: string, maxResults: number = 10) {
+  const { accessToken } = await getTwitterTokens(userId);
+  const me = await twitterFetch(accessToken, "https://api.twitter.com/2/users/me");
+  const result = await twitterFetch(
+    accessToken,
+    `https://api.twitter.com/2/users/${me.data.id}/liked_tweets?max_results=${Math.min(maxResults, 100)}&tweet.fields=created_at,public_metrics,text,author_id`
+  );
+  return (result.data || []).map((tweet: any) => ({
+    id: tweet.id,
+    text: tweet.text,
+    authorId: tweet.author_id,
+    createdAt: tweet.created_at,
+    likes: tweet.public_metrics?.like_count,
+  }));
+}
+
+export async function followUser(userId: string, targetUserId: string) {
+  const { accessToken } = await getTwitterTokens(userId);
+  const me = await twitterFetch(accessToken, "https://api.twitter.com/2/users/me");
+  await twitterFetch(accessToken, `https://api.twitter.com/2/users/${me.data.id}/following`, {
+    method: "POST",
+    body: JSON.stringify({ target_user_id: targetUserId }),
+  });
+  return { success: true, message: "User followed" };
+}
+
+export async function unfollowUser(userId: string, targetUserId: string) {
+  const { accessToken } = await getTwitterTokens(userId);
+  const me = await twitterFetch(accessToken, "https://api.twitter.com/2/users/me");
+  await twitterFetch(accessToken, `https://api.twitter.com/2/users/${me.data.id}/following/${targetUserId}`, {
+    method: "DELETE",
+  });
+  return { success: true, message: "User unfollowed" };
+}
+
+export async function muteUser(userId: string, targetUserId: string) {
+  const { accessToken } = await getTwitterTokens(userId);
+  const me = await twitterFetch(accessToken, "https://api.twitter.com/2/users/me");
+  await twitterFetch(accessToken, `https://api.twitter.com/2/users/${me.data.id}/muting`, {
+    method: "POST",
+    body: JSON.stringify({ target_user_id: targetUserId }),
+  });
+  return { success: true, message: "User muted" };
+}
+
+export async function blockUser(userId: string, targetUserId: string) {
+  const { accessToken } = await getTwitterTokens(userId);
+  const me = await twitterFetch(accessToken, "https://api.twitter.com/2/users/me");
+  await twitterFetch(accessToken, `https://api.twitter.com/2/users/${me.data.id}/blocking`, {
+    method: "POST",
+    body: JSON.stringify({ target_user_id: targetUserId }),
+  });
+  return { success: true, message: "User blocked" };
+}

@@ -364,3 +364,85 @@ export async function deletePost(userId: string, mediaId: string) {
 
   return { success: true, message: "Post deleted from Instagram" };
 }
+
+export async function createStory(userId: string, mediaUrl: string, mediaType: "IMAGE" | "VIDEO" = "IMAGE") {
+  const { accessToken } = await getInstagramTokens(userId);
+  const igUserId = await getIgUserId(accessToken);
+
+  const body: Record<string, any> = {
+    media_type: "STORIES",
+    access_token: accessToken,
+  };
+  if (mediaType === "VIDEO") {
+    body.video_url = mediaUrl;
+  } else {
+    body.image_url = mediaUrl;
+  }
+
+  const containerRes = await fetch(`${GRAPH_API}/${igUserId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!containerRes.ok) throw new Error(`Story container failed: ${await containerRes.text()}`);
+  const container = await containerRes.json();
+
+  // For video stories, poll for processing
+  if (mediaType === "VIDEO") {
+    let status = "IN_PROGRESS";
+    let attempts = 0;
+    while (status === "IN_PROGRESS" && attempts < 30) {
+      await new Promise(r => setTimeout(r, 5000));
+      const check = await igFetch(accessToken, `${GRAPH_API}/${container.id}?fields=status_code&access_token=${accessToken}`);
+      status = check.status_code;
+      attempts++;
+    }
+    if (status !== "FINISHED") throw new Error(`Story processing failed: ${status}`);
+  }
+
+  const publishRes = await fetch(`${GRAPH_API}/${igUserId}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ creation_id: container.id, access_token: accessToken }),
+  });
+  if (!publishRes.ok) throw new Error(`Story publish failed: ${await publishRes.text()}`);
+  const published = await publishRes.json();
+
+  return { success: true, mediaId: published.id, message: `${mediaType.toLowerCase()} story published to Instagram` };
+}
+
+export async function getStoryInsights(userId: string, storyId: string) {
+  const { accessToken } = await getInstagramTokens(userId);
+
+  const result = await igFetch(
+    accessToken,
+    `${GRAPH_API}/${storyId}/insights?metric=impressions,reach,replies,exits,taps_forward,taps_back&access_token=${accessToken}`
+  );
+
+  const metrics: Record<string, number> = {};
+  for (const item of result.data || []) {
+    metrics[item.name] = item.values?.[0]?.value || 0;
+  }
+  return metrics;
+}
+
+export async function getTaggedMedia(userId: string) {
+  const { accessToken } = await getInstagramTokens(userId);
+  const igUserId = await getIgUserId(accessToken);
+
+  const result = await igFetch(
+    accessToken,
+    `${GRAPH_API}/${igUserId}/tags?fields=id,caption,media_type,media_url,timestamp,permalink,like_count,comments_count&access_token=${accessToken}`
+  );
+
+  return (result.data || []).map((post: any) => ({
+    id: post.id,
+    caption: post.caption,
+    mediaType: post.media_type,
+    mediaUrl: post.media_url,
+    timestamp: post.timestamp,
+    permalink: post.permalink,
+    likes: post.like_count,
+    comments: post.comments_count,
+  }));
+}

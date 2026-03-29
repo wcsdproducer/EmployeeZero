@@ -45,6 +45,10 @@ import {
   listVideos,
   getVideoAnalytics,
   searchYouTube,
+  listPlaylists as listYouTubePlaylists,
+  addToPlaylist as addToYouTubePlaylist,
+  getVideoComments as getYouTubeComments,
+  replyToComment as replyToYouTubeComment,
 } from "@/lib/youtube";
 import {
   getProfile as getLinkedInProfile,
@@ -69,6 +73,13 @@ import {
   unlikeTweet,
   getMentions as getTwitterMentions,
   getFollowers as getTwitterFollowers,
+  bookmarkTweet,
+  getBookmarks as getTwitterBookmarks,
+  getLikedTweets as getTwitterLikedTweets,
+  followUser as followTwitterUser,
+  unfollowUser as unfollowTwitterUser,
+  muteUser as muteTwitterUser,
+  blockUser as blockTwitterUser,
 } from "@/lib/twitter";
 import {
   getProfile as getInstagramProfile,
@@ -83,6 +94,9 @@ import {
   getStories as getInstagramStories,
   searchHashtag as searchInstagramHashtag,
   deletePost as deleteInstagramPost,
+  createStory as createInstagramStory,
+  getStoryInsights as getInstagramStoryInsights,
+  getTaggedMedia as getInstagramTaggedMedia,
 } from "@/lib/instagram";
 import {
   getProfile as getFacebookProfile,
@@ -95,10 +109,32 @@ import {
   deletePagePost as deleteFacebookPost,
   createPagePhotoPost as createFacebookPhotoPost,
   schedulePagePost as scheduleFacebookPost,
+  uploadPageVideo as uploadFacebookVideo,
+  createPageReel as createFacebookReel,
+  getScheduledPosts as getFacebookScheduledPosts,
+  cancelScheduledPost as cancelFacebookScheduledPost,
 } from "@/lib/facebook";
 import {
   getProfile as getTikTokProfile,
 } from "@/lib/tiktok";
+import {
+  generateImage,
+  describeImage,
+} from "@/lib/imageGen";
+import {
+  listContacts,
+  getContact,
+  createContact,
+  deleteContact,
+} from "@/lib/contacts";
+import {
+  createNote,
+  listNotes,
+  getNote,
+  updateNote,
+  deleteNote,
+  searchNotes,
+} from "@/lib/notes";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -637,6 +673,47 @@ const YOUTUBE_TOOLS = [
       required: ["query"],
     },
   },
+  {
+    name: "list_youtube_playlists",
+    description: "List the user's YouTube playlists",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "add_to_youtube_playlist",
+    description: "Add a video to a YouTube playlist",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        playlist_id: { type: Type.STRING, description: "YouTube playlist ID" },
+        video_id: { type: Type.STRING, description: "YouTube video ID to add" },
+      },
+      required: ["playlist_id", "video_id"],
+    },
+  },
+  {
+    name: "get_youtube_comments",
+    description: "Get comments on a YouTube video",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        video_id: { type: Type.STRING, description: "YouTube video ID" },
+        max_results: { type: Type.NUMBER, description: "Max comments (default 10)" },
+      },
+      required: ["video_id"],
+    },
+  },
+  {
+    name: "reply_to_youtube_comment",
+    description: "Reply to a comment on YouTube",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        comment_id: { type: Type.STRING, description: "Comment ID to reply to" },
+        text: { type: Type.STRING, description: "Reply text" },
+      },
+      required: ["comment_id", "text"],
+    },
+  },
 ];
 
 const LINKEDIN_TOOLS = [
@@ -854,6 +931,81 @@ const TWITTER_TOOLS = [
       },
     },
   },
+  {
+    name: "bookmark_tweet",
+    description: "Bookmark a tweet for later",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tweet_id: { type: Type.STRING, description: "Tweet ID to bookmark" },
+      },
+      required: ["tweet_id"],
+    },
+  },
+  {
+    name: "get_twitter_bookmarks",
+    description: "Get your saved/bookmarked tweets",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
+      },
+    },
+  },
+  {
+    name: "get_twitter_liked_tweets",
+    description: "Get tweets you have liked",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
+      },
+    },
+  },
+  {
+    name: "follow_twitter_user",
+    description: "Follow a user on X/Twitter",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        target_user_id: { type: Type.STRING, description: "User ID to follow" },
+      },
+      required: ["target_user_id"],
+    },
+  },
+  {
+    name: "unfollow_twitter_user",
+    description: "Unfollow a user on X/Twitter",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        target_user_id: { type: Type.STRING, description: "User ID to unfollow" },
+      },
+      required: ["target_user_id"],
+    },
+  },
+  {
+    name: "mute_twitter_user",
+    description: "Mute a user on X/Twitter (hide their tweets)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        target_user_id: { type: Type.STRING, description: "User ID to mute" },
+      },
+      required: ["target_user_id"],
+    },
+  },
+  {
+    name: "block_twitter_user",
+    description: "Block a user on X/Twitter",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        target_user_id: { type: Type.STRING, description: "User ID to block" },
+      },
+      required: ["target_user_id"],
+    },
+  },
 ];
 
 const INSTAGRAM_TOOLS = [
@@ -981,6 +1133,34 @@ const INSTAGRAM_TOOLS = [
       required: ["media_id"],
     },
   },
+  {
+    name: "create_instagram_story",
+    description: "Publish an image or video as an Instagram Story",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        media_url: { type: Type.STRING, description: "Public URL of image or video" },
+        media_type: { type: Type.STRING, description: "IMAGE or VIDEO (default IMAGE)" },
+      },
+      required: ["media_url"],
+    },
+  },
+  {
+    name: "get_instagram_story_insights",
+    description: "Get analytics for an Instagram Story (impressions, reach, exits, taps)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        story_id: { type: Type.STRING, description: "Story media ID" },
+      },
+      required: ["story_id"],
+    },
+  },
+  {
+    name: "get_instagram_tagged_media",
+    description: "Get posts that the user has been tagged in",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
 ];
 
 const FACEBOOK_TOOLS = [
@@ -1093,6 +1273,55 @@ const FACEBOOK_TOOLS = [
       required: ["page_id", "message", "scheduled_time"],
     },
   },
+  {
+    name: "upload_facebook_video",
+    description: "Upload a video to a Facebook Page",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        page_id: { type: Type.STRING, description: "Facebook Page ID" },
+        video_url: { type: Type.STRING, description: "Public URL of the video" },
+        title: { type: Type.STRING, description: "Video title" },
+        description: { type: Type.STRING, description: "Video description" },
+      },
+      required: ["page_id", "video_url", "title"],
+    },
+  },
+  {
+    name: "create_facebook_reel",
+    description: "Publish a Reel on a Facebook Page",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        page_id: { type: Type.STRING, description: "Facebook Page ID" },
+        video_url: { type: Type.STRING, description: "Public URL of video" },
+        description: { type: Type.STRING, description: "Reel description" },
+      },
+      required: ["page_id", "video_url"],
+    },
+  },
+  {
+    name: "get_facebook_scheduled_posts",
+    description: "List scheduled (unpublished) posts on a Facebook Page",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        page_id: { type: Type.STRING, description: "Facebook Page ID" },
+      },
+      required: ["page_id"],
+    },
+  },
+  {
+    name: "cancel_facebook_scheduled_post",
+    description: "Cancel a scheduled Facebook post before it publishes",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        post_id: { type: Type.STRING, description: "Post ID to cancel" },
+      },
+      required: ["post_id"],
+    },
+  },
 ];
 
 const TIKTOK_TOOLS = [
@@ -1100,6 +1329,157 @@ const TIKTOK_TOOLS = [
     name: "get_tiktok_profile",
     description: "Get the user's TikTok profile (display name, followers, video count, likes)",
     parameters: { type: Type.OBJECT, properties: {} },
+  },
+];
+
+const IMAGE_GEN_TOOLS = [
+  {
+    name: "generate_image",
+    description: "Generate an AI image from a text description using Google Imagen. Returns a base64-encoded image.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        prompt: { type: Type.STRING, description: "Description of the image to generate" },
+        aspect_ratio: { type: Type.STRING, description: "Aspect ratio: 1:1, 16:9, 9:16, 3:4, 4:3 (default 1:1)" },
+        style: { type: Type.STRING, description: "Optional style modifier (e.g. 'photorealistic', 'watercolor', 'cartoon')" },
+      },
+      required: ["prompt"],
+    },
+  },
+];
+
+const CONTACTS_TOOLS = [
+  {
+    name: "list_contacts",
+    description: "List the user's Google contacts, optionally searching by name or email",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        search: { type: Type.STRING, description: "Optional search query to filter contacts" },
+        max_results: { type: Type.NUMBER, description: "Max contacts to return (default 20)" },
+      },
+    },
+  },
+  {
+    name: "get_contact",
+    description: "Get detailed info about a specific Google contact",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        resource_name: { type: Type.STRING, description: "Contact resource name (e.g. people/c12345)" },
+      },
+      required: ["resource_name"],
+    },
+  },
+  {
+    name: "create_contact",
+    description: "Create a new Google contact",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        first_name: { type: Type.STRING, description: "First name" },
+        last_name: { type: Type.STRING, description: "Last name" },
+        email: { type: Type.STRING, description: "Email address" },
+        phone: { type: Type.STRING, description: "Phone number" },
+        company: { type: Type.STRING, description: "Company/organization name" },
+        title: { type: Type.STRING, description: "Job title" },
+      },
+      required: ["first_name"],
+    },
+  },
+  {
+    name: "delete_contact",
+    description: "Delete a Google contact",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        resource_name: { type: Type.STRING, description: "Contact resource name to delete" },
+      },
+      required: ["resource_name"],
+    },
+  },
+];
+
+const NOTES_TOOLS = [
+  {
+    name: "create_note",
+    description: "Save a note or knowledge item for future reference",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING, description: "Note title" },
+        content: { type: Type.STRING, description: "Note content (text, ideas, lists, etc.)" },
+        tags: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Tags for categorization (e.g. 'meeting', 'idea', 'research')",
+        },
+      },
+      required: ["title", "content"],
+    },
+  },
+  {
+    name: "list_notes",
+    description: "List saved notes, optionally filtered by tag",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tag: { type: Type.STRING, description: "Filter by tag" },
+        max_results: { type: Type.NUMBER, description: "Max notes to return (default 20)" },
+      },
+    },
+  },
+  {
+    name: "get_note",
+    description: "Get a specific note by ID",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        note_id: { type: Type.STRING, description: "Note ID" },
+      },
+      required: ["note_id"],
+    },
+  },
+  {
+    name: "update_note",
+    description: "Update an existing note",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        note_id: { type: Type.STRING, description: "Note ID to update" },
+        title: { type: Type.STRING, description: "New title" },
+        content: { type: Type.STRING, description: "New content" },
+        tags: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "New tags",
+        },
+      },
+      required: ["note_id"],
+    },
+  },
+  {
+    name: "delete_note",
+    description: "Delete a note",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        note_id: { type: Type.STRING, description: "Note ID to delete" },
+      },
+      required: ["note_id"],
+    },
+  },
+  {
+    name: "search_notes",
+    description: "Search through saved notes by keyword",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search keyword" },
+        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
+      },
+      required: ["query"],
+    },
   },
 ];
 
@@ -1298,9 +1678,89 @@ async function executeTool(
       return await createFacebookPhotoPost(userId, args.page_id, args.image_url, args.caption);
     case "schedule_facebook_post":
       return await scheduleFacebookPost(userId, args.page_id, args.message, args.scheduled_time, args.link);
+    // New Facebook tools
+    case "upload_facebook_video":
+      return await uploadFacebookVideo(userId, args.page_id, args.video_url, args.title, args.description);
+    case "create_facebook_reel":
+      return await createFacebookReel(userId, args.page_id, args.video_url, args.description);
+    case "get_facebook_scheduled_posts":
+      return await getFacebookScheduledPosts(userId, args.page_id);
+    case "cancel_facebook_scheduled_post":
+      return await cancelFacebookScheduledPost(userId, args.post_id);
     // TikTok tools
     case "get_tiktok_profile":
       return await getTikTokProfile(userId);
+    // New YouTube tools
+    case "list_youtube_playlists":
+      return await listYouTubePlaylists(userId);
+    case "add_to_youtube_playlist":
+      return await addToYouTubePlaylist(userId, args.playlist_id, args.video_id);
+    case "get_youtube_comments":
+      return await getYouTubeComments(userId, args.video_id, args.max_results || 10);
+    case "reply_to_youtube_comment":
+      return await replyToYouTubeComment(userId, args.comment_id, args.text);
+    // New Twitter tools
+    case "bookmark_tweet":
+      return await bookmarkTweet(userId, args.tweet_id);
+    case "get_twitter_bookmarks":
+      return await getTwitterBookmarks(userId, args.max_results || 10);
+    case "get_twitter_liked_tweets":
+      return await getTwitterLikedTweets(userId, args.max_results || 10);
+    case "follow_twitter_user":
+      return await followTwitterUser(userId, args.target_user_id);
+    case "unfollow_twitter_user":
+      return await unfollowTwitterUser(userId, args.target_user_id);
+    case "mute_twitter_user":
+      return await muteTwitterUser(userId, args.target_user_id);
+    case "block_twitter_user":
+      return await blockTwitterUser(userId, args.target_user_id);
+    // New Instagram tools
+    case "create_instagram_story":
+      return await createInstagramStory(userId, args.media_url, args.media_type || "IMAGE");
+    case "get_instagram_story_insights":
+      return await getInstagramStoryInsights(userId, args.story_id);
+    case "get_instagram_tagged_media":
+      return await getInstagramTaggedMedia(userId);
+    // Image generation tools
+    case "generate_image":
+      return await generateImage(args.prompt, {
+        aspectRatio: args.aspect_ratio,
+        style: args.style,
+      });
+    // Contacts tools
+    case "list_contacts":
+      return await listContacts(userId, args.search, args.max_results || 20);
+    case "get_contact":
+      return await getContact(userId, args.resource_name);
+    case "create_contact":
+      return await createContact(
+        userId,
+        args.first_name,
+        args.last_name,
+        args.email,
+        args.phone,
+        args.company,
+        args.title
+      );
+    case "delete_contact":
+      return await deleteContact(userId, args.resource_name);
+    // Notes tools
+    case "create_note":
+      return await createNote(userId, args.title, args.content, args.tags || []);
+    case "list_notes":
+      return await listNotes(userId, args.tag, args.max_results || 20);
+    case "get_note":
+      return await getNote(userId, args.note_id);
+    case "update_note":
+      return await updateNote(userId, args.note_id, {
+        title: args.title,
+        content: args.content,
+        tags: args.tags,
+      });
+    case "delete_note":
+      return await deleteNote(userId, args.note_id);
+    case "search_notes":
+      return await searchNotes(userId, args.query, args.max_results || 10);
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -1626,6 +2086,13 @@ The memory_extract section will be automatically processed and NOT shown to the 
         if (connections.tiktok?.connected) {
           allTools.push(...TIKTOK_TOOLS);
         }
+        // Contacts: use any Google connection
+        if (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected) {
+          allTools.push(...CONTACTS_TOOLS);
+        }
+        // Image generation & notes — always available (no connection needed)
+        allTools.push(...IMAGE_GEN_TOOLS);
+        allTools.push(...NOTES_TOOLS);
         config.tools = [{ functionDeclarations: allTools }];
 
         let response = await ai.models.generateContent({
