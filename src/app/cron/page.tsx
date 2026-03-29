@@ -72,10 +72,12 @@ const SCHEDULE_OPTIONS = [
 interface WorkflowOption {
   id: string;
   name: string;
+  description?: string;
   icon: React.ReactNode;
   iconBg: string;
   defaultSchedule: string;
   defaultCron: string;
+  connections?: string[];
 }
 
 const WORKFLOW_OPTIONS: WorkflowOption[] = [
@@ -166,6 +168,78 @@ function getStatusColor(status?: string) {
     case "running": return "text-blue-400 bg-blue-500/10 border-blue-500/20";
     default: return "text-neutral-500 bg-white/5 border-white/10";
   }
+}
+
+const WORKFLOW_META: Record<string, { desc: string; conns: string[] }> = {
+  "morning-briefing": { desc: "Email, calendar & priority summary to start your day", conns: ["Gmail", "Calendar"] },
+  "daily-standup": { desc: "Auto-generated standup with tasks, blockers & goals", conns: ["Gmail", "Calendar"] },
+  "inbox-commander": { desc: "Triage, categorize & auto-draft replies for urgent emails", conns: ["Gmail"] },
+  "eod-wrapup": { desc: "Review today's activity & set tomorrow's priorities", conns: ["Gmail", "Calendar"] },
+  "full-business-autopilot": { desc: "Runs all core workflows — email, calendar, tasks & reports", conns: ["Gmail", "Calendar", "Sheets"] },
+  "meeting-prep": { desc: "Research attendees & generate talking points before meetings", conns: ["Gmail", "Calendar"] },
+  "meeting-follow-up": { desc: "Send summary & action items after each meeting", conns: ["Gmail", "Calendar"] },
+  "week-planner": { desc: "Plan next week based on calendar, tasks & priorities", conns: ["Calendar", "Tasks"] },
+  "appointment-scheduler": { desc: "Auto-negotiate meeting times via email", conns: ["Gmail", "Calendar"] },
+  "social-engagement-sweep": { desc: "Monitor & respond to mentions, comments & DMs", conns: ["X / Twitter", "LinkedIn"] },
+  "social-post-all-platforms": { desc: "Adapt & publish content across all connected platforms", conns: ["X / Twitter", "LinkedIn"] },
+  "social-analytics-report": { desc: "Weekly engagement, growth & performance breakdown", conns: ["Sheets"] },
+  "social-autopilot": { desc: "Schedule, publish & report on social content automatically", conns: ["Sheets", "X / Twitter"] },
+  "twitter-growth-engine": { desc: "Engage & post strategically to grow your X audience", conns: ["X / Twitter"] },
+  "instagram-content-machine": { desc: "Generate captions, hashtags & posting schedules for IG", conns: ["Sheets"] },
+  "linkedin-thought-leader": { desc: "Draft thought-leadership posts & engage with your network", conns: ["LinkedIn"] },
+  "youtube-channel-manager": { desc: "Track performance, plan uploads & optimize metadata", conns: ["Sheets"] },
+  "content-calendar": { desc: "Generate a full week of content ideas & post drafts", conns: ["Sheets"] },
+  "visual-content-batch": { desc: "Plan visual content themes & generate copy for the week", conns: ["Sheets"] },
+  "brand-mention-monitor": { desc: "Track brand mentions across email & social platforms", conns: ["Gmail"] },
+  "lead-tracker": { desc: "Detect leads from emails, enrich & log to CRM sheet", conns: ["Gmail", "Sheets"] },
+  "crm-sync": { desc: "Sync contacts, deals & interactions across services", conns: ["Contacts", "Sheets"] },
+  "customer-birthday-checker": { desc: "Send personalized greetings on client milestones", conns: ["Contacts", "Gmail"] },
+  "review-responder": { desc: "Monitor & respond to customer reviews professionally", conns: ["Gmail"] },
+  "client-onboarding": { desc: "14-day welcome sequence for new clients — automated", conns: ["Gmail", "Sheets"] },
+  "expense-logger": { desc: "Scan emails for receipts & invoices, log to sheet", conns: ["Gmail", "Sheets"] },
+  "revenue-tracker": { desc: "Track income, payments & MRR trends weekly", conns: ["Gmail", "Sheets"] },
+  "invoice-tracker": { desc: "Extract invoices, track due dates & alert on overdue", conns: ["Gmail", "Sheets"] },
+  "weekly-report": { desc: "Executive summary of email, meetings, leads & expenses", conns: ["Gmail", "Calendar", "Sheets"] },
+  "end-of-week-everything": { desc: "Full business review — all metrics, wins & action items", conns: ["Gmail", "Calendar", "Sheets"] },
+  "business-pulse": { desc: "One-page business health dashboard with AI insights", conns: ["Gmail", "Calendar", "Sheets"] },
+  "competitor-intel": { desc: "Monitor competitor pricing, features & content strategy", conns: ["Sheets"] },
+  "market-research": { desc: "Research industry trends, news & opportunities weekly", conns: ["Sheets"] },
+  "seo-audit": { desc: "Analyze site performance, keywords & ranking opportunities", conns: ["Analytics", "Sheets"] },
+  "hiring-pipeline": { desc: "Track applicants, schedule interviews & send follow-ups", conns: ["Gmail", "Sheets"] },
+  "team-newsletter": { desc: "Weekly internal digest with updates, wins & priorities", conns: ["Gmail", "Docs"] },
+  "drive-cleanup": { desc: "Find duplicates, old files & organize your Drive weekly", conns: ["Drive"] },
+  "weekly-file-report": { desc: "Summary of new, modified & shared files this week", conns: ["Drive"] },
+  "notes-digest": { desc: "Compile & summarize your Keep notes into a daily digest", conns: ["Notes"] },
+  "facebook-page-manager": { desc: "Monitor messages, comments & page insights", conns: ["Facebook"] },
+  "tiktok-scout": { desc: "Find trending sounds, hashtags & content ideas daily", conns: ["TikTok"] },
+  "contact-manager": { desc: "Sync, deduplicate & enrich your Google Contacts weekly", conns: ["Contacts"] },
+  "task-master": { desc: "Turn emails into tasks, sync with calendar & prioritize", conns: ["Tasks", "Gmail", "Calendar"] },
+  "auto-report-generator": { desc: "Compile weekly data into a polished Google Doc report", conns: ["Docs", "Gmail", "Calendar"] },
+  "review-guardian": { desc: "Monitor & reply to Google Business reviews professionally", conns: ["Business Profile"] },
+  "website-performance": { desc: "Analyze traffic, top pages & SEO recommendations", conns: ["Analytics"] },
+  "survey-creator": { desc: "Build NPS & feedback surveys with Google Forms", conns: ["Forms", "Gmail"] },
+  "pitch-deck-builder": { desc: "Generate professional pitch presentations in Slides", conns: ["Slides"] },
+  "meeting-minutes-doc": { desc: "Create structured meeting docs with action items", conns: ["Docs", "Calendar", "Tasks"] },
+  "client-feedback-analyzer": { desc: "Aggregate feedback with sentiment analysis & insights", conns: ["Forms", "Business Profile", "Gmail"] },
+};
+
+function getNextRun(cronExpression: string): string {
+  const now = new Date();
+  const parts = cronExpression.split(" ");
+  if (parts[0]?.startsWith("*/")) {
+    const mins = parseInt(parts[0].slice(2));
+    const next = new Date(now.getTime() + mins * 60000);
+    return next.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+  const hour = parseInt(parts[1] || "0");
+  const minute = parseInt(parts[0] || "0");
+  const next = new Date(now);
+  next.setHours(hour, minute, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const isToday = next.toDateString() === now.toDateString();
+  const prefix = isToday ? "Today" : dayNames[next.getDay()];
+  return `${prefix} ${next.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
 
 /* ─── Component ─── */
@@ -402,6 +476,7 @@ export default function CronPage() {
           <div className="space-y-3">
             {jobs.map((job, i) => {
               const wf = WORKFLOW_OPTIONS.find((w) => w.id === job.workflowId);
+              const meta = WORKFLOW_META[job.workflowId];
               return (
                 <motion.div
                   key={job.id}
@@ -415,33 +490,46 @@ export default function CronPage() {
                       : "border-white/5 bg-white/[0.01] opacity-60"
                   )}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  {/* Row 1: Header */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
                       {/* Icon */}
                       <div className={cn(
-                        "w-11 h-11 rounded-xl bg-gradient-to-br border flex items-center justify-center flex-shrink-0",
+                        "w-11 h-11 rounded-xl bg-gradient-to-br border flex items-center justify-center flex-shrink-0 mt-0.5",
                         wf?.iconBg || "from-neutral-500/20 to-neutral-600/20 border-neutral-500/30 text-neutral-400"
                       )}>
                         {wf?.icon || <Zap size={16} />}
                       </div>
 
                       {/* Info */}
-                      <div>
-                        <h3 className="font-bold text-[15px] tracking-tight">{job.name}</h3>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-xs text-neutral-500 flex items-center gap-1">
-                            <RefreshCw size={10} />
-                            {job.schedule}
-                          </span>
-                          <span className="text-[10px] text-neutral-600 font-mono">{job.cronExpression}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-[15px] tracking-tight">{job.name}</h3>
+                          {job.enabled && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+                          )}
                         </div>
+                        {meta && (
+                          <p className="text-xs text-neutral-400 mt-0.5 leading-relaxed">{meta.desc}</p>
+                        )}
+
+                        {/* Connections */}
+                        {meta?.conns && meta.conns.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {meta.conns.map((conn) => (
+                              <span key={conn} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/5 border border-blue-500/15 text-blue-300">
+                                {conn}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 ml-4 flex-shrink-0">
                       {/* Last run status */}
                       {job.lastRun && (
-                        <div className="text-right mr-2">
+                        <div className="text-right mr-1">
                           <div className={cn(
                             "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border inline-flex items-center gap-1",
                             getStatusColor(job.lastStatus)
@@ -490,6 +578,24 @@ export default function CronPage() {
                         )}
                       </button>
                     </div>
+                  </div>
+
+                  {/* Row 2: Schedule details */}
+                  <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/5">
+                    <span className="text-xs text-neutral-500 flex items-center gap-1.5">
+                      <RefreshCw size={10} />
+                      {job.schedule}
+                    </span>
+                    <span className="text-[10px] text-neutral-600 font-mono bg-white/5 px-2 py-0.5 rounded">{job.cronExpression}</span>
+                    <span className="text-xs text-neutral-500 flex items-center gap-1.5">
+                      <Clock size={10} />
+                      Next: {getNextRun(job.cronExpression)}
+                    </span>
+                    {job.createdAt && (
+                      <span className="text-[10px] text-neutral-600 ml-auto">
+                        Created {new Date(job.createdAt).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                 </motion.div>
               );
