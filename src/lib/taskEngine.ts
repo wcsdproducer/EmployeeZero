@@ -175,6 +175,17 @@ export interface Task {
 
 const MAX_STEPS = 25;
 const MAX_RETRIES_PER_STEP = 2;
+const TOOL_TIMEOUT_MS = 30_000; // 30s per tool call
+const TASK_TIMEOUT_MS = 4 * 60_000; // 4 min global timeout
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+    ),
+  ]);
+}
 
 /* ─── Tool Declaration Groups ─── */
 
@@ -1087,8 +1098,15 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
   let stepCount = 0;
   let finalResult = "";
   let consecutiveErrors = 0;
+  const taskStartTime = Date.now();
 
   while (stepCount < MAX_STEPS) {
+    // Global timeout check
+    if (Date.now() - taskStartTime > TASK_TIMEOUT_MS) {
+      finalResult = "Task timed out after 4 minutes. Partial progress saved.";
+      await updateTask(taskId, { status: "failed", result: finalResult, steps });
+      return finalResult;
+    }
     // Call Gemini
     let response;
     try {
@@ -1204,7 +1222,11 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
 
     while (retries <= MAX_RETRIES_PER_STEP) {
       try {
-        toolResult = await executeTool(userId, toolName!, args as Record<string, any>);
+        toolResult = await withTimeout(
+          executeTool(userId, toolName!, args as Record<string, any>),
+          TOOL_TIMEOUT_MS,
+          `Tool ${toolName}`
+        );
         consecutiveErrors = 0;
         break;
       } catch (err: any) {
@@ -1452,7 +1474,11 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
     let retries = 0;
     while (retries <= MAX_RETRIES_PER_STEP) {
       try {
-        toolResult = await executeTool(userId, toolName!, args as Record<string, any>);
+        toolResult = await withTimeout(
+          executeTool(userId, toolName!, args as Record<string, any>),
+          TOOL_TIMEOUT_MS,
+          `Tool ${toolName}`
+        );
         consecutiveErrors = 0;
         break;
       } catch (err: any) {
