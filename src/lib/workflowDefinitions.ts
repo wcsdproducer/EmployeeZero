@@ -74,18 +74,52 @@ Present each meeting as a separate section.`,
 
   "eod-wrapup": {
     id: "eod-wrapup",
-    goal: `You are running the End-of-Day Wrap-Up workflow. Do the following:
+    goal: `You are running the End-of-Day Wrap-Up workflow. This is a COMPREHENSIVE daily summary across ALL workspaces and services. Be thorough — the user relies on this to know everything that happened today.
 
-1. Search for all emails sent by the user today (from:me, today's date).
-2. Search for all emails received today.
-3. Compile a summary:
-   - 📤 **Emails Sent**: Count and key topics
-   - 📥 **Emails Received**: Count and highlights
-   - ✅ **Accomplished**: What was handled today
-   - 🔜 **Tomorrow's Priorities**: Top 3 things to focus on based on pending items
-4. Note any unanswered urgent emails that should be addressed.
+Do the following steps IN ORDER, using every connected service available:
 
-Keep it concise — this is a 1-minute end-of-day read.`,
+## 1. Email Activity (Gmail)
+- Search for all emails sent by the user today (from:me, today's date) — count and summarize key topics
+- Search for all emails received today — count and highlight important ones
+- Flag any urgent unanswered emails that need attention
+
+## 2. Calendar & Meetings (Google Calendar)
+- Get today's calendar events — list all meetings/calls that occurred
+- Note any no-shows, cancellations, or rescheduled items
+- Check tomorrow's calendar for upcoming commitments
+
+## 3. Tasks & Projects (Google Tasks)
+- List recently completed tasks
+- List any overdue or pending tasks
+- Note tasks due tomorrow
+
+## 4. Files & Documents (Google Drive)
+- Search for files modified today — what documents were worked on?
+- Note any new files created or shared
+
+## 5. Website & Analytics (Google Analytics — if connected)
+- Pull today's visitor stats, page views, top pages
+- Note any significant traffic changes or trends
+
+## 6. Business Activity (Google Business Profile — if connected)
+- Check for new reviews, messages, or customer interactions
+
+## 7. Social Media Activity (any connected platforms)
+- Check for notable engagement, messages, or mentions
+
+## FINAL SUMMARY FORMAT:
+Structure your report as:
+📊 **Daily Dashboard** — [Date]
+- 📤 Emails Sent: [count] — [key topics]
+- 📥 Emails Received: [count] — [highlights]
+- 📅 Meetings: [count] — [key outcomes]
+- ✅ Tasks Completed: [count] — [details]
+- 📁 Files Worked On: [list]
+- 🌐 Website: [visitors, pageviews, trends]
+- ⚠️ Needs Attention: [urgent items]
+- 🔜 Tomorrow's Priorities: Top 3 items based on pending work, upcoming meetings, and deadlines
+
+Keep sections concise but don't skip any connected service. If a service has no activity, say "No activity" rather than omitting it. This should be a 2-minute executive read that captures EVERYTHING.`,
     requiredConnections: ["gmail"],
   },
 
