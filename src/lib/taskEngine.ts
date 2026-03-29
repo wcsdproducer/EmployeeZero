@@ -1,4 +1,5 @@
 import { adminDb } from "@/lib/admin";
+import { recordWorkflowMetric, loadPreferences, getWorkflowOptimization } from "@/lib/selfImprove";
 import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
 import {
@@ -1088,8 +1089,26 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
     systemPrompt += `\n\n## User Context (from memory)\nThese are facts about the user that may help you execute the task:\n${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`;
   }
 
+  // Self-Improving Agent: Inject learned preferences
+  const preferences = await loadPreferences(userId);
+  if (preferences.length > 0) {
+    systemPrompt += `\n\n## Learned Preferences (Self-Improving)\nThese rules were learned from past corrections and user feedback. Follow them strictly:\n${preferences.map((p, i) => `${i + 1}. ${p}`).join("\n")}`;
+  }
+
+  // Capability Evolver: Check for optimized goal override
+  const goalMatch = goal.match(/^\[workflow:(.*?)\]/);
+  const workflowId = goalMatch?.[1] || null;
+  let effectiveGoal = goal;
+  if (workflowId) {
+    const optimizedGoal = await getWorkflowOptimization(workflowId);
+    if (optimizedGoal) {
+      console.log(`[Evolver] Using optimized goal for ${workflowId}`);
+      effectiveGoal = optimizedGoal;
+    }
+  }
+
   const contents: any[] = [
-    { role: "user", parts: [{ text: `Execute this task:\n\n${goal}` }] },
+    { role: "user", parts: [{ text: `Execute this task:\n\n${effectiveGoal}` }] },
   ];
 
   await updateTask(taskId, { status: "running" });
@@ -1278,11 +1297,27 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
   }
 
   // Finalize
+  const taskEndTime = Date.now();
+  const finalStatus = finalResult.includes("failed") || finalResult.includes("timed out") ? "failed" : "completed";
   await updateTask(taskId, {
-    status: "completed",
+    status: finalStatus as any,
     result: finalResult,
     steps,
   });
+
+  // Capability Evolver: Record workflow metrics
+  if (workflowId) {
+    const errorCount = steps.filter(s => s.status === "failed").length;
+    recordWorkflowMetric({
+      workflowId,
+      userId,
+      status: finalStatus === "completed" ? "completed" : "failed",
+      durationMs: taskEndTime - taskStartTime,
+      toolCallCount: steps.length,
+      errorCount,
+      timestamp: new Date().toISOString(),
+    }).catch(() => {});
+  }
 
   return finalResult;
 }

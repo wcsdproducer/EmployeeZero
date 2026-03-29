@@ -170,6 +170,7 @@ import {
   addSlide,
   insertSlideText,
 } from "@/lib/slides";
+import { isCorrection, recordCorrection, loadPreferences } from "@/lib/selfImprove";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -2029,13 +2030,15 @@ export async function POST(request: Request) {
     if (isComplexTask) {
       // Try to extract a workflow ID from the message and use its structured goal
       let taskGoal = message;
+      let matchedWorkflowId: string | null = null;
       const lower = message.toLowerCase();
       const normalizedLower = lower.replace(/-/g, " "); // normalize hyphens to spaces
       for (const [wfId, wfDef] of Object.entries(WORKFLOW_DEFINITIONS)) {
         const readableName = wfId.replace(/-/g, " ");
         // Match against both original (hyphenated) and normalized (spaced) versions
         if (lower.includes(wfId) || normalizedLower.includes(readableName)) {
-          taskGoal = wfDef.goal;
+          taskGoal = `[workflow:${wfId}] ${wfDef.goal}`;
+          matchedWorkflowId = wfId;
           console.log(`[Chat] Matched workflow '${wfId}' — using structured goal`);
           break;
         }
@@ -2099,11 +2102,12 @@ export async function POST(request: Request) {
     // 3. Update status to running
     await convRef.update({ status: "running" });
 
-    // 4. Load memories + connections + preferences
-    const [memories, connections, userTimezone] = await Promise.all([
+    // 4. Load memories + connections + preferences + learned behaviors
+    const [memories, connections, userTimezone, preferences] = await Promise.all([
       loadMemories(userId),
       loadConnections(userId),
       loadUserTimezone(userId),
+      loadPreferences(userId),
     ]);
 
     // 4b. Sliding window + rolling summarization
@@ -2325,6 +2329,11 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
       systemPrompt += `\n\n## Your Memories\nThese are facts you've learned about the user and important context from past conversations:\n${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`;
     }
 
+    // Self-Improving Agent: Inject learned preferences
+    if (preferences.length > 0) {
+      systemPrompt += `\n\n## Learned Preferences (Self-Improving)\nThese rules were learned from past corrections and user feedback. Follow them strictly:\n${preferences.map((p, i) => `${i + 1}. ${p}`).join("\n")}`;
+    }
+
     systemPrompt += `\n\n## Memory Instructions
 When the user tells you something important about themselves (their name, preferences, role, company, goals, instructions for you, etc.), you MUST extract those facts so they can be saved to your long-term memory.
 
@@ -2514,6 +2523,16 @@ The memory_extract section will be automatically processed and NOT shown to the 
         .filter((line) => line.length > 0);
       if (facts.length > 0) await storeMemories(userId, "primary", facts);
       result = result.replace(/<memory_extract>[\s\S]*?<\/memory_extract>/, "").trim();
+    }
+
+    // 8b. Self-Improving Agent: Detect corrections and learn
+    if (isCorrection(message)) {
+      const lastAssistantMsg = allMessages.filter(m => m.role === "model").pop();
+      if (lastAssistantMsg) {
+        recordCorrection(userId, message, lastAssistantMsg.content).catch(e =>
+          console.warn("[SelfImprove] Failed to record correction:", e.message)
+        );
+      }
     }
 
     // 9. Append messages to conversation doc

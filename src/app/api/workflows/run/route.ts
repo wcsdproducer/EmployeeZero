@@ -71,8 +71,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create task
-    const taskId = await createTask(userId, goal, conversationId, apiKey);
+    // Create task — tag goal with workflow ID for Capability Evolver metrics
+    const taggedGoal = `[workflow:${workflowId}] ${goal}`;
+    const taskId = await createTask(userId, taggedGoal, conversationId, apiKey);
 
     // Execute in background
     executeTask(taskId, apiKey).then(async (result) => {
