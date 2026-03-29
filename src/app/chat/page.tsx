@@ -4,14 +4,15 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2 } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { authFetch } from "@/lib/authFetch";
-import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { signOut } from "@/lib/firebase";
 
 interface AgentDoc {
   id: string;
@@ -191,6 +192,8 @@ function ChatPageInner() {
   const [setupName, setSetupName] = useState("");
   const [setupAvatar, setSetupAvatar] = useState("robot");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   const FOUNDING_LIMIT = 100;
   const FOUNDING_PRICE = 29;
@@ -537,9 +540,66 @@ function ChatPageInner() {
                   {shareStatus === "copied" ? <><Check size={12} /> Copied!</> : <><Share2 size={12} /> Share</>}
                 </Button>
                 <div className="h-4 w-px bg-white/10 mx-1" />
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500">
+                <div className="relative" ref={settingsRef}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("h-8 w-8 transition-colors", showSettingsMenu ? "text-white bg-white/10" : "text-neutral-500 hover:text-neutral-300")}
+                    onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                  >
                     <Settings size={16} />
-                </Button>
+                  </Button>
+                  <AnimatePresence>
+                    {showSettingsMenu && (
+                      <>
+                        {/* Invisible backdrop to close */}
+                        <div className="fixed inset-0 z-40" onClick={() => setShowSettingsMenu(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 top-10 z-50 w-56 bg-[#151515] border border-white/10 rounded-xl shadow-2xl shadow-black/60 overflow-hidden"
+                        >
+                          <div className="p-1">
+                            {activeConvId && (
+                              <button
+                                onClick={async () => {
+                                  if (!activeConvId) return;
+                                  try {
+                                    await deleteDoc(doc(db, "conversations", activeConvId));
+                                    setActiveConvId(null);
+                                  } catch (err) { console.error("Failed to delete:", err); }
+                                  setShowSettingsMenu(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
+                              >
+                                <Trash2 size={14} /> Delete Conversation
+                              </button>
+                            )}
+                            <div className="h-px bg-white/5 my-1" />
+                            <Link href="/connections" onClick={() => setShowSettingsMenu(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-white hover:bg-white/5 transition-all">
+                              <Plug size={14} /> Connections
+                            </Link>
+                            <Link href="/workflows" onClick={() => setShowSettingsMenu(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-white hover:bg-white/5 transition-all">
+                              <Zap size={14} /> Workflows
+                            </Link>
+                            <Link href="/cron" onClick={() => setShowSettingsMenu(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-white hover:bg-white/5 transition-all">
+                              <Clock size={14} /> Scheduled Jobs
+                            </Link>
+                            <div className="h-px bg-white/5 my-1" />
+                            <button
+                              onClick={() => { signOut(); setShowSettingsMenu(false); }}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-red-400 hover:bg-red-500/5 transition-all"
+                            >
+                              <LogOut size={14} /> Sign Out
+                            </button>
+                          </div>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
             </div>
         </header>
 
