@@ -535,7 +535,7 @@ export default function CronPage() {
               {/* Step 1: Select Workflow */}
               <div className="mb-6">
                 <p className="text-[10px] text-neutral-600 font-mono uppercase tracking-widest mb-3">1. Select Workflow</p>
-                <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-2 max-h-[360px] overflow-y-auto pr-1">
                   {[...WORKFLOW_OPTIONS, ...customWorkflows].map((wf) => (
                     <button
                       key={wf.id}
