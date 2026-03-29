@@ -117,6 +117,24 @@ import {
 import {
   getProfile as getTikTokProfile,
 } from "@/lib/tiktok";
+import {
+  generateImage,
+  describeImage,
+} from "@/lib/imageGen";
+import {
+  listContacts,
+  getContact,
+  createContact,
+  deleteContact,
+} from "@/lib/contacts";
+import {
+  createNote,
+  listNotes,
+  getNote,
+  updateNote,
+  deleteNote,
+  searchNotes,
+} from "@/lib/notes";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -1314,6 +1332,157 @@ const TIKTOK_TOOLS = [
   },
 ];
 
+const IMAGE_GEN_TOOLS = [
+  {
+    name: "generate_image",
+    description: "Generate an AI image from a text description using Google Imagen. Returns a base64-encoded image.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        prompt: { type: Type.STRING, description: "Description of the image to generate" },
+        aspect_ratio: { type: Type.STRING, description: "Aspect ratio: 1:1, 16:9, 9:16, 3:4, 4:3 (default 1:1)" },
+        style: { type: Type.STRING, description: "Optional style modifier (e.g. 'photorealistic', 'watercolor', 'cartoon')" },
+      },
+      required: ["prompt"],
+    },
+  },
+];
+
+const CONTACTS_TOOLS = [
+  {
+    name: "list_contacts",
+    description: "List the user's Google contacts, optionally searching by name or email",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        search: { type: Type.STRING, description: "Optional search query to filter contacts" },
+        max_results: { type: Type.NUMBER, description: "Max contacts to return (default 20)" },
+      },
+    },
+  },
+  {
+    name: "get_contact",
+    description: "Get detailed info about a specific Google contact",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        resource_name: { type: Type.STRING, description: "Contact resource name (e.g. people/c12345)" },
+      },
+      required: ["resource_name"],
+    },
+  },
+  {
+    name: "create_contact",
+    description: "Create a new Google contact",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        first_name: { type: Type.STRING, description: "First name" },
+        last_name: { type: Type.STRING, description: "Last name" },
+        email: { type: Type.STRING, description: "Email address" },
+        phone: { type: Type.STRING, description: "Phone number" },
+        company: { type: Type.STRING, description: "Company/organization name" },
+        title: { type: Type.STRING, description: "Job title" },
+      },
+      required: ["first_name"],
+    },
+  },
+  {
+    name: "delete_contact",
+    description: "Delete a Google contact",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        resource_name: { type: Type.STRING, description: "Contact resource name to delete" },
+      },
+      required: ["resource_name"],
+    },
+  },
+];
+
+const NOTES_TOOLS = [
+  {
+    name: "create_note",
+    description: "Save a note or knowledge item for future reference",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING, description: "Note title" },
+        content: { type: Type.STRING, description: "Note content (text, ideas, lists, etc.)" },
+        tags: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Tags for categorization (e.g. 'meeting', 'idea', 'research')",
+        },
+      },
+      required: ["title", "content"],
+    },
+  },
+  {
+    name: "list_notes",
+    description: "List saved notes, optionally filtered by tag",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tag: { type: Type.STRING, description: "Filter by tag" },
+        max_results: { type: Type.NUMBER, description: "Max notes to return (default 20)" },
+      },
+    },
+  },
+  {
+    name: "get_note",
+    description: "Get a specific note by ID",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        note_id: { type: Type.STRING, description: "Note ID" },
+      },
+      required: ["note_id"],
+    },
+  },
+  {
+    name: "update_note",
+    description: "Update an existing note",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        note_id: { type: Type.STRING, description: "Note ID to update" },
+        title: { type: Type.STRING, description: "New title" },
+        content: { type: Type.STRING, description: "New content" },
+        tags: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "New tags",
+        },
+      },
+      required: ["note_id"],
+    },
+  },
+  {
+    name: "delete_note",
+    description: "Delete a note",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        note_id: { type: Type.STRING, description: "Note ID to delete" },
+      },
+      required: ["note_id"],
+    },
+  },
+  {
+    name: "search_notes",
+    description: "Search through saved notes by keyword",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search keyword" },
+        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
+      },
+      required: ["query"],
+    },
+  },
+];
+
 // ── Tool executor ───────────────────────────────────────────────
 
 async function executeTool(
@@ -1552,6 +1721,46 @@ async function executeTool(
       return await getInstagramStoryInsights(userId, args.story_id);
     case "get_instagram_tagged_media":
       return await getInstagramTaggedMedia(userId);
+    // Image generation tools
+    case "generate_image":
+      return await generateImage(args.prompt, {
+        aspectRatio: args.aspect_ratio,
+        style: args.style,
+      });
+    // Contacts tools
+    case "list_contacts":
+      return await listContacts(userId, args.search, args.max_results || 20);
+    case "get_contact":
+      return await getContact(userId, args.resource_name);
+    case "create_contact":
+      return await createContact(
+        userId,
+        args.first_name,
+        args.last_name,
+        args.email,
+        args.phone,
+        args.company,
+        args.title
+      );
+    case "delete_contact":
+      return await deleteContact(userId, args.resource_name);
+    // Notes tools
+    case "create_note":
+      return await createNote(userId, args.title, args.content, args.tags || []);
+    case "list_notes":
+      return await listNotes(userId, args.tag, args.max_results || 20);
+    case "get_note":
+      return await getNote(userId, args.note_id);
+    case "update_note":
+      return await updateNote(userId, args.note_id, {
+        title: args.title,
+        content: args.content,
+        tags: args.tags,
+      });
+    case "delete_note":
+      return await deleteNote(userId, args.note_id);
+    case "search_notes":
+      return await searchNotes(userId, args.query, args.max_results || 10);
     default:
       return { error: `Unknown tool: ${toolName}` };
   }
@@ -1877,6 +2086,13 @@ The memory_extract section will be automatically processed and NOT shown to the 
         if (connections.tiktok?.connected) {
           allTools.push(...TIKTOK_TOOLS);
         }
+        // Contacts: use any Google connection
+        if (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected) {
+          allTools.push(...CONTACTS_TOOLS);
+        }
+        // Image generation & notes — always available (no connection needed)
+        allTools.push(...IMAGE_GEN_TOOLS);
+        allTools.push(...NOTES_TOOLS);
         config.tools = [{ functionDeclarations: allTools }];
 
         let response = await ai.models.generateContent({
