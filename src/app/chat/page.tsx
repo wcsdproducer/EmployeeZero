@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -190,6 +190,7 @@ function ChatPageInner() {
   const [setupAgent, setSetupAgent] = useState<AgentDoc | null>(null);
   const [setupName, setSetupName] = useState("");
   const [setupAvatar, setSetupAvatar] = useState("robot");
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
 
   const FOUNDING_LIMIT = 100;
   const FOUNDING_PRICE = 29;
@@ -509,7 +510,32 @@ function ChatPageInner() {
                 </div>
             </div>
             <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="text-[12px] text-neutral-500 font-medium">Share</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "text-[12px] font-medium flex items-center gap-1.5 transition-all",
+                    shareStatus === "copied" ? "text-emerald-400" : "text-neutral-500 hover:text-neutral-300"
+                  )}
+                  onClick={async () => {
+                    if (!activeConv) return;
+                    const text = activeConv.messages.map(m => `${m.role === "user" ? "You" : selectedAgent.name}: ${m.content}`).join("\n\n");
+                    const shareText = `--- ${activeConv.title} ---\n\n${text}\n\n— Shared from Employee Zero`;
+                    try {
+                      await navigator.clipboard.writeText(shareText);
+                      setShareStatus("copied");
+                      setTimeout(() => setShareStatus("idle"), 2000);
+                    } catch {
+                      // Fallback: try native share API
+                      if (navigator.share) {
+                        navigator.share({ title: activeConv.title, text: shareText }).catch(() => {});
+                      }
+                    }
+                  }}
+                  disabled={!activeConv}
+                >
+                  {shareStatus === "copied" ? <><Check size={12} /> Copied!</> : <><Share2 size={12} /> Share</>}
+                </Button>
                 <div className="h-4 w-px bg-white/10 mx-1" />
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500">
                     <Settings size={16} />
