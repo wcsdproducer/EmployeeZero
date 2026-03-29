@@ -117,10 +117,7 @@ import {
 import {
   getProfile as getTikTokProfile,
 } from "@/lib/tiktok";
-import {
-  generateImage,
-  describeImage,
-} from "@/lib/imageGen";
+
 import {
   listContacts,
   getContact,
@@ -1369,21 +1366,7 @@ const TIKTOK_TOOLS = [
   },
 ];
 
-const IMAGE_GEN_TOOLS = [
-  {
-    name: "generate_image",
-    description: "Generate an AI image from a text description using Google Imagen. Returns a base64-encoded image.",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        prompt: { type: Type.STRING, description: "Description of the image to generate" },
-        aspect_ratio: { type: Type.STRING, description: "Aspect ratio: 1:1, 16:9, 9:16, 3:4, 4:3 (default 1:1)" },
-        style: { type: Type.STRING, description: "Optional style modifier (e.g. 'photorealistic', 'watercolor', 'cartoon')" },
-      },
-      required: ["prompt"],
-    },
-  },
-];
+
 
 const CONTACTS_TOOLS = [
   {
@@ -1801,12 +1784,7 @@ async function executeTool(
       return await getInstagramStoryInsights(userId, args.story_id);
     case "get_instagram_tagged_media":
       return await getInstagramTaggedMedia(userId);
-    // Image generation tools
-    case "generate_image":
-      return await generateImage(args.prompt, {
-        aspectRatio: args.aspect_ratio,
-        style: args.style,
-      });
+
     // Contacts tools
     case "list_contacts":
       return await listContacts(userId, args.search, args.max_results || 20);
@@ -2260,7 +2238,6 @@ The memory_extract section will be automatically processed and NOT shown to the 
           allTools.push(...SLIDES_TOOLS);
         }
         // Image generation & notes — always available (no connection needed)
-        allTools.push(...IMAGE_GEN_TOOLS);
         allTools.push(...NOTES_TOOLS);
         config.tools = [{ functionDeclarations: allTools }];
 

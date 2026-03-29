@@ -114,7 +114,6 @@ const GOOGLE_SUITE = [
   { id: "analytics", name: "Google Analytics", description: "Website traffic and performance data", icon: BarChart2, color: "text-yellow-300", requiresOAuth: true, comingSoon: false },
   { id: "business", name: "Business Profile", description: "Manage Google Business listing & reviews", icon: Store, color: "text-green-300", requiresOAuth: true, comingSoon: false },
   { id: "notes", name: "Notes & KB", description: "Persistent notes & knowledge base — always available", icon: StickyNote, color: "text-amber-400", requiresOAuth: false, comingSoon: false },
-  { id: "imagen", name: "Image Generation", description: "AI image creation via Imagen 3 — always available", icon: Image, color: "text-purple-400", requiresOAuth: false, comingSoon: false },
 ];
 
 const SOCIAL_MEDIA = [
@@ -140,7 +139,6 @@ const TOOL_MAP: Record<string, string[]> = {
   analytics: ["List Properties", "Run Report", "Realtime Data"],
   business: ["List Accounts", "List Locations", "Get Reviews", "Reply to Review", "Create Post"],
   notes: ["Create Note", "List Notes", "Update Note", "Delete Note", "Search Notes", "Knowledge Base"],
-  imagen: ["Generate Image"],
   twitter: ["Profile", "Timeline", "Tweet", "Search", "Delete", "Reply", "Retweet", "Like", "Unlike", "Mentions", "Followers", "Bookmark", "Bookmarks", "Liked Tweets", "Follow", "Unfollow", "Mute", "Block"],
   instagram: ["Profile", "Media", "Post", "Comments", "Reply", "Carousel", "Reel", "Post Insights", "Account Insights", "Stories", "Hashtag Search", "Delete Post", "Create Story", "Story Insights", "Tagged Media"],
   facebook: ["Profile", "Pages", "Page Posts", "Create Post", "Insights", "Comments", "Reply", "Delete Post", "Photo Post", "Schedule Post", "Video Upload", "Create Reel", "Scheduled Posts", "Cancel Scheduled"],
