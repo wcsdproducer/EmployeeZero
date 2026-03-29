@@ -14,6 +14,7 @@ import { db } from "@/lib/firebase";
 import { authFetch } from "@/lib/authFetch";
 import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { signOut } from "@/lib/firebase";
+import ReactMarkdown from "react-markdown";
 
 interface AgentDoc {
   id: string;
@@ -692,8 +693,22 @@ function ChatPageInner() {
                     )}
                     <div className="space-y-2 flex-1">
                       <p className="text-sm font-semibold text-neutral-400">{msg.role === "user" ? "You" : selectedAgent.name}</p>
-                      <div className={cn("text-[16px] leading-relaxed whitespace-pre-wrap", msg.role === "user" ? "text-neutral-200" : "text-neutral-100 prose prose-invert max-w-none")}>
-                        {msg.content}
+                      <div className={cn("text-[16px] leading-relaxed", msg.role === "user" ? "text-neutral-200 whitespace-pre-wrap" : "text-neutral-100 prose prose-invert max-w-none prose-a:text-blue-400 prose-a:underline prose-a:hover:text-blue-300")}>
+                        {msg.role === "user" ? (
+                          msg.content
+                        ) : (
+                          <ReactMarkdown
+                            components={{
+                              a: ({ href, children }) => (
+                                <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 break-all">
+                                  {children}
+                                </a>
+                              ),
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        )}
                       </div>
                     </div>
                   </div>
