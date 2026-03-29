@@ -19,6 +19,11 @@ const SCOPE_MAP: Record<string, string[]> = {
   ],
   sheets: [
     "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive.readonly",
+  ],
+  youtube: [
+    "https://www.googleapis.com/auth/youtube.readonly",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
   ],
 };
 
@@ -28,8 +33,8 @@ function getRedirectUri() {
 }
 
 export async function GET(request: Request) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
   if (!clientId || !clientSecret) {
     return NextResponse.json(

@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
+import { authFetch } from "@/lib/authFetch";
 import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 
 interface AgentDoc {
@@ -74,10 +76,23 @@ function getAgents(employeeName: string, avatarId: string | null) {
 }
 
 export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen flex items-center justify-center bg-[#0d0d0d] text-white font-mono uppercase tracking-widest animate-pulse">
+        Loading...
+      </div>
+    }>
+      <ChatPageInner />
+    </Suspense>
+  );
+}
+
+function ChatPageInner() {
   const { user, loading: authLoading } = useAuth();
   const [input, setInput] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const hasAutoSelected = useRef(false);
   const [employeeName, setEmployeeName] = useState("Employee Zero");
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
   const agents = getAgents(employeeName, employeeAvatar);
@@ -91,6 +106,41 @@ export default function ChatPage() {
     setVisibleWorkflows(shuffled.slice(0, 4));
     setWfKey((k) => k + 1);
   }, [activeConvId]);
+
+  // Handle ?workflow= query param (from workflows page "Run Now")
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const workflowTriggered = useRef(false);
+  useEffect(() => {
+    const wfId = searchParams.get("workflow");
+    if (!wfId || !user || workflowTriggered.current) return;
+    workflowTriggered.current = true;
+    // Find workflow name
+    const wf = WORKFLOW_SUGGESTIONS.find((w) => w.id === wfId);
+    const wfName = wf?.name || wfId;
+    const workflowMessage = `Run the ${wfName} workflow`;
+    // Create conversation and trigger
+    (async () => {
+      try {
+        const docRef = await addDoc(collection(db, "conversations"), {
+          userId: user.uid,
+          title: `⚡ ${wfName}`,
+          messages: [{ role: "user", content: workflowMessage, timestamp: new Date().toISOString() }],
+          status: "running",
+          createdAt: Timestamp.now(),
+        });
+        setActiveConvId(docRef.id);
+        authFetch("/api/workflows/run", {
+          method: "POST",
+          body: JSON.stringify({ conversationId: docRef.id, workflowId: wfId }),
+        }).catch((err) => console.error("Workflow API error:", err));
+        // Clean up URL
+        router.replace("/chat", { scroll: false });
+      } catch (err) {
+        console.error("Failed to start workflow from URL:", err);
+      }
+    })();
+  }, [searchParams, user]);
   const [selectedAgentId, setSelectedAgentId] = useState("primary");
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
   const [submitting, setSubmitting] = useState(false);
@@ -196,8 +246,6 @@ export default function ChatPage() {
       (snapshot) => {
         const convData = snapshot.docs
           .map(d => ({ id: d.id, ...d.data() }) as Conversation)
-          // Only show conversations that have at least 1 message
-          .filter(c => c.messages && c.messages.length > 0)
           .sort((a, b) => {
             const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds * 1000 || 0;
             const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds * 1000 || 0;
@@ -205,8 +253,9 @@ export default function ChatPage() {
           });
         setConversations(convData);
         
-        // Auto-select the most recent conversation on first load
-        if (!activeConvId && convData.length > 0) {
+        // Auto-select the most recent conversation on first page load only
+        if (!hasAutoSelected.current && convData.length > 0) {
+          hasAutoSelected.current = true;
           setActiveConvId(convData[0].id);
         }
       },
@@ -242,7 +291,7 @@ export default function ChatPage() {
         const docRef = await addDoc(collection(db, "conversations"), {
           userId: user.uid,
           title: message.slice(0, 80),
-          messages: [],
+          messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
           status: "running",
           createdAt: Timestamp.now(),
         });
@@ -254,11 +303,9 @@ export default function ChatPage() {
       }
 
       // Fire the chat API (don't await — Firestore listener handles updates)
-      fetch("/api/chat", {
+      authFetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user.uid,
           conversationId: convId,
           message,
           agentName: selectedAgent.name,
@@ -360,6 +407,15 @@ export default function ChatPage() {
                   <Zap size={14} className="text-amber-400" />
                 </div>
                 <span className="font-medium">Workflows</span>
+              </Link>
+              <Link
+                href="/cron"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-neutral-500 hover:bg-white/5 hover:text-neutral-300 group"
+              >
+                <div className="p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
+                  <Clock size={14} className="text-cyan-400" />
+                </div>
+                <span className="font-medium">Scheduled Jobs</span>
               </Link>
               <Link
                 href="/connections"
@@ -496,10 +552,39 @@ export default function ChatPage() {
                       className="grid grid-cols-2 gap-3"
                     >
                       {visibleWorkflows.map((wf) => (
-                        <Link
+                        <button
                           key={wf.id}
-                          href="/workflows"
-                          className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group"
+                          onClick={async () => {
+                            if (!user || submitting) return;
+                            const workflowMessage = `Run the ${wf.name} workflow`;
+                            setInput("");
+                            setSubmitting(true);
+                            try {
+                              // Create a new conversation for this workflow
+                              const docRef = await addDoc(collection(db, "conversations"), {
+                                userId: user.uid,
+                                title: `⚡ ${wf.name}`,
+                                messages: [{ role: "user", content: workflowMessage, timestamp: new Date().toISOString() }],
+                                status: "running",
+                                createdAt: Timestamp.now(),
+                              });
+                              setActiveConvId(docRef.id);
+                              // Fire the workflow execution API
+                              authFetch("/api/workflows/run", {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  conversationId: docRef.id,
+                                  workflowId: wf.id,
+                                }),
+                              }).catch((err) => console.error("Workflow API error:", err));
+                            } catch (err) {
+                              console.error("Failed to start workflow:", err);
+                            } finally {
+                              setSubmitting(false);
+                            }
+                          }}
+                          disabled={submitting}
+                          className="text-left p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group cursor-pointer disabled:opacity-50"
                         >
                           <div className="flex items-center gap-2.5 mb-2">
                             <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br border flex items-center justify-center flex-shrink-0", wf.iconBg)}>
@@ -513,7 +598,7 @@ export default function ChatPage() {
                               <span key={s} className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-500">{s}</span>
                             ))}
                           </div>
-                        </Link>
+                        </button>
                       ))}
                     </motion.div>
                   </AnimatePresence>
@@ -662,11 +747,9 @@ export default function ChatPage() {
                 className="w-full h-14 bg-white text-black hover:bg-neutral-200 text-base font-bold rounded-2xl transition-all"
                 onClick={async () => {
                   try {
-                    const res = await fetch("/api/checkout", {
+                    const res = await authFetch("/api/checkout", {
                       method: "POST",
-                      headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        userId: user.uid,
                         email: user.email,
                       }),
                     });

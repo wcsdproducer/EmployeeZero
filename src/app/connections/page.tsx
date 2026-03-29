@@ -92,19 +92,19 @@ const LLM_PROVIDERS = [
 ];
 
 const GOOGLE_SUITE = [
-  { id: "gmail", name: "Gmail", description: "Read, send, and manage emails", icon: Mail, color: "text-red-400", requiresOAuth: true },
-  { id: "calendar", name: "Google Calendar", description: "Schedule and manage events", icon: Calendar, color: "text-blue-400", requiresOAuth: true },
-  { id: "drive", name: "Google Drive", description: "Access and manage files", icon: HardDrive, color: "text-yellow-400", requiresOAuth: true },
-  { id: "sheets", name: "Google Sheets", description: "Read and write spreadsheet data", icon: FileSpreadsheet, color: "text-green-400", requiresOAuth: true },
-  { id: "youtube", name: "YouTube", description: "Video analytics and management", icon: Youtube, color: "text-red-500", requiresOAuth: false },
+  { id: "gmail", name: "Gmail", description: "Read, send, and manage emails", icon: Mail, color: "text-red-400", requiresOAuth: true, comingSoon: false },
+  { id: "calendar", name: "Google Calendar", description: "Schedule and manage events", icon: Calendar, color: "text-blue-400", requiresOAuth: true, comingSoon: false },
+  { id: "drive", name: "Google Drive", description: "Access and manage files", icon: HardDrive, color: "text-yellow-400", requiresOAuth: true, comingSoon: false },
+  { id: "sheets", name: "Google Sheets", description: "Read and write spreadsheet data", icon: FileSpreadsheet, color: "text-green-400", requiresOAuth: true, comingSoon: false },
+  { id: "youtube", name: "YouTube", description: "Video analytics and management", icon: Youtube, color: "text-red-500", requiresOAuth: true, comingSoon: false },
 ];
 
 const SOCIAL_MEDIA = [
-  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true },
-  { id: "instagram", name: "Instagram", description: "Content publishing and insights", icon: Instagram, color: "text-pink-400", hasSecret: false },
-  { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false },
-  { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false },
-  { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false },
+  { id: "twitter", name: "X / Twitter", description: "Post, monitor, and engage", icon: Twitter, color: "text-neutral-300", hasSecret: true, comingSoon: false, requiresOAuth: true },
+  { id: "instagram", name: "Instagram", description: "Content publishing and insights", icon: Instagram, color: "text-pink-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
+  { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
+  { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false, comingSoon: false, requiresOAuth: true },
+  { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
 ];
 
 /* ─── Component ─── */
@@ -146,20 +146,89 @@ function ConnectionsPageInner() {
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+  // Setup instructions for social platforms
+  const [setupPlatform, setSetupPlatform] = useState<string | null>(null);
+
+  const SETUP_INFO: Record<string, { name: string; url: string; steps: string[] }> = {
+    twitter: {
+      name: "X / Twitter",
+      url: "https://developer.twitter.com/en/portal/dashboard",
+      steps: [
+        "Go to the X Developer Portal and create a project + app",
+        "Enable OAuth 2.0 with \"Read and Write\" permissions",
+        "Add the callback URL: https://employeezero.app/api/auth/social/callback",
+        "Copy your Client ID and Client Secret",
+        "Add them to your Employee Zero settings as TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET",
+      ],
+    },
+    instagram: {
+      name: "Instagram",
+      url: "https://developers.facebook.com/apps/",
+      steps: [
+        "Go to Meta for Developers and create a new app (type: Business)",
+        "Add the Instagram Basic Display or Instagram Graph API product",
+        "Configure OAuth with redirect: https://employeezero.app/api/auth/social/callback",
+        "Copy your App ID and App Secret",
+        "Add them to your Employee Zero settings as META_APP_ID and META_APP_SECRET",
+      ],
+    },
+    facebook: {
+      name: "Facebook",
+      url: "https://developers.facebook.com/apps/",
+      steps: [
+        "Go to Meta for Developers and create a new app (type: Business)",
+        "Add the Facebook Login product",
+        "Configure OAuth with redirect: https://employeezero.app/api/auth/social/callback",
+        "Copy your App ID and App Secret",
+        "Add them as META_APP_ID and META_APP_SECRET (shared with Instagram)",
+      ],
+    },
+    tiktok: {
+      name: "TikTok",
+      url: "https://developers.tiktok.com/",
+      steps: [
+        "Go to TikTok for Developers and register an app",
+        "Apply for Login Kit and Content Posting API access",
+        "Add the callback URL: https://employeezero.app/api/auth/social/callback",
+        "Copy your Client Key and Client Secret",
+        "Add them as TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET",
+      ],
+    },
+    linkedin: {
+      name: "LinkedIn",
+      url: "https://www.linkedin.com/developers/apps",
+      steps: [
+        "Go to LinkedIn Developers and create a new app",
+        "Request access to \"Share on LinkedIn\" and \"Sign In with LinkedIn v2\"",
+        "Add the callback URL: https://employeezero.app/api/auth/social/callback",
+        "Copy your Client ID and Client Secret",
+        "Add them as LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET",
+      ],
+    },
+  };
+
   // Handle OAuth callback params
   useEffect(() => {
     const connected = searchParams.get("connected");
     const error = searchParams.get("error");
+    const setup = searchParams.get("setup");
 
     if (connected) {
       setToast({ message: `${connected.charAt(0).toUpperCase() + connected.slice(1)} connected successfully!`, type: "success" });
-      // Clean URL params
+      router.replace("/connections", { scroll: false });
+    } else if (setup && SETUP_INFO[setup]) {
+      setSetupPlatform(setup);
       router.replace("/connections", { scroll: false });
     } else if (error) {
+      const detail = searchParams.get("detail");
       const messages: Record<string, string> = {
         access_denied: "You denied access. No changes were made.",
-        token_exchange_failed: "Failed to exchange token with Google. Try again.",
+        token_exchange_failed: detail
+          ? `Token exchange failed: ${detail}`
+          : "Failed to exchange token. Please try again.",
         storage_failed: "Connected but failed to save. Try again.",
+        missing_params: "Connection request was missing required information.",
+        unknown_platform: "Unknown platform requested.",
       };
       setToast({ message: messages[error] || `OAuth error: ${error}`, type: "error" });
       router.replace("/connections", { scroll: false });
@@ -241,6 +310,31 @@ function ConnectionsPageInner() {
     if (!user?.uid) return;
     // Full-page redirect to our OAuth initiation endpoint
     window.location.href = `/api/auth/google?service=${serviceId}&userId=${user.uid}`;
+  };
+
+  // Social media platforms use their own OAuth
+  const SOCIAL_PLATFORM_IDS = ["twitter", "instagram", "tiktok", "linkedin", "facebook"];
+
+  const connectSocialOAuth = (platformId: string) => {
+    if (!user?.uid) return;
+    window.location.href = `/api/auth/social?platform=${platformId}&userId=${user.uid}`;
+  };
+
+  const disconnectSocialOAuth = async (platformId: string) => {
+    if (!user?.uid) return;
+    setSavingConnection(platformId);
+    try {
+      await setDoc(
+        doc(db, "users", user.uid, "settings", "connections"),
+        { [platformId]: { connected: false, accessToken: "", refreshToken: "" } },
+        { merge: true }
+      );
+      setConnections((prev) => ({ ...prev, [platformId]: { connected: false } }));
+    } catch (err) {
+      console.error("Failed to disconnect:", err);
+    } finally {
+      setSavingConnection(null);
+    }
   };
 
   const disconnectOAuthService = async (serviceId: string) => {
@@ -325,6 +419,72 @@ function ConnectionsPageInner() {
         )}
       </AnimatePresence>
 
+      {/* Setup Instructions Modal */}
+      <AnimatePresence>
+        {setupPlatform && SETUP_INFO[setupPlatform] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setSetupPlatform(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#141414] border border-white/10 rounded-3xl p-6 max-w-lg w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">
+                  Connect {SETUP_INFO[setupPlatform].name}
+                </h3>
+                <button
+                  onClick={() => setSetupPlatform(null)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-neutral-500 hover:text-white transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <p className="text-sm text-neutral-400 mb-4">
+                To connect {SETUP_INFO[setupPlatform].name}, you need to set up a developer app first. This is a one-time setup:
+              </p>
+
+              <ol className="space-y-2.5 mb-5">
+                {SETUP_INFO[setupPlatform].steps.map((step, i) => (
+                  <li key={i} className="flex gap-3 text-sm">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center text-[10px] font-bold mt-0.5">
+                      {i + 1}
+                    </span>
+                    <span className="text-neutral-300">{step}</span>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="flex gap-3">
+                <a
+                  href={SETUP_INFO[setupPlatform].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-center text-sm font-semibold px-4 py-2.5 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition-colors flex items-center justify-center gap-2"
+                >
+                  Open Developer Portal
+                  <ExternalLink size={12} />
+                </a>
+                <button
+                  onClick={() => setSetupPlatform(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-neutral-400 hover:bg-white/10 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="sticky top-0 z-20 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
@@ -351,7 +511,8 @@ function ConnectionsPageInner() {
         {(() => {
           const brainDone = brainConfig.verified ? 1 : 0;
           const connDone = Object.values(connections).filter(c => c.connected).length;
-          const totalSetup = 1 + GOOGLE_SUITE.length + SOCIAL_MEDIA.length; // brain + all services
+          const activeSocial = SOCIAL_MEDIA.filter(s => !(s as any).upgradeRequired && !(s as any).pendingReview);
+          const totalSetup = 1 + GOOGLE_SUITE.length + activeSocial.length; // brain + active services
           const completedSetup = brainDone + connDone;
           const pct = Math.round((completedSetup / totalSetup) * 100);
 
@@ -577,6 +738,10 @@ function ConnectionsPageInner() {
                         >
                           Disconnect
                         </button>
+                      ) : svc.comingSoon ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-neutral-500">
+                          Coming Soon
+                        </span>
                       ) : svc.requiresOAuth ? (
                         <button
                           onClick={() => connectWithOAuth(svc.id)}
@@ -699,23 +864,29 @@ function ConnectionsPageInner() {
                         </button>
                       ) : isConnected ? (
                         <button
-                          onClick={() => disconnectService(svc.id)}
+                          onClick={() => disconnectSocialOAuth(svc.id)}
                           className="text-[11px] text-red-400/70 hover:text-red-400 font-medium transition-colors"
                         >
                           Disconnect
                         </button>
-                      ) : (
+                      ) : (svc as any).upgradeRequired ? (
+                        <span className="text-[11px] text-amber-400/70 font-medium px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          Coming Soon
+                        </span>
+                      ) : (svc as any).pendingReview ? (
+                        <span className="text-[11px] text-amber-400/70 font-medium px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          Coming Soon
+                        </span>
+                      ) : (svc as any).requiresOAuth ? (
                         <button
-                          onClick={() => {
-                            setEditingKey(svc.id);
-                            setEditValue(conn?.apiKey || "");
-                            setEditSecret(conn?.apiSecret || "");
-                          }}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors flex items-center gap-1"
+                          onClick={() => connectSocialOAuth(svc.id)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-white transition-all flex items-center gap-1.5 group"
                         >
-                          Connect <ChevronRight size={12} />
+                          <Plug size={12} className="opacity-60" />
+                          Connect
+                          <ExternalLink size={10} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
