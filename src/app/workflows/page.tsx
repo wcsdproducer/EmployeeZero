@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { authFetch } from "@/lib/authFetch";
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -381,6 +381,7 @@ const CONNECTION_ICONS: Record<string, string> = {
 export default function WorkflowsPage() {
   const { user, loading: authLoading } = useAuth();
   const [installedIds, setInstalledIds] = useState<string[]>([]);
+  const [cronJobIds, setCronJobIds] = useState<string[]>([]);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -398,6 +399,23 @@ export default function WorkflowsPage() {
         setInstalledIds(snap.data().installed || []);
       }
     }).catch(() => {});
+  }, [user?.uid]);
+
+  // Sync with cron jobs so active state matches both views
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsubscribe = onSnapshot(
+      doc(db, "users", user.uid, "settings", "cron"),
+      (snap) => {
+        if (snap.exists()) {
+          const jobs = snap.data().jobs || [];
+          const activeIds = jobs.filter((j: any) => j.enabled).map((j: any) => j.workflowId);
+          setCronJobIds(activeIds);
+        }
+      },
+      () => {}
+    );
+    return () => unsubscribe();
   }, [user?.uid]);
 
   // Load custom workflows
@@ -459,7 +477,9 @@ export default function WorkflowsPage() {
   };
 
   const filtered = filter === "all" ? WORKFLOWS : WORKFLOWS.filter((w) => w.category === filter);
-  const installedCount = installedIds.length;
+  // Merge installed + cron-scheduled IDs to get all active workflows
+  const allActiveIds = Array.from(new Set([...installedIds, ...cronJobIds]));
+  const installedCount = allActiveIds.length;
 
   if (authLoading) {
     return (
@@ -626,7 +646,7 @@ export default function WorkflowsPage() {
         {/* Workflow Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((wf, i) => {
-            const isInstalled = installedIds.includes(wf.id);
+            const isInstalled = allActiveIds.includes(wf.id);
             const isInstalling = installingId === wf.id;
             const isExpanded = expandedId === wf.id;
             const cat = CATEGORY_LABELS[wf.category];

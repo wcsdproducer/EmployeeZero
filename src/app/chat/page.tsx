@@ -97,15 +97,43 @@ function ChatPageInner() {
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
   const agents = getAgents(employeeName, employeeAvatar);
 
-  // Rotating workflow suggestions — reshuffle on every new conversation
+  // Track active workflow IDs from both installed + cron
+  const [activeWorkflowIds, setActiveWorkflowIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!user?.uid) return;
+    // Load installed workflows
+    getDoc(doc(db, "users", user.uid, "settings", "workflows")).then((snap) => {
+      if (snap.exists()) {
+        setActiveWorkflowIds(prev => Array.from(new Set([...prev, ...(snap.data().installed || [])])));
+      }
+    }).catch(() => {});
+    // Listen for cron jobs
+    const unsubscribe = onSnapshot(
+      doc(db, "users", user.uid, "settings", "cron"),
+      (snap) => {
+        if (snap.exists()) {
+          const cronIds = (snap.data().jobs || []).filter((j: any) => j.enabled).map((j: any) => j.workflowId);
+          setActiveWorkflowIds(prev => {
+            const base = prev.filter(id => !cronIds.includes(id)); // remove stale cron ids
+            return Array.from(new Set([...base, ...cronIds]));
+          });
+        }
+      },
+      () => {}
+    );
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Rotating workflow suggestions — reshuffle on every new conversation, exclude active
   const [visibleWorkflows, setVisibleWorkflows] = useState<WorkflowSuggestion[]>([]);
   const [wfKey, setWfKey] = useState(0);
 
   useEffect(() => {
-    const shuffled = [...WORKFLOW_SUGGESTIONS].sort(() => Math.random() - 0.5);
+    const available = WORKFLOW_SUGGESTIONS.filter(wf => !activeWorkflowIds.includes(wf.id));
+    const shuffled = [...available].sort(() => Math.random() - 0.5);
     setVisibleWorkflows(shuffled.slice(0, 4));
     setWfKey((k) => k + 1);
-  }, [activeConvId]);
+  }, [activeConvId, activeWorkflowIds]);
 
   // Handle ?workflow= query param (from workflows page "Run Now")
   const searchParams = useSearchParams();
