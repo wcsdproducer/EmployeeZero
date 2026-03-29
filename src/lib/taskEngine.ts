@@ -159,10 +159,12 @@ export interface Task {
   userId: string;
   conversationId?: string;
   goal: string;
-  status: "planning" | "running" | "completed" | "failed";
+  status: "planning" | "running" | "completed" | "failed" | "waiting_input";
   plan?: string;
   steps: TaskStep[];
   result?: string;
+  question?: string;
+  savedContents?: any[];
   tokensUsed: number;
   createdAt: string;
   updatedAt: string;
@@ -849,6 +851,29 @@ async function getApiKey(userId: string): Promise<string> {
   return platformKey;
 }
 
+/* ─── User Context Helpers ─── */
+
+async function loadMemories(userId: string): Promise<string[]> {
+  try {
+    const snap = await adminDb
+      .collection(`users/${userId}/memories`)
+      .limit(50)
+      .get();
+    return snap.docs.map((d) => d.data().content as string);
+  } catch {
+    return [];
+  }
+}
+
+async function loadUserTimezone(userId: string): Promise<string> {
+  try {
+    const snap = await adminDb.doc(`users/${userId}/settings/preferences`).get();
+    return snap.exists ? (snap.data()?.timezone || "America/New_York") : "America/New_York";
+  } catch {
+    return "America/New_York";
+  }
+}
+
 /* ─── Connections Helper ─── */
 
 async function getAvailableTools(userId: string) {
@@ -1010,13 +1035,19 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
   const { tools, services } = await getAvailableTools(userId);
   const ai = new GoogleGenAI({ apiKey });
 
+  // Load user context for personalized execution
+  const [memories, userTimezone] = await Promise.all([
+    loadMemories(userId),
+    loadUserTimezone(userId),
+  ]);
+
   // Build system prompt — strongly emphasize reporting
-  const systemPrompt = `You are an autonomous AI employee executing a workflow task. You have access to tools and must complete the given goal step by step.
+  let systemPrompt = `You are an autonomous AI employee executing a workflow task. You have access to tools and must complete the given goal step by step.
 
 ## Available Services: ${services.length > 0 ? services.join(", ") : "None"}
 
 ## Current Date & Time
-Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}. Current time: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}.
+Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: userTimezone })}. Current time: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: userTimezone })}. User timezone: ${userTimezone}.
 
 ## Rules
 1. Break the goal into logical steps and execute them one at a time using your tools.
@@ -1026,6 +1057,7 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 5. Never send emails without the content being explicitly specified in the goal.
 6. You can browse any website, follow links, search the web, and submit forms.
 7. You can save notes using create_note for persistent storage.
+8. If the goal asks you to ask the user a question, respond with ONLY the question text — do NOT call task_complete. The system will deliver your question and pause until the user responds.
 
 ## CRITICAL: Reporting Requirements
 When the goal is accomplished, you MUST call task_complete with the FULL, DETAILED REPORT as the result.
@@ -1035,6 +1067,11 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
 - Include specific data points, numbers, names, and actionable next steps.
 - The report should be comprehensive enough to stand on its own without the user needing to ask follow-up questions.
 - Think of this as delivering a professional briefing to a busy executive.`;
+
+  // Inject user memories for context
+  if (memories.length > 0) {
+    systemPrompt += `\n\n## User Context (from memory)\nThese are facts about the user that may help you execute the task:\n${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`;
+  }
 
   const contents: any[] = [
     { role: "user", parts: [{ text: `Execute this task:\n\n${goal}` }] },
@@ -1076,8 +1113,39 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
     const fnCallPart = parts.find((p: any) => p.functionCall);
 
     if (!fnCallPart?.functionCall) {
-      // No function call — model gave a text response (might be done)
-      finalResult = response.text || "Task completed — no report generated.";
+      // No function call — model gave a text response
+      const textResponse = response.text || "";
+
+      // If the model is asking a question (not calling task_complete),
+      // pause the task and write the question to the conversation
+      if (textResponse && task.conversationId) {
+        // Save state for resumption
+        await updateTask(taskId, {
+          status: "waiting_input",
+          question: textResponse,
+          savedContents: contents,
+          steps,
+        });
+
+        // Write the question to the conversation
+        const convRef = adminDb.doc(`conversations/${task.conversationId}`);
+        const convSnap = await convRef.get();
+        const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
+        const now = new Date().toISOString();
+        await convRef.update({
+          messages: [
+            ...existingMsgs,
+            { role: "model", content: textResponse, timestamp: now },
+          ],
+          status: "idle",
+          updatedAt: now,
+          pendingTaskId: taskId,
+        });
+
+        return `__WAITING_INPUT__`;
+      }
+
+      finalResult = textResponse || "Task completed — no report generated.";
       break;
     }
 
@@ -1190,5 +1258,242 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
     steps,
   });
 
+  return finalResult;
+}
+
+/**
+ * Resume a paused task after receiving user input.
+ * Rebuilds the conversation context and continues execution.
+ */
+export async function resumeTask(taskId: string, userInput: string, overrideApiKey?: string): Promise<string> {
+  const taskSnap = await adminDb.doc(`tasks/${taskId}`).get();
+  if (!taskSnap.exists) throw new Error("Task not found");
+
+  const taskData = taskSnap.data() as any;
+  if (taskData.status !== "waiting_input") {
+    throw new Error(`Task is not waiting for input (status: ${taskData.status})`);
+  }
+
+  const task = { id: taskId, ...taskData } as Task;
+  const { userId, goal } = task;
+
+  let apiKey = overrideApiKey || "";
+  if (!apiKey) apiKey = await getApiKey(userId);
+  if (!apiKey) {
+    await updateTask(taskId, { status: "failed", result: "No API key configured." });
+    return "No API key configured.";
+  }
+
+  const { tools, services } = await getAvailableTools(userId);
+  const ai = new GoogleGenAI({ apiKey });
+
+  const [memories, userTimezone] = await Promise.all([
+    loadMemories(userId),
+    loadUserTimezone(userId),
+  ]);
+
+  // Rebuild system prompt (same as executeTask)
+  let systemPrompt = `You are an autonomous AI employee executing a workflow task. You have access to tools and must complete the given goal step by step.
+
+## Available Services: ${services.length > 0 ? services.join(", ") : "None"}
+
+## Current Date & Time
+Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: userTimezone })}. Current time: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: userTimezone })}. User timezone: ${userTimezone}.
+
+## Rules
+1. Break the goal into logical steps and execute them one at a time using your tools.
+2. After each significant milestone, use report_progress to update the user.
+3. If a tool call fails, try a different approach (up to ${MAX_RETRIES_PER_STEP} retries per step).
+4. Be efficient — minimize unnecessary tool calls.
+5. Never send emails without the content being explicitly specified in the goal.
+6. You can browse any website, follow links, search the web, and submit forms.
+7. You can save notes using create_note for persistent storage.
+8. If the goal asks you to ask the user a question, respond with ONLY the question text — do NOT call task_complete. The system will deliver your question and pause until the user responds.
+
+## CRITICAL: Reporting Requirements
+When the goal is accomplished, you MUST call task_complete with the FULL, DETAILED REPORT as the result.
+- The result parameter MUST contain the complete formatted report with ALL data, findings, and recommendations.
+- Use proper markdown formatting: headers (##), bullet points, emoji sections, bold text, horizontal rules.
+- NEVER just say "Done" or "Task completed" — the user needs the actual report.
+- Include specific data points, numbers, names, and actionable next steps.
+- The report should be comprehensive enough to stand on its own without the user needing to ask follow-up questions.
+- Think of this as delivering a professional briefing to a busy executive.`;
+
+  if (memories.length > 0) {
+    systemPrompt += `\n\n## User Context (from memory)\nThese are facts about the user that may help you execute the task:\n${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`;
+  }
+
+  // Rebuild contents from saved state + add user's answer
+  const contents: any[] = task.savedContents || [
+    { role: "user", parts: [{ text: `Execute this task:\n\n${goal}` }] },
+  ];
+
+  // Add the model's question and user's answer
+  contents.push({
+    role: "model",
+    parts: [{ text: task.question || "What input do you need?" }],
+  });
+  contents.push({
+    role: "user",
+    parts: [{ text: userInput }],
+  });
+
+  await updateTask(taskId, {
+    status: "running",
+    savedContents: undefined,
+    question: undefined,
+  });
+
+  const steps: TaskStep[] = task.steps || [];
+  let stepCount = steps.length;
+  let finalResult = "";
+  let consecutiveErrors = 0;
+
+  while (stepCount < MAX_STEPS) {
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ functionDeclarations: tools }],
+        },
+      });
+    } catch (err: any) {
+      console.error(`[TaskEngine:Resume] Gemini error at step ${stepCount}:`, err.message);
+      await updateTask(taskId, { status: "failed", result: `AI error: ${err.message}`, steps });
+      return `Task failed: ${err.message}`;
+    }
+
+    const candidate = response.candidates?.[0];
+    const parts = candidate?.content?.parts || [];
+    const fnCallPart = parts.find((p: any) => p.functionCall);
+
+    if (!fnCallPart?.functionCall) {
+      const textResponse = response.text || "";
+
+      // Check if the model is asking ANOTHER question
+      if (textResponse && task.conversationId && !textResponse.includes("task_complete")) {
+        // Could be another question — check if it looks like a question
+        const looksLikeQuestion = textResponse.includes("?") && textResponse.length < 500;
+        if (looksLikeQuestion) {
+          await updateTask(taskId, {
+            status: "waiting_input",
+            question: textResponse,
+            savedContents: contents,
+            steps,
+          });
+
+          const convRef = adminDb.doc(`conversations/${task.conversationId}`);
+          const convSnap = await convRef.get();
+          const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
+          const now = new Date().toISOString();
+          await convRef.update({
+            messages: [
+              ...existingMsgs,
+              { role: "model", content: textResponse, timestamp: now },
+            ],
+            status: "idle",
+            updatedAt: now,
+            pendingTaskId: taskId,
+          });
+
+          return `__WAITING_INPUT__`;
+        }
+      }
+
+      finalResult = textResponse || "Task completed — no report generated.";
+      break;
+    }
+
+    const { name: toolName, args } = fnCallPart.functionCall;
+    stepCount++;
+
+    if (toolName === "task_complete") {
+      finalResult = (args as any)?.result || "Task completed — no report generated.";
+      await addStep(taskId, {
+        action: "Task completed",
+        toolName: "task_complete",
+        status: "completed",
+        completedAt: new Date().toISOString(),
+      }, steps);
+      break;
+    }
+
+    if (toolName === "report_progress") {
+      await addStep(taskId, {
+        action: (args as any)?.summary || "Progress update",
+        toolName: "report_progress",
+        status: "completed",
+        completedAt: new Date().toISOString(),
+      }, steps);
+      contents.push({ role: "model", parts: [{ functionCall: { name: toolName, args } }] });
+      contents.push({ role: "user", parts: [{ functionResponse: { name: toolName, response: { acknowledged: true } } } as any] });
+      continue;
+    }
+
+    // Execute regular tool
+    const step: TaskStep = {
+      action: `${toolName}(${JSON.stringify(args)})`,
+      toolName: toolName!,
+      args: args as Record<string, any>,
+      status: "running",
+      startedAt: new Date().toISOString(),
+    };
+    await addStep(taskId, step, steps);
+    const stepIdx = steps.length - 1;
+
+    let toolResult: any;
+    let retries = 0;
+    while (retries <= MAX_RETRIES_PER_STEP) {
+      try {
+        toolResult = await executeTool(userId, toolName!, args as Record<string, any>);
+        consecutiveErrors = 0;
+        break;
+      } catch (err: any) {
+        retries++;
+        if (retries > MAX_RETRIES_PER_STEP) {
+          toolResult = { error: err.message };
+          consecutiveErrors++;
+          await updateStep(taskId, steps, stepIdx, {
+            status: "failed",
+            error: err.message,
+            completedAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    if (!toolResult?.error) {
+      await updateStep(taskId, steps, stepIdx, {
+        status: "completed",
+        result: typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult).substring(0, 500),
+        completedAt: new Date().toISOString(),
+      });
+    }
+
+    if (consecutiveErrors >= 3) {
+      finalResult = "Task stopped: too many consecutive tool failures.";
+      await updateTask(taskId, { status: "failed", result: finalResult, steps });
+      return finalResult;
+    }
+
+    const safeResult = Array.isArray(toolResult)
+      ? { results: toolResult }
+      : (typeof toolResult === "object" && toolResult !== null)
+        ? toolResult
+        : { value: toolResult };
+    contents.push({
+      role: "model",
+      parts: [{ functionCall: { name: toolName!, args: args as Record<string, any> } } as any],
+    });
+    contents.push({
+      role: "user",
+      parts: [{ functionResponse: { name: toolName!, response: safeResult } } as any],
+    });
+  }
+
+  await updateTask(taskId, { status: "completed", result: finalResult, steps });
   return finalResult;
 }

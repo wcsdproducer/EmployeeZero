@@ -44,6 +44,13 @@ const SCOPE_MAP: Record<string, string[]> = {
     "https://www.googleapis.com/auth/presentations",
     "https://www.googleapis.com/auth/drive.file",
   ],
+  business: [
+    "https://www.googleapis.com/auth/business.manage",
+  ],
+  contacts: [
+    "https://www.googleapis.com/auth/contacts.readonly",
+    "https://www.googleapis.com/auth/contacts",
+  ],
 };
 
 function getRedirectUri() {

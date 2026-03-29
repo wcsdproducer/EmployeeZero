@@ -76,6 +76,9 @@ export async function POST(request: Request) {
 
     // Execute in background
     executeTask(taskId, apiKey).then(async (result) => {
+      // If waiting for input, the task engine already wrote to the conversation
+      if (result === "__WAITING_INPUT__") return;
+
       const convRef = adminDb.doc(`conversations/${conversationId}`);
       const convSnap = await convRef.get();
       const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
@@ -87,6 +90,7 @@ export async function POST(request: Request) {
         ],
         status: "idle",
         updatedAt: now,
+        pendingTaskId: null,
       });
     }).catch(async (err) => {
       const convRef = adminDb.doc(`conversations/${conversationId}`);

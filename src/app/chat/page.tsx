@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import { SERVICE_ICONS } from "@/components/ServiceIcons";
 import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -132,6 +133,29 @@ function ChatPageInner() {
       () => {}
     );
     return () => unsubscribe();
+  }, [user?.uid]);
+
+  // Load connected services
+  const [connectedServices, setConnectedServices] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(
+      doc(db, "users", user.uid, "settings", "connections"),
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as Record<string, any>;
+          const services: Record<string, boolean> = {};
+          for (const [key, val] of Object.entries(data)) {
+            if (val && typeof val === "object" && "connected" in val) {
+              services[key] = !!val.connected;
+            }
+          }
+          setConnectedServices(services);
+        }
+      },
+      () => {}
+    );
+    return () => unsub();
   }, [user?.uid]);
 
   // Rotating workflow suggestions — reshuffle on every new conversation, exclude active
@@ -759,6 +783,39 @@ function ChatPageInner() {
         {/* Input Area */}
         <div className="p-6 pt-0">
           <div className="max-w-3xl mx-auto relative group">
+            {/* Connected Services */}
+            {Object.keys(connectedServices).length > 0 && (
+              <div className="flex items-center justify-center gap-4 pt-4 mt-2 border-t border-white/5 mb-3">
+                {Object.entries(SERVICE_ICONS)
+                  .filter(([key]) => connectedServices[key] !== undefined)
+                  .map(([key, { icon: Icon, label, url }]) => (
+                    connectedServices[key] ? (
+                      <a
+                        key={key}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative group/svc flex flex-col items-center opacity-80 hover:opacity-100 hover:scale-110 transition-all cursor-pointer"
+                      >
+                        <Icon size={22} />
+                        <span className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-md text-[10px] font-medium text-neutral-300 whitespace-nowrap opacity-0 group-hover/svc:opacity-100 transition-opacity pointer-events-none">
+                          {label}
+                        </span>
+                      </a>
+                    ) : (
+                      <span
+                        key={key}
+                        className="relative group/svc flex flex-col items-center opacity-15 grayscale"
+                      >
+                        <Icon size={22} />
+                        <span className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-md text-[10px] font-medium text-neutral-500 whitespace-nowrap opacity-0 group-hover/svc:opacity-100 transition-opacity pointer-events-none">
+                          {label}
+                        </span>
+                      </span>
+                    )
+                  ))}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="relative">
               <textarea
                 value={input}

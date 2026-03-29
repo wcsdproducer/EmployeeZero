@@ -11,7 +11,8 @@ import {
   archiveEmail,
   trashEmail,
 } from "@/lib/gmail";
-import { createTask, executeTask } from "@/lib/taskEngine";
+import { createTask, executeTask, resumeTask } from "@/lib/taskEngine";
+import { getWorkflowGoal, WORKFLOW_DEFINITIONS } from "@/lib/workflowDefinitions";
 import { browseUrl, clickUrl, submitForm, webSearch } from "@/lib/browser";
 import {
   listEvents,
@@ -1962,7 +1963,55 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1b. Intent detection — route complex tasks to the task engine
+    // 1b. Check for pending tasks (workflow waiting for user input)
+    const pendingConvSnap = await adminDb.doc(`conversations/${conversationId}`).get();
+    const pendingTaskId = pendingConvSnap.exists ? pendingConvSnap.data()?.pendingTaskId : null;
+
+    if (pendingTaskId) {
+      // Resume the paused workflow with the user's reply
+      await adminDb.doc(`conversations/${conversationId}`).update({
+        status: "running",
+        pendingTaskId: null,
+      });
+
+      resumeTask(pendingTaskId, message, apiKey).then(async (result) => {
+        if (result === "__WAITING_INPUT__") return; // Paused again for more input
+
+        const convRef = adminDb.doc(`conversations/${conversationId}`);
+        const convSnap = await convRef.get();
+        const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
+        const now = new Date().toISOString();
+        await convRef.update({
+          messages: [
+            ...existingMsgs,
+            { role: "model", content: `🔄 **Workflow Complete**\n\n${result}`, timestamp: now },
+          ],
+          status: "idle",
+          updatedAt: now,
+        });
+      }).catch(async (err) => {
+        const convRef = adminDb.doc(`conversations/${conversationId}`);
+        const convSnap = await convRef.get();
+        const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
+        const now = new Date().toISOString();
+        await convRef.update({
+          messages: [
+            ...existingMsgs,
+            { role: "model", content: `⚠️ Workflow failed: ${err.message}`, timestamp: now },
+          ],
+          status: "error",
+          updatedAt: now,
+        });
+      });
+
+      return NextResponse.json({
+        status: "task_resumed",
+        taskId: pendingTaskId,
+        result: `🧠 **Continuing workflow...**\n\nI received your input and am continuing execution. I'll update this conversation when complete.`,
+      });
+    }
+
+    // 1c. Intent detection — route complex tasks to the task engine
     const complexPatterns = [
       /\b(clean up|organize|triage|sort through|go through)\b.*\b(inbox|emails|mail|gmail)\b/i,
       /\b(archive|delete|trash)\b.*\b(all|every|older than|from last)\b/i,
@@ -1978,11 +2027,26 @@ export async function POST(request: Request) {
     const isComplexTask = complexPatterns.some((p) => p.test(message));
 
     if (isComplexTask) {
+      // Try to extract a workflow ID from the message and use its structured goal
+      let taskGoal = message;
+      const lower = message.toLowerCase();
+      for (const [wfId, wfDef] of Object.entries(WORKFLOW_DEFINITIONS)) {
+        const readableName = wfId.replace(/-/g, " ");
+        if (lower.includes(readableName)) {
+          taskGoal = wfDef.goal;
+          console.log(`[Chat] Matched workflow '${wfId}' — using structured goal`);
+          break;
+        }
+      }
+
       // Create a task and execute it — pass the already-resolved apiKey
-      const taskId = await createTask(userId, message, conversationId, apiKey);
+      const taskId = await createTask(userId, taskGoal, conversationId, apiKey);
 
       // Start execution in background
       const executionPromise = executeTask(taskId, apiKey).then(async (result) => {
+        // If waiting for input, the task engine already wrote to the conversation
+        if (result === "__WAITING_INPUT__") return;
+
         // Write result back to conversation (user message already exists from client)
         const convRef = adminDb.doc(`conversations/${conversationId}`);
         const convSnap = await convRef.get();
@@ -2310,7 +2374,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
         return (
           textParts ||
           response.text ||
-          "Done — I completed the action. Let me know if you need anything else."
+          "I processed your request. If you expected a detailed response, try rephrasing or ask me to elaborate."
         );
       };
 
