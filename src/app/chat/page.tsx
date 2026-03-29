@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2 } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -194,6 +194,10 @@ function ChatPageInner() {
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportStatus, setSupportStatus] = useState<"idle" | "sending" | "sent">("idle");
   const settingsRef = useRef<HTMLDivElement>(null);
 
   const FOUNDING_LIMIT = 100;
@@ -476,6 +480,8 @@ function ChatPageInner() {
               <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms</Link>
               <span>•</span>
               <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy</Link>
+              <span>•</span>
+              <button onClick={() => setShowSupportModal(true)} className="hover:text-neutral-400 transition-colors">Support</button>
             </div>
 
             <div className="p-3 border-t border-white/5">
@@ -625,6 +631,12 @@ function ChatPageInner() {
                             <Link href="/cron" onClick={() => setShowSettingsMenu(false)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-white hover:bg-white/5 transition-all">
                               <Clock size={14} /> Scheduled Jobs
                             </Link>
+                            <button
+                              onClick={() => { setShowSupportModal(true); setShowSettingsMenu(false); }}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-neutral-400 hover:text-white hover:bg-white/5 transition-all"
+                            >
+                              <HelpCircle size={14} /> Support
+                            </button>
                             <div className="h-px bg-white/5 my-1" />
                             <button
                               onClick={() => { signOut(); setShowSettingsMenu(false); }}
@@ -898,6 +910,115 @@ function ChatPageInner() {
                   View All →
                 </Link>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Support Modal */}
+      <AnimatePresence>
+        {showSupportModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            onClick={() => { setShowSupportModal(false); setSupportStatus("idle"); }}
+          >
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md bg-[#111111] border border-white/10 rounded-3xl p-8 shadow-2xl shadow-black/50"
+            >
+              <button
+                onClick={() => { setShowSupportModal(false); setSupportStatus("idle"); }}
+                className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors p-1"
+              >
+                <X size={18} />
+              </button>
+
+              {supportStatus === "sent" ? (
+                <div className="text-center py-8 space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-center">
+                    <Check size={28} className="text-emerald-400" />
+                  </div>
+                  <h2 className="text-xl font-bold">Message Sent!</h2>
+                  <p className="text-sm text-neutral-400">We'll get back to you at <strong className="text-neutral-200">{user?.email}</strong> as soon as possible.</p>
+                  <Button
+                    onClick={() => { setShowSupportModal(false); setSupportStatus("idle"); setSupportSubject(""); setSupportMessage(""); }}
+                    className="mt-4 bg-white text-black hover:bg-neutral-200 rounded-xl px-6"
+                  >
+                    Done
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center">
+                      <HelpCircle size={22} className="text-blue-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold tracking-tight">Contact Support</h2>
+                      <p className="text-sm text-neutral-500">We typically respond within 24 hours</p>
+                    </div>
+                  </div>
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!supportMessage.trim()) return;
+                      setSupportStatus("sending");
+                      const subject = encodeURIComponent(supportSubject || "Support Request");
+                      const body = encodeURIComponent(
+                        `From: ${user?.email || "Unknown"}\n\n${supportMessage}\n\n---\nSent from Employee Zero Dashboard`
+                      );
+                      window.location.href = `mailto:support@t3kniq.com?subject=${subject}&body=${body}`;
+                      setTimeout(() => {
+                        setSupportStatus("sent");
+                      }, 500);
+                    }}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5 block">Subject</label>
+                      <input
+                        type="text"
+                        value={supportSubject}
+                        onChange={(e) => setSupportSubject(e.target.value)}
+                        placeholder="e.g. Connection issue, Workflow not running..."
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/30 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5 block">Message</label>
+                      <textarea
+                        value={supportMessage}
+                        onChange={(e) => setSupportMessage(e.target.value)}
+                        placeholder="Describe your issue or question..."
+                        rows={4}
+                        required
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/30 transition-all resize-none"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      <p className="text-[11px] text-neutral-600 flex items-center gap-1.5">
+                        <Mail size={10} /> support@t3kniq.com
+                      </p>
+                      <Button
+                        type="submit"
+                        disabled={!supportMessage.trim() || supportStatus === "sending"}
+                        className="bg-white text-black hover:bg-neutral-200 rounded-xl px-6 font-bold disabled:opacity-50"
+                      >
+                        {supportStatus === "sending" ? <><Loader2 size={14} className="animate-spin mr-2" /> Sending...</> : <><Send size={14} className="mr-2" /> Send Message</>}
+                      </Button>
+                    </div>
+                  </form>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
