@@ -1074,7 +1074,7 @@ function ConnectionsPageInner() {
                         type="password"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        placeholder="Paste API key..."
+                        placeholder={svc.id === "discord" ? "Paste Bot Token..." : "Paste API key..."}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-mono"
                         autoFocus
                       />
@@ -1095,7 +1095,7 @@ function ConnectionsPageInner() {
                         Save Connection
                       </button>
                       {SOCIAL_GUIDES[svc.id] && (
-                        <SetupGuide platformName={svc.name} steps={SOCIAL_GUIDES[svc.id]} />
+                        <SetupGuide platformName={svc.name} steps={SOCIAL_GUIDES[svc.id]} credentialLabel={svc.id === "discord" ? "Bot Token" : undefined} />
                       )}
                     </motion.div>
                   )}

@@ -15,10 +15,11 @@ interface SetupStep {
 interface SetupGuideProps {
   platformName: string;
   steps: SetupStep[];
+  credentialLabel?: string;
   className?: string;
 }
 
-export function SetupGuide({ platformName, steps, className }: SetupGuideProps) {
+export function SetupGuide({ platformName, steps, credentialLabel, className }: SetupGuideProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -31,7 +32,7 @@ export function SetupGuide({ platformName, steps, className }: SetupGuideProps) 
           size={12}
           className={cn("transition-transform", isOpen && "rotate-180")}
         />
-        How to get your {platformName} API key
+        How to get your {platformName} {credentialLabel || "API key"}
       </button>
 
       <AnimatePresence>
