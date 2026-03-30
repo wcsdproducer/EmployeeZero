@@ -38,6 +38,9 @@ import {
   BarChart2,
   ClipboardList,
   Presentation,
+  Cable,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -1015,7 +1018,290 @@ function ConnectionsPageInner() {
             })}
           </div>
         </section>
+        {/* ═══ UNIVERSAL MCP CONNECTOR ═══ */}
+        <McpSection userId={user?.uid || ""} toast={toast} setToast={setToast} />
       </div>
     </div>
   );
 }
+
+/* ─── MCP Section Component ─── */
+
+interface McpConnectionUI {
+  id: string;
+  name: string;
+  url: string;
+  status: string;
+  toolCount: number;
+  tools: { name: string; description: string }[];
+  lastConnected?: string;
+}
+
+function McpSection({
+  userId,
+  toast,
+  setToast,
+}: {
+  userId: string;
+  toast: any;
+  setToast: (t: any) => void;
+}) {
+  const [mcpConnections, setMcpConnections] = useState<McpConnectionUI[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [mcpName, setMcpName] = useState("");
+  const [mcpUrl, setMcpUrl] = useState("");
+  const [mcpLoading, setMcpLoading] = useState(false);
+  const [mcpError, setMcpError] = useState("");
+  const [expandedMcp, setExpandedMcp] = useState<string | null>(null);
+
+  // Load MCP connections
+  useEffect(() => {
+    if (!userId) return;
+    fetch("/api/mcp", {
+      headers: { "x-user-id": userId },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.connections) setMcpConnections(data.connections);
+      })
+      .catch(() => {});
+  }, [userId]);
+
+  const addMcpConnection = async () => {
+    if (!mcpName.trim() || !mcpUrl.trim()) return;
+    setMcpLoading(true);
+    setMcpError("");
+    try {
+      const res = await fetch("/api/mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+        },
+        body: JSON.stringify({ name: mcpName.trim(), url: mcpUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Connection failed");
+
+      setMcpConnections((prev) => [
+        {
+          id: data.id,
+          name: data.name,
+          url: mcpUrl.trim(),
+          status: "connected",
+          toolCount: data.toolCount,
+          tools: data.tools,
+        },
+        ...prev,
+      ]);
+      setMcpName("");
+      setMcpUrl("");
+      setShowAddForm(false);
+      setToast({ message: `Connected! ${data.toolCount} tools discovered.`, type: "success" });
+    } catch (err: any) {
+      setMcpError(err.message);
+    } finally {
+      setMcpLoading(false);
+    }
+  };
+
+  const removeMcpConnection = async (connectionId: string) => {
+    try {
+      await fetch("/api/mcp", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+        },
+        body: JSON.stringify({ connectionId }),
+      });
+      setMcpConnections((prev) => prev.filter((c) => c.id !== connectionId));
+      setToast({ message: "MCP server disconnected.", type: "success" });
+    } catch {
+      setToast({ message: "Failed to disconnect.", type: "error" });
+    }
+  };
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20">
+            <Cable size={18} className="text-violet-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold tracking-tight">MCP Servers</h2>
+              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-violet-500/30 bg-violet-500/20 text-violet-400">
+                Power User
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500">
+              Connect to any MCP server for unlimited integrations
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-400 transition-all flex items-center gap-1.5"
+        >
+          <Plus size={14} />
+          Add Server
+        </button>
+      </div>
+
+      {/* Add Form */}
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden mb-4"
+          >
+            <div className="p-5 rounded-2xl border border-violet-500/20 bg-violet-500/5 space-y-3">
+              <div className="flex items-center gap-2 text-xs text-violet-300">
+                <Cable size={12} />
+                <span className="font-medium">Connect to a remote MCP server via HTTP/SSE</span>
+              </div>
+              <input
+                type="text"
+                value={mcpName}
+                onChange={(e) => setMcpName(e.target.value)}
+                placeholder="Server name (e.g., Stripe, Slack, Notion)..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+              />
+              <input
+                type="url"
+                value={mcpUrl}
+                onChange={(e) => setMcpUrl(e.target.value)}
+                placeholder="Server URL (e.g., https://mcp.example.com/sse)..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-violet-500/30 font-mono"
+              />
+              {mcpError && (
+                <p className="text-xs text-red-400 flex items-center gap-1.5">
+                  <X size={12} />
+                  {mcpError}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={addMcpConnection}
+                  disabled={mcpLoading || !mcpName.trim() || !mcpUrl.trim()}
+                  className="flex-1 py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-300 text-sm font-bold hover:bg-violet-500/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {mcpLoading ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Testing connection...
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={14} />
+                      Connect & Discover Tools
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setMcpError("");
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-neutral-500 hover:bg-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-[10px] text-neutral-600">
+                Supports Streamable HTTP and SSE transports. Your Atlas will automatically gain access to all tools discovered on the server.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Connected MCP Servers */}
+      <div className="space-y-2">
+        {mcpConnections.length === 0 && !showAddForm && (
+          <div className="text-center py-8 text-neutral-600">
+            <Cable size={24} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No MCP servers connected</p>
+            <p className="text-xs mt-1">Add a server to unlock unlimited integrations</p>
+          </div>
+        )}
+
+        {mcpConnections.map((conn) => (
+          <div
+            key={conn.id}
+            className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden"
+          >
+            <div className="flex items-center gap-4 p-4">
+              <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20">
+                <Cable size={18} className="text-violet-400" />
+              </div>
+              <div
+                className="flex-1 min-w-0 cursor-pointer"
+                onClick={() =>
+                  setExpandedMcp(expandedMcp === conn.id ? null : conn.id)
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm">{conn.name}</p>
+                  <span className="text-[10px] font-mono text-neutral-600 truncate max-w-[200px]">
+                    {conn.url}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-500">
+                  {conn.toolCount} tools available
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-xs font-medium flex items-center gap-1 text-emerald-400">
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-400 mr-1">
+                    MCP
+                  </span>
+                  <Check size={12} />
+                  {conn.toolCount} tools
+                </span>
+                <button
+                  onClick={() => removeMcpConnection(conn.id)}
+                  className="p-1.5 rounded-lg hover:bg-red-500/10 text-neutral-600 hover:text-red-400 transition-all"
+                  title="Disconnect"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Expanded tool list */}
+            <AnimatePresence>
+              {expandedMcp === conn.id && conn.tools.length > 0 && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {conn.tools.map((tool) => (
+                        <span
+                          key={tool.name}
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-violet-500/5 border-violet-500/20 text-violet-400/70"
+                          title={tool.description}
+                        >
+                          {tool.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
