@@ -2,13 +2,10 @@
  * Universal MCP Connector
  *
  * Allows Employee Zero to connect to ANY remote MCP server via HTTP/SSE.
- * Users paste an MCP server URL, EZ discovers tools, and makes them
- * available to the task engine and chat.
+ * Uses dynamic imports to avoid webpack bundling @modelcontextprotocol/sdk
+ * which causes OOM during Next.js builds.
  */
 
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { adminDb } from "@/lib/admin";
 import { Type } from "@google/genai";
 
@@ -33,38 +30,45 @@ export interface McpToolInfo {
 
 // ─── Client Cache ───
 
-// Cache active MCP clients per user to avoid reconnecting every request
-const clientCache = new Map<string, { client: Client; tools: McpToolInfo[]; expiresAt: number }>();
+const clientCache = new Map<string, { client: any; tools: McpToolInfo[]; expiresAt: number }>();
 const CACHE_TTL = 5 * 60_000; // 5 minutes
+
+/**
+ * Dynamically import the MCP SDK (avoids webpack bundling at build time).
+ */
+async function getMcpSdk() {
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+  const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
+  return { Client, StreamableHTTPClientTransport, SSEClientTransport };
+}
 
 /**
  * Connect to a remote MCP server and discover its tools.
  */
-async function connectToMcpServer(url: string): Promise<{ client: Client; tools: McpToolInfo[] }> {
+async function connectToMcpServer(url: string): Promise<{ client: any; tools: McpToolInfo[] }> {
+  const { Client, StreamableHTTPClientTransport, SSEClientTransport } = await getMcpSdk();
   const baseUrl = new URL(url);
 
-  let client: Client;
-  let transport: any;
+  let client: any;
 
   try {
-    // Try modern Streamable HTTP transport first
     client = new Client({ name: "employee-zero", version: "1.0.0" });
-    transport = new StreamableHTTPClientTransport(baseUrl);
+    const transport = new StreamableHTTPClientTransport(baseUrl);
     await client.connect(transport);
   } catch {
-    // Fall back to legacy SSE transport
     client = new Client({ name: "employee-zero", version: "1.0.0" });
-    transport = new SSEClientTransport(baseUrl);
+    const transport = new SSEClientTransport(baseUrl);
     await client.connect(transport);
   }
 
-  // Discover all tools (with pagination)
+  // Discover all tools
   const allTools: McpToolInfo[] = [];
   let cursor: string | undefined;
   do {
     const { tools, nextCursor } = await client.listTools({ cursor });
     allTools.push(
-      ...tools.map((t) => ({
+      ...tools.map((t: any) => ({
         name: t.name,
         description: t.description ?? "",
         inputSchema: t.inputSchema,
@@ -81,7 +85,6 @@ async function connectToMcpServer(url: string): Promise<{ client: Client; tools:
  */
 export async function testMcpConnection(url: string): Promise<McpToolInfo[]> {
   const { client, tools } = await connectToMcpServer(url);
-  // Close after testing — we'll reconnect when needed
   try { await client.close(); } catch {}
   return tools;
 }
@@ -92,13 +95,12 @@ export async function testMcpConnection(url: string): Promise<McpToolInfo[]> {
 async function getCachedClient(
   connectionId: string,
   url: string
-): Promise<{ client: Client; tools: McpToolInfo[] }> {
+): Promise<{ client: any; tools: McpToolInfo[] }> {
   const cached = clientCache.get(connectionId);
   if (cached && cached.expiresAt > Date.now()) {
     return { client: cached.client, tools: cached.tools };
   }
 
-  // Clean up old client
   if (cached) {
     try { await cached.client.close(); } catch {}
     clientCache.delete(connectionId);
@@ -116,9 +118,6 @@ async function getCachedClient(
 
 // ─── Firestore CRUD ───
 
-/**
- * Save an MCP connection for a user.
- */
 export async function saveMcpConnection(
   userId: string,
   name: string,
@@ -138,9 +137,6 @@ export async function saveMcpConnection(
   return doc.id;
 }
 
-/**
- * Load all MCP connections for a user.
- */
 export async function loadMcpConnections(userId: string): Promise<McpConnection[]> {
   try {
     const snap = await adminDb
@@ -158,9 +154,6 @@ export async function loadMcpConnections(userId: string): Promise<McpConnection[
   }
 }
 
-/**
- * Delete an MCP connection.
- */
 export async function deleteMcpConnection(userId: string, connectionId: string): Promise<void> {
   const cached = clientCache.get(connectionId);
   if (cached) {
@@ -172,10 +165,6 @@ export async function deleteMcpConnection(userId: string, connectionId: string):
 
 // ─── Tool Bridge ───
 
-/**
- * Convert MCP tool schemas to Gemini function declarations.
- * This bridges MCP's JSON Schema → Google's Type system.
- */
 export function mcpToolsToGeminiDeclarations(tools: McpToolInfo[]): any[] {
   return tools.map((tool) => {
     const properties: Record<string, any> = {};
@@ -202,9 +191,6 @@ export function mcpToolsToGeminiDeclarations(tools: McpToolInfo[]): any[] {
   });
 }
 
-/**
- * Convert JSON Schema types to Gemini Type equivalents.
- */
 function jsonSchemaToGemini(schema: any): any {
   const typeMap: Record<string, any> = {
     string: Type.STRING,
@@ -240,10 +226,7 @@ export async function executeMcpTool(
   toolName: string,
   args: Record<string, any>
 ): Promise<any> {
-  // Strip "mcp_" prefix
   const actualToolName = toolName.replace(/^mcp_/, "");
-
-  // Find which MCP connection has this tool
   const connections = await loadMcpConnections(userId);
 
   for (const conn of connections) {
@@ -256,7 +239,6 @@ export async function executeMcpTool(
         { name: actualToolName, arguments: args },
       );
 
-      // Extract text content for LLM
       const textParts = (result.content as any[])
         .filter((c: any) => c.type === "text")
         .map((c: any) => c.text);
@@ -265,7 +247,6 @@ export async function executeMcpTool(
         ? textParts.join("\n")
         : result.structuredContent || { success: true };
     } catch (err: any) {
-      // Update connection status
       await adminDb.doc(`users/${userId}/mcpConnections/${conn.id}`).update({
         status: "error",
         error: err.message,
@@ -279,7 +260,6 @@ export async function executeMcpTool(
 
 /**
  * Load all MCP tools for a user as Gemini function declarations.
- * Used by the task engine and chat route.
  */
 export async function getMcpToolDeclarations(userId: string): Promise<{
   declarations: any[];
