@@ -171,6 +171,7 @@ import {
   insertSlideText,
 } from "@/lib/slides";
 import { isCorrection, recordCorrection, loadPreferences } from "@/lib/selfImprove";
+import { executeMcpTool, getMcpToolDeclarations } from "@/lib/mcpClient";
 
 /**
  * Chat API — conversation-based, with persistent memory + tool use.
@@ -1892,6 +1893,10 @@ async function executeTool(
       return await insertSlideText(userId, args.presentation_id, args.slide_id, args.text);
 
     default:
+      // Universal MCP Connector — route mcp_ prefixed tools to MCP servers
+      if (toolName.startsWith("mcp_")) {
+        return await executeMcpTool(userId, toolName, args);
+      }
       return { error: `Unknown tool: ${toolName}` };
   }
 }
@@ -2425,6 +2430,16 @@ The memory_extract section will be automatically processed and NOT shown to the 
         }
         // Image generation & notes — always available (no connection needed)
         allTools.push(...NOTES_TOOLS);
+
+        // Universal MCP Connector — load user's MCP server tools
+        try {
+          const { declarations: mcpDecls } = await getMcpToolDeclarations(userId);
+          if (mcpDecls.length > 0) {
+            allTools.push(...mcpDecls);
+            console.log(`[Chat] Loaded ${mcpDecls.length} MCP tools`);
+          }
+        } catch {}
+
         config.tools = [{ functionDeclarations: allTools }];
 
         let response = await ai.models.generateContent({

@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/admin";
 import { recordWorkflowMetric, loadPreferences, getWorkflowOptimization } from "@/lib/selfImprove";
+import { getMcpToolDeclarations, executeMcpTool } from "@/lib/mcpClient";
 import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
 import {
@@ -814,6 +815,10 @@ async function executeTool(
     case "task_complete":
       return { acknowledged: true };
     default:
+      // Universal MCP Connector — route mcp_ prefixed tools to MCP servers
+      if (toolName.startsWith("mcp_")) {
+        return await executeMcpTool(userId, toolName, args);
+      }
       return { error: `Unknown tool: ${toolName}` };
   }
 }
@@ -990,6 +995,18 @@ async function getAvailableTools(userId: string) {
     tools.push(...BROWSER_TOOLS);
     tools.push(...NOTES_TOOLS);
     services.push("Web Browsing", "Notes");
+
+    // Universal MCP Connector — load any user-connected MCP servers
+    try {
+      const { declarations: mcpDecls, serviceNames: mcpServices } = await getMcpToolDeclarations(userId);
+      if (mcpDecls.length > 0) {
+        tools.push(...mcpDecls);
+        services.push(...mcpServices);
+        console.log(`[TaskEngine] Loaded ${mcpDecls.length} MCP tools from ${mcpServices.length} servers`);
+      }
+    } catch (err: any) {
+      console.warn("[TaskEngine] MCP tool loading failed:", err.message);
+    }
 
     return { tools, services, connections };
   } catch {
