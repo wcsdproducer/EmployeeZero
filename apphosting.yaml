@@ -46,5 +46,3 @@ env:
     secret: TWITTER_CONSUMER_KEY
   - variable: TWITTER_CONSUMER_SECRET
     secret: TWITTER_CONSUMER_SECRET
-  - variable: NODE_OPTIONS
-    value: "--max-old-space-size=1536"
