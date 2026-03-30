@@ -704,6 +704,68 @@ function ChatPageInner() {
                                   {children}
                                 </a>
                               ),
+                              h1: ({ children }) => (
+                                <h1 className="text-xl font-bold text-white mt-6 mb-3 pb-2 border-b border-white/10">{children}</h1>
+                              ),
+                              h2: ({ children }) => (
+                                <h2 className="text-lg font-bold text-white mt-5 mb-2 flex items-center gap-2">{children}</h2>
+                              ),
+                              h3: ({ children }) => (
+                                <h3 className="text-base font-semibold text-neutral-200 mt-4 mb-1.5">{children}</h3>
+                              ),
+                              p: ({ children }) => (
+                                <p className="text-[15px] text-neutral-300 leading-relaxed mb-3">{children}</p>
+                              ),
+                              ul: ({ children }) => (
+                                <ul className="space-y-1.5 mb-4 ml-1">{children}</ul>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="space-y-1.5 mb-4 ml-1 list-decimal list-inside">{children}</ol>
+                              ),
+                              li: ({ children }) => (
+                                <li className="text-[14px] text-neutral-300 flex items-start gap-2">
+                                  <span className="text-neutral-600 mt-1.5 flex-shrink-0">•</span>
+                                  <span>{children}</span>
+                                </li>
+                              ),
+                              strong: ({ children }) => (
+                                <strong className="font-semibold text-white">{children}</strong>
+                              ),
+                              em: ({ children }) => (
+                                <em className="text-neutral-400 italic">{children}</em>
+                              ),
+                              hr: () => (
+                                <hr className="border-white/10 my-4" />
+                              ),
+                              blockquote: ({ children }) => (
+                                <blockquote className="border-l-2 border-blue-500/40 pl-4 py-1 my-3 bg-blue-500/5 rounded-r-lg">
+                                  {children}
+                                </blockquote>
+                              ),
+                              code: ({ className, children }) => {
+                                const isInline = !className;
+                                return isInline ? (
+                                  <code className="text-[13px] bg-white/10 text-amber-300 px-1.5 py-0.5 rounded-md font-mono">{children}</code>
+                                ) : (
+                                  <pre className="bg-[#1a1a1a] border border-white/10 rounded-xl p-4 my-3 overflow-x-auto">
+                                    <code className="text-[13px] text-neutral-300 font-mono">{children}</code>
+                                  </pre>
+                                );
+                              },
+                              table: ({ children }) => (
+                                <div className="overflow-x-auto my-3 rounded-xl border border-white/10">
+                                  <table className="w-full text-sm">{children}</table>
+                                </div>
+                              ),
+                              thead: ({ children }) => (
+                                <thead className="bg-white/5 border-b border-white/10">{children}</thead>
+                              ),
+                              th: ({ children }) => (
+                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-neutral-400 uppercase tracking-wider">{children}</th>
+                              ),
+                              td: ({ children }) => (
+                                <td className="px-4 py-2.5 text-neutral-300 border-t border-white/5">{children}</td>
+                              ),
                             }}
                           >
                             {msg.content}

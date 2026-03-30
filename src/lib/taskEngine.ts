@@ -1092,14 +1092,20 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 7. You can save notes using create_note for persistent storage.
 8. If the goal asks you to ask the user a question, respond with ONLY the question text — do NOT call task_complete. The system will deliver your question and pause until the user responds.
 
-## CRITICAL: Reporting Requirements
-When the goal is accomplished, you MUST call task_complete with the FULL, DETAILED REPORT as the result.
-- The result parameter MUST contain the complete formatted report with ALL data, findings, and recommendations.
-- Use proper markdown formatting: headers (##), bullet points, emoji sections, bold text, horizontal rules.
-- NEVER just say "Done" or "Task completed" — the user needs the actual report.
-- Include specific data points, numbers, names, and actionable next steps.
-- The report should be comprehensive enough to stand on its own without the user needing to ask follow-up questions.
-- Think of this as delivering a professional briefing to a busy executive.`;
+## CRITICAL: Report Formatting
+When the goal is accomplished, call task_complete with a clean, beautifully formatted report.
+
+**Format rules for consumer readability:**
+1. Start with a one-line summary in bold (no "Workflow Complete" prefix — the UI adds that)
+2. Use ## headers to create clear sections (e.g., "## Key Findings", "## Actions Taken")
+3. Use bullet points for lists — NEVER write paragraphs longer than 2 sentences
+4. Bold important data: names, numbers, dates, statuses
+5. Use --- horizontal rules between major sections
+6. End with a "## Next Steps" section with actionable items
+7. Keep it scannable — a busy person should grasp the key points in 5 seconds
+8. DO NOT use emoji in headers — keep it clean and professional
+9. DO NOT repeat the workflow name or say "Task completed" — just deliver the intel
+10. If there's nothing to report, say so clearly in 1-2 sentences instead of padding with filler`;
 
   // Inject user memories for context
   if (memories.length > 0) {
