@@ -470,7 +470,7 @@ function ChatPageInner() {
             </div>
 
             {/* Workflows & Connections Links */}
-            <div className="p-3 pt-0 space-y-1">
+            <div className="p-3 pt-4 space-y-1 border-t border-white/5 mt-2">
               <Link
                 href="/workflows"
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-neutral-500 hover:bg-white/5 hover:text-neutral-300 group"
