@@ -143,25 +143,6 @@ import {
   addSlide,
   insertSlideText,
 } from "@/lib/slides";
-import {
-  listGuilds as listDiscordGuilds,
-  getGuildInfo as getDiscordGuildInfo,
-  listChannels as listDiscordChannels,
-  createChannel as createDiscordChannel,
-  deleteChannel as deleteDiscordChannel,
-  getMessages as getDiscordMessages,
-  sendMessage as sendDiscordMessage,
-  deleteMessage as deleteDiscordMessage,
-  searchMessages as searchDiscordMessages,
-  addReaction as addDiscordReaction,
-  listMembers as listDiscordMembers,
-  listRoles as listDiscordRoles,
-  assignRole as assignDiscordRole,
-  removeRole as removeDiscordRole,
-  createThread as createDiscordThread,
-  kickMember as kickDiscordMember,
-  banMember as banDiscordMember,
-} from "@/lib/discord";
 
 /* ─── Types ─── */
 
@@ -523,26 +504,6 @@ const SLIDES_TOOLS = [
   { name: "insert_slide_text", description: "Insert text into a slide.", parameters: { type: Type.OBJECT, properties: { presentation_id: { type: Type.STRING }, slide_id: { type: Type.STRING }, text: { type: Type.STRING } }, required: ["presentation_id", "slide_id", "text"] } },
 ];
 
-const DISCORD_TOOLS = [
-  { name: "list_discord_servers", description: "List Discord servers the bot is in.", parameters: { type: Type.OBJECT, properties: {} } },
-  { name: "get_discord_server_info", description: "Get Discord server info with channels.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING } }, required: ["guild_id"] } },
-  { name: "list_discord_channels", description: "List channels in a Discord server.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING } }, required: ["guild_id"] } },
-  { name: "create_discord_channel", description: "Create a text channel in a Discord server.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING }, name: { type: Type.STRING }, topic: { type: Type.STRING }, parent_id: { type: Type.STRING } }, required: ["guild_id", "name"] } },
-  { name: "delete_discord_channel", description: "Delete a Discord channel.", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING } }, required: ["channel_id"] } },
-  { name: "get_discord_messages", description: "Get messages from a Discord channel.", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING }, limit: { type: Type.NUMBER } }, required: ["channel_id"] } },
-  { name: "send_discord_message", description: "Send a message to a Discord channel.", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING }, content: { type: Type.STRING }, reply_to: { type: Type.STRING } }, required: ["channel_id", "content"] } },
-  { name: "delete_discord_message", description: "Delete a Discord message.", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING }, message_id: { type: Type.STRING } }, required: ["channel_id", "message_id"] } },
-  { name: "search_discord_messages", description: "Search messages in a Discord server.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING }, query: { type: Type.STRING }, limit: { type: Type.NUMBER } }, required: ["guild_id", "query"] } },
-  { name: "add_discord_reaction", description: "Add a reaction to a Discord message.", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING }, message_id: { type: Type.STRING }, emoji: { type: Type.STRING } }, required: ["channel_id", "message_id", "emoji"] } },
-  { name: "list_discord_members", description: "List members in a Discord server.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING }, limit: { type: Type.NUMBER } }, required: ["guild_id"] } },
-  { name: "list_discord_roles", description: "List roles in a Discord server.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING } }, required: ["guild_id"] } },
-  { name: "assign_discord_role", description: "Assign a role to a member.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING }, member_id: { type: Type.STRING }, role_id: { type: Type.STRING } }, required: ["guild_id", "member_id", "role_id"] } },
-  { name: "remove_discord_role", description: "Remove a role from a member.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING }, member_id: { type: Type.STRING }, role_id: { type: Type.STRING } }, required: ["guild_id", "member_id", "role_id"] } },
-  { name: "create_discord_thread", description: "Create a thread in a channel.", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING }, name: { type: Type.STRING }, message_id: { type: Type.STRING } }, required: ["channel_id", "name"] } },
-  { name: "kick_discord_member", description: "Kick a member from the server.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING }, member_id: { type: Type.STRING }, reason: { type: Type.STRING } }, required: ["guild_id", "member_id"] } },
-  { name: "ban_discord_member", description: "Ban a member from the server.", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING }, member_id: { type: Type.STRING }, reason: { type: Type.STRING } }, required: ["guild_id", "member_id"] } },
-];
-
 /* ─── Tool Executor ─── */
 
 async function executeTool(
@@ -848,41 +809,6 @@ async function executeTool(
       return await addSlide(userId, args.presentation_id, args.layout || "TITLE_AND_BODY");
     case "insert_slide_text":
       return await insertSlideText(userId, args.presentation_id, args.slide_id, args.text);
-    // Discord
-    case "list_discord_servers":
-      return await listDiscordGuilds(userId);
-    case "get_discord_server_info":
-      return await getDiscordGuildInfo(userId, args.guild_id);
-    case "list_discord_channels":
-      return await listDiscordChannels(userId, args.guild_id);
-    case "create_discord_channel":
-      return await createDiscordChannel(userId, args.guild_id, args.name, 0, args.topic, args.parent_id);
-    case "delete_discord_channel":
-      return await deleteDiscordChannel(userId, args.channel_id);
-    case "get_discord_messages":
-      return await getDiscordMessages(userId, args.channel_id, args.limit || 20);
-    case "send_discord_message":
-      return await sendDiscordMessage(userId, args.channel_id, args.content, args.reply_to);
-    case "delete_discord_message":
-      return await deleteDiscordMessage(userId, args.channel_id, args.message_id);
-    case "search_discord_messages":
-      return await searchDiscordMessages(userId, args.guild_id, args.query, args.limit || 10);
-    case "add_discord_reaction":
-      return await addDiscordReaction(userId, args.channel_id, args.message_id, args.emoji);
-    case "list_discord_members":
-      return await listDiscordMembers(userId, args.guild_id, args.limit || 20);
-    case "list_discord_roles":
-      return await listDiscordRoles(userId, args.guild_id);
-    case "assign_discord_role":
-      return await assignDiscordRole(userId, args.guild_id, args.member_id, args.role_id);
-    case "remove_discord_role":
-      return await removeDiscordRole(userId, args.guild_id, args.member_id, args.role_id);
-    case "create_discord_thread":
-      return await createDiscordThread(userId, args.channel_id, args.name, args.message_id);
-    case "kick_discord_member":
-      return await kickDiscordMember(userId, args.guild_id, args.member_id, args.reason);
-    case "ban_discord_member":
-      return await banDiscordMember(userId, args.guild_id, args.member_id, args.reason);
     // Meta tools
     case "report_progress":
       return { acknowledged: true };
@@ -1062,11 +988,6 @@ async function getAvailableTools(userId: string) {
     if (connections.slides?.connected) {
       tools.push(...SLIDES_TOOLS);
       services.push("Google Slides");
-    }
-    // Discord
-    if (connections.discord?.connected) {
-      tools.push(...DISCORD_TOOLS);
-      services.push("Discord");
     }
 
     // Always include: meta-tools, browser, notes

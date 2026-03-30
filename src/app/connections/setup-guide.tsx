@@ -128,14 +128,6 @@ export const SOCIAL_GUIDES: Record<string, SetupStep[]> = {
     { step: 3, text: "Add Facebook Pages API product" },
     { step: 4, text: "Generate a Page Access Token with required permissions" },
   ],
-  discord: [
-    { step: 1, text: "Go to the Discord Developer Portal", link: "https://discord.com/developers/applications", linkText: "discord.com/developers" },
-    { step: 2, text: "Click \"New Application\", give it a name, then go to the \"Bot\" section" },
-    { step: 3, text: "Click \"Reset Token\" and copy the bot token" },
-    { step: 4, text: "Enable Privileged Gateway Intents: Message Content + Server Members" },
-    { step: 5, text: "Invite the bot to your server using the OAuth2 URL Generator (select \"bot\" scope + \"Administrator\" permission)" },
-    { step: 6, text: "Paste the bot token above" },
-  ],
 };
 
 export const GOOGLE_SUITE_GUIDES: Record<string, SetupStep[]> = {

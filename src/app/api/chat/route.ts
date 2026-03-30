@@ -170,25 +170,6 @@ import {
   addSlide,
   insertSlideText,
 } from "@/lib/slides";
-import {
-  listGuilds as listDiscordGuilds,
-  getGuildInfo as getDiscordGuildInfo,
-  listChannels as listDiscordChannels,
-  createChannel as createDiscordChannel,
-  deleteChannel as deleteDiscordChannel,
-  getMessages as getDiscordMessages,
-  sendMessage as sendDiscordMessage,
-  deleteMessage as deleteDiscordMessage,
-  searchMessages as searchDiscordMessages,
-  addReaction as addDiscordReaction,
-  listMembers as listDiscordMembers,
-  listRoles as listDiscordRoles,
-  assignRole as assignDiscordRole,
-  removeRole as removeDiscordRole,
-  createThread as createDiscordThread,
-  kickMember as kickDiscordMember,
-  banMember as banDiscordMember,
-} from "@/lib/discord";
 import { isCorrection, recordCorrection, loadPreferences } from "@/lib/selfImprove";
 import { executeMcpTool, getMcpToolDeclarations } from "@/lib/mcpClient";
 
@@ -1568,26 +1549,6 @@ const SLIDES_TOOLS = [
   { name: "insert_slide_text", description: "Insert text into a slide's placeholder", parameters: { type: Type.OBJECT, properties: { presentation_id: { type: Type.STRING, description: "Presentation ID" }, slide_id: { type: Type.STRING, description: "Slide object ID" }, text: { type: Type.STRING, description: "Text to insert" } }, required: ["presentation_id", "slide_id", "text"] } },
 ];
 
-const DISCORD_TOOLS = [
-  { name: "list_discord_servers", description: "List Discord servers the bot is in", parameters: { type: Type.OBJECT, properties: {} } },
-  { name: "get_discord_server_info", description: "Get Discord server info with channels and member count", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" } }, required: ["guild_id"] } },
-  { name: "list_discord_channels", description: "List channels in a Discord server", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" } }, required: ["guild_id"] } },
-  { name: "create_discord_channel", description: "Create a text channel in a Discord server", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" }, name: { type: Type.STRING, description: "Channel name" }, topic: { type: Type.STRING, description: "Channel topic" }, parent_id: { type: Type.STRING, description: "Category ID" } }, required: ["guild_id", "name"] } },
-  { name: "delete_discord_channel", description: "Delete a Discord channel", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING, description: "Channel ID" } }, required: ["channel_id"] } },
-  { name: "get_discord_messages", description: "Get recent messages from a Discord channel", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING, description: "Channel ID" }, limit: { type: Type.NUMBER, description: "Max messages (default 20)" } }, required: ["channel_id"] } },
-  { name: "send_discord_message", description: "Send a message to a Discord channel", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING, description: "Channel ID" }, content: { type: Type.STRING, description: "Message content" }, reply_to: { type: Type.STRING, description: "Message ID to reply to" } }, required: ["channel_id", "content"] } },
-  { name: "delete_discord_message", description: "Delete a Discord message", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING, description: "Channel ID" }, message_id: { type: Type.STRING, description: "Message ID" } }, required: ["channel_id", "message_id"] } },
-  { name: "search_discord_messages", description: "Search messages in a Discord server", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" }, query: { type: Type.STRING, description: "Search query" }, limit: { type: Type.NUMBER, description: "Max results (default 10)" } }, required: ["guild_id", "query"] } },
-  { name: "add_discord_reaction", description: "Add a reaction emoji to a Discord message", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING, description: "Channel ID" }, message_id: { type: Type.STRING, description: "Message ID" }, emoji: { type: Type.STRING, description: "Emoji (e.g. 👍 or custom emoji name)" } }, required: ["channel_id", "message_id", "emoji"] } },
-  { name: "list_discord_members", description: "List members in a Discord server", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" }, limit: { type: Type.NUMBER, description: "Max members (default 20)" } }, required: ["guild_id"] } },
-  { name: "list_discord_roles", description: "List roles in a Discord server", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" } }, required: ["guild_id"] } },
-  { name: "assign_discord_role", description: "Assign a role to a server member", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" }, member_id: { type: Type.STRING, description: "Member user ID" }, role_id: { type: Type.STRING, description: "Role ID" } }, required: ["guild_id", "member_id", "role_id"] } },
-  { name: "remove_discord_role", description: "Remove a role from a server member", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" }, member_id: { type: Type.STRING, description: "Member user ID" }, role_id: { type: Type.STRING, description: "Role ID" } }, required: ["guild_id", "member_id", "role_id"] } },
-  { name: "create_discord_thread", description: "Create a thread in a channel", parameters: { type: Type.OBJECT, properties: { channel_id: { type: Type.STRING, description: "Channel ID" }, name: { type: Type.STRING, description: "Thread name" }, message_id: { type: Type.STRING, description: "Message ID to start thread from" } }, required: ["channel_id", "name"] } },
-  { name: "kick_discord_member", description: "Kick a member from the server", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" }, member_id: { type: Type.STRING, description: "Member user ID" }, reason: { type: Type.STRING, description: "Reason for kick" } }, required: ["guild_id", "member_id"] } },
-  { name: "ban_discord_member", description: "Ban a member from the server", parameters: { type: Type.OBJECT, properties: { guild_id: { type: Type.STRING, description: "Server/guild ID" }, member_id: { type: Type.STRING, description: "Member user ID" }, reason: { type: Type.STRING, description: "Reason for ban" } }, required: ["guild_id", "member_id"] } },
-];
-
 // ── Tool executor ───────────────────────────────────────────────
 
 async function executeTool(
@@ -1931,42 +1892,6 @@ async function executeTool(
     case "insert_slide_text":
       return await insertSlideText(userId, args.presentation_id, args.slide_id, args.text);
 
-    // Discord tools
-    case "list_discord_servers":
-      return await listDiscordGuilds(userId);
-    case "get_discord_server_info":
-      return await getDiscordGuildInfo(userId, args.guild_id);
-    case "list_discord_channels":
-      return await listDiscordChannels(userId, args.guild_id);
-    case "create_discord_channel":
-      return await createDiscordChannel(userId, args.guild_id, args.name, 0, args.topic, args.parent_id);
-    case "delete_discord_channel":
-      return await deleteDiscordChannel(userId, args.channel_id);
-    case "get_discord_messages":
-      return await getDiscordMessages(userId, args.channel_id, args.limit || 20);
-    case "send_discord_message":
-      return await sendDiscordMessage(userId, args.channel_id, args.content, args.reply_to);
-    case "delete_discord_message":
-      return await deleteDiscordMessage(userId, args.channel_id, args.message_id);
-    case "search_discord_messages":
-      return await searchDiscordMessages(userId, args.guild_id, args.query, args.limit || 10);
-    case "add_discord_reaction":
-      return await addDiscordReaction(userId, args.channel_id, args.message_id, args.emoji);
-    case "list_discord_members":
-      return await listDiscordMembers(userId, args.guild_id, args.limit || 20);
-    case "list_discord_roles":
-      return await listDiscordRoles(userId, args.guild_id);
-    case "assign_discord_role":
-      return await assignDiscordRole(userId, args.guild_id, args.member_id, args.role_id);
-    case "remove_discord_role":
-      return await removeDiscordRole(userId, args.guild_id, args.member_id, args.role_id);
-    case "create_discord_thread":
-      return await createDiscordThread(userId, args.channel_id, args.name, args.message_id);
-    case "kick_discord_member":
-      return await kickDiscordMember(userId, args.guild_id, args.member_id, args.reason);
-    case "ban_discord_member":
-      return await banDiscordMember(userId, args.guild_id, args.member_id, args.reason);
-
     default:
       // Universal MCP Connector — route mcp_ prefixed tools to MCP servers
       if (toolName.startsWith("mcp_")) {
@@ -2244,7 +2169,6 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
     if (connections.instagram?.connected) connectedServices.push("Instagram");
     if (connections.facebook?.connected) connectedServices.push("Facebook");
     if (connections.tiktok?.connected) connectedServices.push("TikTok");
-    if (connections.discord?.connected) connectedServices.push("Discord");
 
     if (connectedServices.length > 0) {
       systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
@@ -2287,10 +2211,6 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 
       if (connections.tiktok?.connected) {
         systemPrompt += `\n\n### TikTok Access\nYou can view the user's TikTok profile with follower count and video stats. Posting is not yet available (pending API approval).`;
-      }
-
-      if (connections.discord?.connected) {
-        systemPrompt += `\n\n### Discord Access\nYou can manage Discord communities: list servers and channels, read and send messages, add reactions, manage members (list, kick, ban), manage roles (list, assign, remove), create threads, and create/delete channels. Use list_discord_servers first to find guild IDs, then list_discord_channels to find channel IDs.`;
       }
 
       if (connections.tasks?.connected) {
@@ -2507,9 +2427,6 @@ The memory_extract section will be automatically processed and NOT shown to the 
         }
         if (connections.slides?.connected) {
           allTools.push(...SLIDES_TOOLS);
-        }
-        if (connections.discord?.connected) {
-          allTools.push(...DISCORD_TOOLS);
         }
         // Image generation & notes — always available (no connection needed)
         allTools.push(...NOTES_TOOLS);
