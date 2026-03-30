@@ -41,6 +41,7 @@ import {
   Cable,
   Plus,
   Trash2,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -163,6 +164,13 @@ export default function ConnectionsPage() {
 }
 
 function ConnectionsPageInner() {
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    brain: true,
+    google: false,
+    social: false,
+    mcp: false,
+  });
+  const toggleSection = (key: string) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -548,7 +556,7 @@ function ConnectionsPageInner() {
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-10 space-y-14">
+      <div className="max-w-4xl mx-auto px-6 py-10 space-y-4">
         {/* ═══ SETUP PROGRESS ═══ */}
         {(() => {
           const brainDone = brainConfig.verified ? 1 : 0;
@@ -586,16 +594,37 @@ function ConnectionsPageInner() {
           ) : null;
         })()}
         {/* ═══ BRAIN SECTION ═══ */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
+        <section className="rounded-2xl border border-white/5 bg-white/[0.015] overflow-hidden">
+          <button
+            onClick={() => toggleSection('brain')}
+            className="w-full flex items-center gap-3 p-5 hover:bg-white/[0.02] transition-colors"
+          >
             <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20">
               <Brain size={18} className="text-purple-400" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">Brain</h2>
+            <div className="flex-1 text-left">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold tracking-tight">Brain</h2>
+                {brainConfig.verified && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">Active</span>
+                )}
+              </div>
               <p className="text-xs text-neutral-500">Choose which AI powers your agents</p>
             </div>
-          </div>
+            <motion.div animate={{ rotate: openSections.brain ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown size={18} className="text-neutral-500" />
+            </motion.div>
+          </button>
+          <AnimatePresence initial={false}>
+          {openSections.brain && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+          <div className="px-5 pb-5">
 
           <div className="grid gap-3">
             {LLM_PROVIDERS.map((p) => {
@@ -718,19 +747,42 @@ function ConnectionsPageInner() {
               />
             )}
           </motion.div>
+          </div>
+          </motion.div>
+          )}
+          </AnimatePresence>
         </section>
 
         {/* ═══ GOOGLE SUITE ═══ */}
-        <section>
-          <div className="flex items-center gap-3 mb-6">
+        <section className="rounded-2xl border border-white/5 bg-white/[0.015] overflow-hidden">
+          <button
+            onClick={() => toggleSection('google')}
+            className="w-full flex items-center gap-3 p-5 hover:bg-white/[0.02] transition-colors"
+          >
             <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
               <Sparkles size={18} className="text-blue-400" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">Google Suite</h2>
+            <div className="flex-1 text-left">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold tracking-tight">Google Suite</h2>
+                {(() => { const c = Object.entries(connections).filter(([k,v]) => GOOGLE_SUITE.some(g => g.id === k) && v.connected).length; return c > 0 ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{c} connected</span> : null; })()}
+              </div>
               <p className="text-xs text-neutral-500">Included in your base package</p>
             </div>
-          </div>
+            <motion.div animate={{ rotate: openSections.google ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown size={18} className="text-neutral-500" />
+            </motion.div>
+          </button>
+          <AnimatePresence initial={false}>
+          {openSections.google && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+          <div className="px-5 pb-5">
 
           <div className="space-y-2">
             {GOOGLE_SUITE.map((svc) => {
@@ -882,19 +934,42 @@ function ConnectionsPageInner() {
               );
             })}
           </div>
+          </div>
+          </motion.div>
+          )}
+          </AnimatePresence>
         </section>
 
         {/* ═══ SOCIAL MEDIA ═══ */}
-        <section className="pb-10">
-          <div className="flex items-center gap-3 mb-6">
+        <section className="rounded-2xl border border-white/5 bg-white/[0.015] overflow-hidden">
+          <button
+            onClick={() => toggleSection('social')}
+            className="w-full flex items-center gap-3 p-5 hover:bg-white/[0.02] transition-colors"
+          >
             <div className="p-2 rounded-xl bg-pink-500/10 border border-pink-500/20">
               <Twitter size={18} className="text-pink-400" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">Social Media</h2>
+            <div className="flex-1 text-left">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold tracking-tight">Social Media</h2>
+                {(() => { const c = Object.entries(connections).filter(([k,v]) => SOCIAL_MEDIA.some(s => s.id === k) && v.connected).length; return c > 0 ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{c} connected</span> : null; })()}
+              </div>
               <p className="text-xs text-neutral-500">Connect your social accounts for content automation</p>
             </div>
-          </div>
+            <motion.div animate={{ rotate: openSections.social ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown size={18} className="text-neutral-500" />
+            </motion.div>
+          </button>
+          <AnimatePresence initial={false}>
+          {openSections.social && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+          <div className="px-5 pb-5">
 
           <div className="space-y-2">
             {SOCIAL_MEDIA.map((svc) => {
@@ -1017,9 +1092,13 @@ function ConnectionsPageInner() {
               );
             })}
           </div>
+          </div>
+          </motion.div>
+          )}
+          </AnimatePresence>
         </section>
         {/* ═══ UNIVERSAL MCP CONNECTOR ═══ */}
-        <McpSection userId={user?.uid || ""} toast={toast} setToast={setToast} />
+        <McpSection userId={user?.uid || ""} toast={toast} setToast={setToast} openSections={openSections} toggleSection={toggleSection} />
       </div>
     </div>
   );
@@ -1041,10 +1120,14 @@ function McpSection({
   userId,
   toast,
   setToast,
+  openSections,
+  toggleSection,
 }: {
   userId: string;
   toast: any;
   setToast: (t: any) => void;
+  openSections: Record<string, boolean>;
+  toggleSection: (key: string) => void;
 }) {
   const [mcpConnections, setMcpConnections] = useState<McpConnectionUI[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -1123,32 +1206,51 @@ function McpSection({
   };
 
   return (
-    <section>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20">
-            <Cable size={18} className="text-violet-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold tracking-tight">MCP Servers</h2>
-              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-violet-500/30 bg-violet-500/20 text-violet-400">
-                Power User
-              </span>
-            </div>
-            <p className="text-xs text-neutral-500">
-              Connect to any MCP server for unlimited integrations
-            </p>
-          </div>
+    <section className="rounded-2xl border border-white/5 bg-white/[0.015] overflow-hidden">
+      <button
+        onClick={() => toggleSection('mcp')}
+        className="w-full flex items-center gap-3 p-5 hover:bg-white/[0.02] transition-colors"
+      >
+        <div className="p-2 rounded-xl bg-violet-500/10 border border-violet-500/20">
+          <Cable size={18} className="text-violet-400" />
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-400 transition-all flex items-center gap-1.5"
-        >
-          <Plus size={14} />
-          Add Server
-        </button>
-      </div>
+        <div className="flex-1 text-left">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold tracking-tight">MCP Servers</h2>
+            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-violet-500/30 bg-violet-500/20 text-violet-400">
+              Power User
+            </span>
+            {mcpConnections.length > 0 && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{mcpConnections.length} connected</span>
+            )}
+          </div>
+          <p className="text-xs text-neutral-500">
+            Connect to any MCP server for unlimited integrations
+          </p>
+        </div>
+        <motion.div animate={{ rotate: openSections.mcp ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronDown size={18} className="text-neutral-500" />
+        </motion.div>
+      </button>
+      <AnimatePresence initial={false}>
+      {openSections.mcp && (
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: "auto", opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={{ duration: 0.25, ease: "easeInOut" }}
+        className="overflow-hidden"
+      >
+      <div className="px-5 pb-5">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-400 transition-all flex items-center gap-1.5"
+          >
+            <Plus size={14} />
+            Add Server
+          </button>
+        </div>
 
       {/* Add Form */}
       <AnimatePresence>
@@ -1301,6 +1403,10 @@ function McpSection({
           </div>
         ))}
       </div>
+      </div>
+      </motion.div>
+      )}
+      </AnimatePresence>
     </section>
   );
 }
