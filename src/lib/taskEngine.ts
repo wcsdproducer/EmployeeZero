@@ -1149,25 +1149,35 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
       await updateTask(taskId, { status: "failed", result: finalResult, steps });
       return finalResult;
     }
-    // Call Gemini
+    // Call Gemini with retry for transient errors
     let response;
-    try {
-      response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents,
-        config: {
-          systemInstruction: systemPrompt,
-          tools: [{ functionDeclarations: tools }],
-        },
-      });
-    } catch (err: any) {
-      console.error(`[TaskEngine] Gemini error at step ${stepCount}:`, err.message);
-      await updateTask(taskId, {
-        status: "failed",
-        result: `AI error: ${err.message}`,
-        steps,
-      });
-      return `Task failed: ${err.message}`;
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents,
+          config: {
+            systemInstruction: systemPrompt,
+            tools: [{ functionDeclarations: tools }],
+          },
+        });
+        break; // success
+      } catch (err: any) {
+        const isTransient = /fetch failed|ECONNRESET|503|429|timeout|ETIMEDOUT|socket hang up/i.test(err.message);
+        if (isTransient && attempt < MAX_RETRIES) {
+          console.warn(`[TaskEngine] Transient error (attempt ${attempt}/${MAX_RETRIES}): ${err.message}. Retrying in ${attempt * 2}s...`);
+          await new Promise(r => setTimeout(r, attempt * 2000));
+          continue;
+        }
+        console.error(`[TaskEngine] Gemini error at step ${stepCount}:`, err.message);
+        await updateTask(taskId, {
+          status: "failed",
+          result: `AI error: ${err.message}`,
+          steps,
+        });
+        return `Task failed: ${err.message}`;
+      }
     }
 
     const candidate = response.candidates?.[0];
@@ -1435,19 +1445,29 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
 
   while (stepCount < MAX_STEPS) {
     let response;
-    try {
-      response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents,
-        config: {
-          systemInstruction: systemPrompt,
-          tools: [{ functionDeclarations: tools }],
-        },
-      });
-    } catch (err: any) {
-      console.error(`[TaskEngine:Resume] Gemini error at step ${stepCount}:`, err.message);
-      await updateTask(taskId, { status: "failed", result: `AI error: ${err.message}`, steps });
-      return `Task failed: ${err.message}`;
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents,
+          config: {
+            systemInstruction: systemPrompt,
+            tools: [{ functionDeclarations: tools }],
+          },
+        });
+        break;
+      } catch (err: any) {
+        const isTransient = /fetch failed|ECONNRESET|503|429|timeout|ETIMEDOUT|socket hang up/i.test(err.message);
+        if (isTransient && attempt < MAX_RETRIES) {
+          console.warn(`[TaskEngine:Resume] Transient error (attempt ${attempt}/${MAX_RETRIES}): ${err.message}. Retrying...`);
+          await new Promise(r => setTimeout(r, attempt * 2000));
+          continue;
+        }
+        console.error(`[TaskEngine:Resume] Gemini error at step ${stepCount}:`, err.message);
+        await updateTask(taskId, { status: "failed", result: `AI error: ${err.message}`, steps });
+        return `Task failed: ${err.message}`;
+      }
     }
 
     const candidate = response.candidates?.[0];
