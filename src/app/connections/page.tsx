@@ -42,6 +42,7 @@ import {
   Plus,
   Trash2,
   ChevronDown,
+  MessageCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -126,6 +127,7 @@ const SOCIAL_MEDIA = [
   { id: "tiktok", name: "TikTok", description: "Short-form video management", icon: Music2, color: "text-cyan-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
   { id: "linkedin", name: "LinkedIn", description: "Professional content and networking", icon: Linkedin, color: "text-blue-500", hasSecret: false, comingSoon: false, requiresOAuth: true },
   { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
+  { id: "discord", name: "Discord", description: "Community management and moderation", icon: MessageCircle, color: "text-indigo-400", hasSecret: false, comingSoon: false, requiresOAuth: false },
 ];
 
 /* ─── Tool Map ─── */
@@ -148,6 +150,7 @@ const TOOL_MAP: Record<string, string[]> = {
   facebook: ["Profile", "Pages", "Page Posts", "Create Post", "Insights", "Comments", "Reply", "Delete Post", "Photo Post", "Schedule Post", "Video Upload", "Create Reel", "Scheduled Posts", "Cancel Scheduled"],
   tiktok: ["Profile"],
   linkedin: ["Profile", "Create Post", "Post with Link", "Get Posts", "Delete Post", "Image Post", "Comment", "React"],
+  discord: ["Servers", "Server Info", "Channels", "Create Channel", "Messages", "Send Message", "Search", "Reactions", "Members", "Roles", "Assign Role", "Threads", "Kick", "Ban"],
 };
 
 /* ─── Component ─── */
@@ -1027,7 +1030,15 @@ function ConnectionsPageInner() {
                           Connect
                           <ExternalLink size={10} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                         </button>
-                      ) : null}
+                      ) : (
+                        <button
+                          onClick={() => { setEditingKey(svc.id); setEditValue(""); setEditSecret(""); }}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-white transition-all flex items-center gap-1.5 group"
+                        >
+                          <Plug size={12} className="opacity-60" />
+                          Connect
+                        </button>
+                      )}
                     </div>
                   </div>
 
