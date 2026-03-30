@@ -3,7 +3,7 @@ runConfig:
   maxInstances: 2
   concurrency: 80
   cpu: 1
-  memoryMiB: 1024
+  memoryMiB: 2048
 
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
@@ -46,3 +46,5 @@ env:
     secret: TWITTER_CONSUMER_KEY
   - variable: TWITTER_CONSUMER_SECRET
     secret: TWITTER_CONSUMER_SECRET
+  - variable: NODE_OPTIONS
+    value: "--max-old-space-size=1536"
