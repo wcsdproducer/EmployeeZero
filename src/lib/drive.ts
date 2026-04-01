@@ -43,6 +43,26 @@ export async function getAuthenticatedDrive(userId: string): Promise<drive_v3.Dr
   return google.drive({ version: "v3", auth: oauth2Client });
 }
 
+/* ─── Helpers ─── */
+
+function readableMimeType(mime: string | null | undefined): string {
+  const map: Record<string, string> = {
+    "application/vnd.google-apps.document": "Google Doc",
+    "application/vnd.google-apps.spreadsheet": "Google Sheet",
+    "application/vnd.google-apps.presentation": "Google Slides",
+    "application/vnd.google-apps.folder": "Folder",
+    "application/vnd.google-apps.form": "Google Form",
+    "application/pdf": "PDF",
+    "image/png": "Image (PNG)",
+    "image/jpeg": "Image (JPEG)",
+    "text/plain": "Text File",
+    "text/csv": "CSV File",
+    "application/zip": "ZIP Archive",
+    "video/mp4": "Video (MP4)",
+  };
+  return map[mime || ""] || mime?.split("/").pop() || "File";
+}
+
 /* ─── Operations ─── */
 
 export async function listFiles(
@@ -51,25 +71,82 @@ export async function listFiles(
   maxResults = 10
 ): Promise<any[]> {
   const driveClient = await getAuthenticatedDrive(userId);
-  const q = searchQuery
-    ? `name contains '${searchQuery.replace(/'/g, "\\'")}' and trashed = false`
-    : "trashed = false";
 
-  const res = await driveClient.files.list({
-    q,
-    pageSize: maxResults,
-    fields: "files(id, name, mimeType, size, modifiedTime, webViewLink, parents)",
-    orderBy: "modifiedTime desc",
-  });
+  let q: string;
+  if (searchQuery) {
+    // Use fullText search first (searches content + name), fall back to name-only
+    const escaped = searchQuery.replace(/'/g, "\\'");
+    q = `fullText contains '${escaped}' and trashed = false`;
+  } else {
+    q = "trashed = false";
+  }
 
-  return (res.data.files || []).map((f) => ({
-    id: f.id,
-    name: f.name,
-    type: f.mimeType,
-    size: f.size ? `${Math.round(Number(f.size) / 1024)} KB` : "unknown",
-    modified: f.modifiedTime,
-    link: f.webViewLink,
-  }));
+  try {
+    const res = await driveClient.files.list({
+      q,
+      pageSize: maxResults,
+      fields: "files(id, name, mimeType, size, modifiedTime, webViewLink, parents, shared)",
+      orderBy: "modifiedTime desc",
+    });
+
+    const files = (res.data.files || []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      type: readableMimeType(f.mimeType),
+      size: f.size ? `${Math.round(Number(f.size) / 1024)} KB` : "unknown",
+      modified: f.modifiedTime,
+      link: f.webViewLink,
+      shared: f.shared || false,
+    }));
+
+    // If fullText returned results, return them
+    if (files.length > 0 || !searchQuery) return files;
+
+    // Fallback: try name-only search with individual keywords
+    const keywords = searchQuery.split(/\s+/).filter(w => w.length > 2);
+    const nameFilters = keywords.map(k => `name contains '${k.replace(/'/g, "\\'")}'`).join(" or ");
+    const fallbackQ = `(${nameFilters}) and trashed = false`;
+
+    const fallbackRes = await driveClient.files.list({
+      q: fallbackQ,
+      pageSize: maxResults,
+      fields: "files(id, name, mimeType, size, modifiedTime, webViewLink, parents, shared)",
+      orderBy: "modifiedTime desc",
+    });
+
+    return (fallbackRes.data.files || []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      type: readableMimeType(f.mimeType),
+      size: f.size ? `${Math.round(Number(f.size) / 1024)} KB` : "unknown",
+      modified: f.modifiedTime,
+      link: f.webViewLink,
+      shared: f.shared || false,
+    }));
+  } catch (err: any) {
+    // If fullText search isn't supported, fall back to name-only
+    console.error("[Drive] Search error, falling back to name search:", err.message);
+    const escaped = searchQuery ? searchQuery.replace(/'/g, "\\'") : "";
+    const fallbackQ = searchQuery
+      ? `name contains '${escaped}' and trashed = false`
+      : "trashed = false";
+
+    const res = await driveClient.files.list({
+      q: fallbackQ,
+      pageSize: maxResults,
+      fields: "files(id, name, mimeType, size, modifiedTime, webViewLink, parents)",
+      orderBy: "modifiedTime desc",
+    });
+
+    return (res.data.files || []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      type: readableMimeType(f.mimeType),
+      size: f.size ? `${Math.round(Number(f.size) / 1024)} KB` : "unknown",
+      modified: f.modifiedTime,
+      link: f.webViewLink,
+    }));
+  }
 }
 
 export async function getFile(userId: string, fileId: string): Promise<any> {
@@ -83,7 +160,7 @@ export async function getFile(userId: string, fileId: string): Promise<any> {
   return {
     id: res.data.id,
     name: res.data.name,
-    type: res.data.mimeType,
+    type: readableMimeType(res.data.mimeType),
     size: res.data.size ? `${Math.round(Number(res.data.size) / 1024)} KB` : "unknown",
     modified: res.data.modifiedTime,
     link: res.data.webViewLink,

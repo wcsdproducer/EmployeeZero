@@ -548,11 +548,11 @@ const WORKFLOW_TOOLS = [
 const DRIVE_TOOLS = [
   {
     name: "list_drive_files",
-    description: "Search and list files in Google Drive. Returns file names, types, and links.",
+    description: "Search and list files in Google Drive. Searches both file names and content. Use short keywords for best results (e.g. 'Authorization Release' not full sentences). Returns file names, types, and links.",
     parameters: {
       type: Type.OBJECT,
       properties: {
-        query: { type: Type.STRING, description: "Search query to filter files by name. Leave empty for recent files." },
+        query: { type: Type.STRING, description: "Search keywords to find files. Use 2-3 key terms, not full sentences. Leave empty for recent files." },
         max_results: { type: Type.NUMBER, description: "Max files to return (default 10)" },
       },
     },
@@ -620,14 +620,14 @@ const SHEETS_TOOLS = [
   },
   {
     name: "read_sheet",
-    description: "Read data from a range in a Google Sheets spreadsheet",
+    description: "Read data from a Google Sheets spreadsheet. Accepts a spreadsheet ID or a full Google Sheets URL. Range is optional — omit it to read the entire first sheet.",
     parameters: {
       type: Type.OBJECT,
       properties: {
-        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID" },
-        range: { type: Type.STRING, description: "A1 notation range (e.g. 'Sheet1!A1:D10')" },
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL (e.g. https://docs.google.com/spreadsheets/d/abc123/edit)" },
+        range: { type: Type.STRING, description: "Optional A1 notation range (e.g. 'Sheet1!A1:D10'). Omit to read the entire first sheet." },
       },
-      required: ["spreadsheet_id", "range"],
+      required: ["spreadsheet_id"],
     },
   },
   {
@@ -2182,11 +2182,11 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
       }
 
       if (connections.drive?.connected) {
-        systemPrompt += `\n\n### Google Drive Access\nYou can list, search, read, upload files and create folders in the user's Google Drive. Use list_drive_files to search, read_drive_file to read document contents, and upload_drive_file to create files.`;
+        systemPrompt += `\n\n### Google Drive Access\nYou can list, search, read, upload files and create folders in the user's Google Drive. Use list_drive_files to search (searches both filenames AND content), read_drive_file to read document contents, and upload_drive_file to create files.\n\n**IMPORTANT formatting rules for Drive results:**\n- ALWAYS format file links as clickable markdown: [filename](url)\n- Include the file type (Document, Spreadsheet, Folder, etc.)\n- Mention when the file was last modified\n- If the file is shared, mention that\n- Example: "📄 [Authorization to Release Form](https://docs.google.com/...) — Google Doc, last modified Mar 28, shared"`;
       }
 
       if (connections.sheets?.connected) {
-        systemPrompt += `\n\n### Google Sheets Access\nYou can list spreadsheets, read/write cell data, append rows, and create new spreadsheets. Use read_sheet with A1 notation ranges (e.g. 'Sheet1!A1:D10'). For writing, pass values as a JSON array of arrays.`;
+        systemPrompt += `\n\n### Google Sheets Access\nYou can list spreadsheets, read/write cell data, append rows, and create new spreadsheets. Use read_sheet with A1 notation ranges (e.g. 'Sheet1!A1:D10'). You can pass a full Google Sheets URL as the spreadsheet_id — the system will extract the ID automatically. Range is optional — omit it to read the entire first sheet. For writing, pass values as a JSON array of arrays.\n\n**IMPORTANT:** When a user provides a Google Sheets link, extract and use that URL directly as the spreadsheet_id. Do NOT ask them for a separate ID.`;
       }
 
       if (connections.youtube?.connected) {
@@ -2448,9 +2448,9 @@ The memory_extract section will be automatically processed and NOT shown to the 
           config,
         });
 
-        // Tool execution loop — max 5 rounds to prevent infinite loops
+        // Tool execution loop — max 10 rounds to handle multi-step operations
         let rounds = 0;
-        while (rounds < 5) {
+        while (rounds < 10) {
           const candidate = response.candidates?.[0];
           const parts = candidate?.content?.parts || [];
 
@@ -2508,10 +2508,28 @@ The memory_extract section will be automatically processed and NOT shown to the 
           .map((p: any) => p.text)
           .join("");
 
+        // If we got text, return it
+        if (textParts) return textParts;
+        if (response.text) return response.text;
+
+        // No text response — force a follow-up to get a verbal reply
+        // This happens when the model returns only tool calls or empty responses
+        console.warn("[Chat] Empty model response — forcing verbal follow-up");
+        contents.push({
+          role: "user" as const,
+          parts: [{ text: "Please respond to my message with a helpful verbal reply. Summarize what you just did or address what I said." }],
+        });
+
+        const retryResponse = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents,
+          config: { systemInstruction: systemPrompt },
+        });
+
         return (
-          textParts ||
-          response.text ||
-          "I processed your request. If you expected a detailed response, try rephrasing or ask me to elaborate."
+          retryResponse.text ||
+          retryResponse.candidates?.[0]?.content?.parts?.filter((p: any) => p.text).map((p: any) => p.text).join("") ||
+          "I heard you, but I'm having trouble formulating a response. Could you try rephrasing?"
         );
       };
 

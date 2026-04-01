@@ -88,5 +88,5 @@ export async function GET(request: Request) {
   }
 
   const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
-  return NextResponse.redirect(`${base}/connections?connected=${service}`);
+  return NextResponse.redirect(`${base}/chat?onboarding=${service}`);
 }

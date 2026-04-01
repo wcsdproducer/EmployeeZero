@@ -204,6 +204,57 @@ function ChatPageInner() {
       }
     })();
   }, [searchParams, user]);
+
+  // Handle ?onboarding= query param (from OAuth callback after connecting a service)
+  const onboardingTriggered = useRef(false);
+  useEffect(() => {
+    const service = searchParams.get("onboarding");
+    if (!service || !user || onboardingTriggered.current) return;
+    onboardingTriggered.current = true;
+
+    const SERVICE_NAMES: Record<string, string> = {
+      gmail: "Gmail", calendar: "Google Calendar", drive: "Google Drive",
+      sheets: "Google Sheets", youtube: "YouTube", contacts: "Google Contacts",
+      tasks: "Google Tasks", docs: "Google Docs", forms: "Google Forms",
+      slides: "Google Slides", analytics: "Google Analytics", business: "Business Profile",
+    };
+    const serviceName = SERVICE_NAMES[service] || service;
+
+    (async () => {
+      try {
+        // Create conversation
+        const docRef = await addDoc(collection(db, "conversations"), {
+          userId: user.uid,
+          title: `🔗 ${serviceName} Connected`,
+          messages: [{
+            role: "model",
+            content: `Scanning your ${serviceName} account...`,
+            timestamp: new Date().toISOString(),
+          }],
+          status: "running",
+          createdAt: Timestamp.now(),
+        });
+        setActiveConvId(docRef.id);
+        router.replace("/chat", { scroll: false });
+
+        // Call the scan API
+        const res = await authFetch(`/api/connections/scan?service=${service}`);
+        const data = await res.json();
+
+        // Update conversation with scan results
+        await updateDoc(doc(db, "conversations", docRef.id), {
+          messages: [{
+            role: "model",
+            content: data.message || `✅ **${serviceName}** connected successfully! Try asking me something.`,
+            timestamp: new Date().toISOString(),
+          }],
+          status: "idle",
+        });
+      } catch (err) {
+        console.error("Onboarding scan failed:", err);
+      }
+    })();
+  }, [searchParams, user]);
   const [selectedAgentId, setSelectedAgentId] = useState("primary");
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
   const [submitting, setSubmitting] = useState(false);

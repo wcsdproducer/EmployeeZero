@@ -46,6 +46,17 @@ export async function getAuthenticatedSheets(userId: string): Promise<{ sheets: 
   };
 }
 
+/* ─── Helpers ─── */
+
+/** Extract spreadsheet ID from a full URL or return as-is if already an ID */
+function extractSpreadsheetId(input: string): string {
+  // Handle full URLs like https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  // Already an ID
+  return input.trim();
+}
+
 /* ─── Operations ─── */
 
 export async function listSpreadsheets(userId: string, maxResults = 10): Promise<any[]> {
@@ -68,10 +79,25 @@ export async function listSpreadsheets(userId: string, maxResults = 10): Promise
 
 export async function readSheet(
   userId: string,
-  spreadsheetId: string,
-  range: string
+  spreadsheetIdOrUrl: string,
+  range?: string
 ): Promise<any> {
   const { sheets } = await getAuthenticatedSheets(userId);
+  const spreadsheetId = extractSpreadsheetId(spreadsheetIdOrUrl);
+
+  // If no range provided, get the first sheet name and read all data
+  if (!range) {
+    try {
+      const meta = await sheets.spreadsheets.get({
+        spreadsheetId,
+        fields: "sheets.properties.title",
+      });
+      const firstSheet = meta.data.sheets?.[0]?.properties?.title || "Sheet1";
+      range = firstSheet;
+    } catch {
+      range = "Sheet1";
+    }
+  }
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -79,6 +105,7 @@ export async function readSheet(
   });
 
   return {
+    spreadsheetId,
     range: res.data.range,
     values: res.data.values || [],
     rowCount: (res.data.values || []).length,

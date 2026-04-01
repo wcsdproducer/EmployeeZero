@@ -61,52 +61,62 @@ export async function addQuestion(
   options?: string[]
 ) {
   const forms = await getAuthenticatedForms(userId);
-  const questionItem: any = {
-    title,
-    questionItem: {
-      question: {
-        required: false,
-        textQuestion: undefined,
-        choiceQuestion: undefined,
-        scaleQuestion: undefined,
-      },
-    },
-  };
 
-  if (questionType === "SHORT_ANSWER") {
-    questionItem.questionItem.question.textQuestion = { paragraph: false };
-  } else if (questionType === "PARAGRAPH") {
-    questionItem.questionItem.question.textQuestion = { paragraph: true };
-  } else if (questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOX" || questionType === "DROPDOWN") {
-    questionItem.questionItem.question.choiceQuestion = {
-      type: questionType === "MULTIPLE_CHOICE" ? "RADIO" : questionType === "CHECKBOX" ? "CHECKBOX" : "DROP_DOWN",
-      options: (options || ["Option 1", "Option 2"]).map((o) => ({ value: o })),
-    };
-    delete questionItem.questionItem.question.textQuestion;
-    delete questionItem.questionItem.question.scaleQuestion;
-  } else if (questionType === "SCALE") {
-    questionItem.questionItem.question.scaleQuestion = { low: 1, high: 5, lowLabel: "Poor", highLabel: "Excellent" };
-    delete questionItem.questionItem.question.textQuestion;
-    delete questionItem.questionItem.question.choiceQuestion;
+  // Build question based on type — only include the relevant field
+  let question: Record<string, any> = { required: false };
+
+  switch (questionType) {
+    case "SHORT_ANSWER":
+      question.textQuestion = { paragraph: false };
+      break;
+    case "PARAGRAPH":
+      question.textQuestion = { paragraph: true };
+      break;
+    case "MULTIPLE_CHOICE":
+      question.choiceQuestion = {
+        type: "RADIO",
+        options: (options || ["Option 1", "Option 2"]).map((o) => ({ value: o })),
+      };
+      break;
+    case "CHECKBOX":
+      question.choiceQuestion = {
+        type: "CHECKBOX",
+        options: (options || ["Option 1", "Option 2"]).map((o) => ({ value: o })),
+      };
+      break;
+    case "DROPDOWN":
+      question.choiceQuestion = {
+        type: "DROP_DOWN",
+        options: (options || ["Option 1", "Option 2"]).map((o) => ({ value: o })),
+      };
+      break;
+    case "SCALE":
+      question.scaleQuestion = { low: 1, high: 5, lowLabel: "Poor", highLabel: "Excellent" };
+      break;
   }
 
-  const cleanQuestion = questionItem.questionItem.question;
-  Object.keys(cleanQuestion).forEach((k) => cleanQuestion[k] === undefined && delete cleanQuestion[k]);
-
-  const res = await forms.forms.batchUpdate({
-    formId,
-    requestBody: {
-      requests: [
-        {
-          createItem: {
-            item: questionItem,
-            location: { index: 0 },
+  try {
+    const res = await forms.forms.batchUpdate({
+      formId,
+      requestBody: {
+        requests: [
+          {
+            createItem: {
+              item: {
+                title,
+                questionItem: { question },
+              },
+              location: { index: 0 },
+            },
           },
-        },
-      ],
-    },
-  });
-  return { success: true, formId, action: "question_added", reply: res.data.replies };
+        ],
+      },
+    });
+    return { success: true, formId, action: "question_added", title, questionType, reply: res.data.replies };
+  } catch (err: any) {
+    console.error(`[Forms] addQuestion failed:`, err.message, err.response?.data);
+    throw new Error(`Failed to add question "${title}": ${err.message}`);
+  }
 }
 
 export async function getForm(userId: string, formId: string) {
