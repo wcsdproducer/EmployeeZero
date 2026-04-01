@@ -37,14 +37,14 @@ const tools = [
     live: true,
   },
   {
-    slug: "#",
+    slug: "roi-calculator",
     icon: Calculator,
     title: "AI ROI Calculator",
     description: "See how many hours AI can save your business.",
     color: "text-amber-400",
     bg: "bg-amber-500/10",
     border: "border-amber-500/20",
-    live: false,
+    live: true,
   },
 ];
 
