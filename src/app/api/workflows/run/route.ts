@@ -84,12 +84,17 @@ export async function POST(request: Request) {
       const convSnap = await convRef.get();
       const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
       const now = new Date().toISOString();
+      
+      // Use different header for success vs failure
+      const isFailed = /failed|stopped|timed out|wasn't able/i.test(result);
+      const prefix = isFailed ? `⚠️ **Workflow Issue**` : `🔄 **Workflow Complete**`;
+      
       await convRef.update({
         messages: [
           ...existingMsgs,
-          { role: "model", content: `🔄 **Workflow Complete**\n\n${result}`, timestamp: now },
+          { role: "model", content: `${prefix}\n\n${result}`, timestamp: now },
         ],
-        status: "idle",
+        status: isFailed ? "error" : "idle",
         updatedAt: now,
         pendingTaskId: null,
       });

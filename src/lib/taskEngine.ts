@@ -1301,11 +1301,23 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
         retries++;
         console.warn(`[TaskEngine] Tool ${toolName} failed (attempt ${retries}):`, err.message);
         if (retries > MAX_RETRIES_PER_STEP) {
-          toolResult = { error: err.message, tool: toolName, hint: "Try a different approach or skip this step if possible." };
-          consecutiveErrors++;
+          const errMsg = err.message || "Unknown error";
+          // Auth/permission errors are NOT consecutive failures — they're expected
+          // for disconnected services and should be skipped, not retried
+          const isAuthError = /401|403|revoked|unauthorized|token.*expired|not connected|connect.*first|permission|forbidden|deleted/i.test(errMsg);
+          toolResult = {
+            error: errMsg,
+            tool: toolName,
+            hint: isAuthError
+              ? "This service is not connected or the token has expired. Skip this service and proceed with available services only."
+              : "Try a different approach or skip this step if possible.",
+          };
+          if (!isAuthError) {
+            consecutiveErrors++;
+          }
           await updateStep(taskId, steps, stepIdx, {
             status: "failed",
-            error: err.message,
+            error: errMsg,
             completedAt: new Date().toISOString(),
           });
         } else {
@@ -1323,10 +1335,11 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
       });
     }
 
-    // Bail if too many consecutive errors — give enough room for multi-tool workflows
+    // Bail if too many consecutive NON-AUTH errors
     if (consecutiveErrors >= 5) {
-      const failedTools = steps.filter(s => s.status === "failed").map(s => `${s.toolName}: ${s.error}`).slice(-3).join("; ");
-      finalResult = `Task stopped after 5 consecutive tool failures. Last errors: ${failedTools}`;
+      const failedTools = steps.filter(s => s.status === "failed").map(s => s.toolName).filter(Boolean);
+      const uniqueTools = [...new Set(failedTools)].slice(-3);
+      finalResult = `I wasn't able to complete this task — ${uniqueTools.length} tool(s) failed repeatedly: ${uniqueTools.join(", ")}. Please check that these services are connected in your Connections page and try again.`;
       await updateTask(taskId, { status: "failed", result: finalResult, steps });
       return finalResult;
     }
