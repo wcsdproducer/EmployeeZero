@@ -825,11 +825,27 @@ async function executeTool(
 
 /* ─── Firestore Helpers ─── */
 
+/**
+ * Recursively remove undefined values from objects/arrays so Firestore
+ * never receives an invalid value at any depth.
+ */
+function deepSanitize(value: any): any {
+  if (value === undefined) return null;
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(deepSanitize);
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (v === undefined) continue; // strip undefined keys inside nested objects
+    clean[k] = deepSanitize(v);
+  }
+  return clean;
+}
+
 async function updateTask(taskId: string, updates: Partial<Task>) {
-  // Convert undefined values to FieldValue.delete() for Firestore compatibility
+  // Deep-sanitize to remove ALL undefined values at any depth
   const sanitized: Record<string, any> = {};
   for (const [key, value] of Object.entries(updates)) {
-    sanitized[key] = value === undefined ? FieldValue.delete() : value;
+    sanitized[key] = value === undefined ? FieldValue.delete() : deepSanitize(value);
   }
   sanitized.updatedAt = new Date().toISOString();
   await adminDb.doc(`tasks/${taskId}`).update(sanitized);
@@ -1145,7 +1161,7 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
   while (stepCount < MAX_STEPS) {
     // Global timeout check
     if (Date.now() - taskStartTime > TASK_TIMEOUT_MS) {
-      finalResult = "Task timed out after 4 minutes. Partial progress saved.";
+      finalResult = "Task timed out after 8 minutes. Partial progress saved.";
       await updateTask(taskId, { status: "failed", result: finalResult, steps });
       return finalResult;
     }
@@ -1285,13 +1301,16 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
         retries++;
         console.warn(`[TaskEngine] Tool ${toolName} failed (attempt ${retries}):`, err.message);
         if (retries > MAX_RETRIES_PER_STEP) {
-          toolResult = { error: err.message };
+          toolResult = { error: err.message, tool: toolName, hint: "Try a different approach or skip this step if possible." };
           consecutiveErrors++;
           await updateStep(taskId, steps, stepIdx, {
             status: "failed",
             error: err.message,
             completedAt: new Date().toISOString(),
           });
+        } else {
+          // Brief delay before retry
+          await new Promise(r => setTimeout(r, 1000));
         }
       }
     }
@@ -1304,9 +1323,10 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
       });
     }
 
-    // Bail if too many consecutive errors
-    if (consecutiveErrors >= 3) {
-      finalResult = "Task stopped: too many consecutive tool failures.";
+    // Bail if too many consecutive errors — give enough room for multi-tool workflows
+    if (consecutiveErrors >= 5) {
+      const failedTools = steps.filter(s => s.status === "failed").map(s => `${s.toolName}: ${s.error}`).slice(-3).join("; ");
+      finalResult = `Task stopped after 5 consecutive tool failures. Last errors: ${failedTools}`;
       await updateTask(taskId, { status: "failed", result: finalResult, steps });
       return finalResult;
     }

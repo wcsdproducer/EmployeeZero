@@ -35,6 +35,17 @@ async function getAuthenticatedDocs(userId: string): Promise<docs_v1.Docs> {
     }
   });
 
+  // Proactively refresh token if expired or about to expire (within 5 min)
+  const now = Date.now();
+  if (!docs.expiryDate || docs.expiryDate < now + 5 * 60_000) {
+    try {
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      oauth2Client.setCredentials(credentials);
+    } catch (err) {
+      console.warn("[Docs] Token refresh failed, proceeding with existing token:", err);
+    }
+  }
+
   return google.docs({ version: "v1", auth: oauth2Client });
 }
 

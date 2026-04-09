@@ -35,6 +35,17 @@ async function getAuthenticatedForms(userId: string): Promise<forms_v1.Forms> {
     }
   });
 
+  // Proactively refresh token if expired or about to expire (within 5 min)
+  const now = Date.now();
+  if (!forms.expiryDate || forms.expiryDate < now + 5 * 60_000) {
+    try {
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      oauth2Client.setCredentials(credentials);
+    } catch (err) {
+      console.warn("[Forms] Token refresh failed, proceeding with existing token:", err);
+    }
+  }
+
   return google.forms({ version: "v1", auth: oauth2Client });
 }
 
