@@ -2,6 +2,42 @@ import { adminDb } from "@/lib/admin";
 
 /* ─── Token Management ─── */
 
+async function refreshTwitterToken(userId: string, refreshToken: string): Promise<string> {
+  const clientId = process.env.TWITTER_CLIENT_ID?.trim();
+  const clientSecret = process.env.TWITTER_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) throw new Error("Twitter OAuth credentials not configured");
+
+  const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const res = await fetch("https://api.twitter.com/2/oauth2/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${credentials}`,
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }),
+  });
+
+  const tokenData = await res.json();
+  if (!tokenData.access_token) {
+    console.error("[Twitter] Token refresh failed:", JSON.stringify(tokenData));
+    throw new Error("Twitter token refresh failed — please reconnect in Connections.");
+  }
+
+  // Persist the new tokens
+  const updates: Record<string, any> = {
+    "twitter.accessToken": tokenData.access_token,
+    "twitter.expiryDate": Date.now() + (tokenData.expires_in || 7200) * 1000,
+  };
+  if (tokenData.refresh_token) updates["twitter.refreshToken"] = tokenData.refresh_token;
+
+  await adminDb.doc(`users/${userId}/settings/connections`).update(updates);
+  console.log(`[Twitter] Token refreshed for user ${userId}`);
+  return tokenData.access_token;
+}
+
 async function getTwitterTokens(userId: string) {
   const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
   if (!snap.exists) throw new Error("No connections found — connect X/Twitter first");
@@ -11,6 +47,14 @@ async function getTwitterTokens(userId: string) {
 
   if (!twitter?.connected || !twitter?.accessToken) {
     throw new Error("X/Twitter is not connected. Go to Connections to set it up.");
+  }
+
+  // Proactive token refresh — Twitter tokens expire every 2 hours
+  const now = Date.now();
+  if (twitter.refreshToken && twitter.expiryDate && twitter.expiryDate < now + 5 * 60_000) {
+    console.log(`[Twitter] Token expired or expiring soon, refreshing...`);
+    const newToken = await refreshTwitterToken(userId, twitter.refreshToken);
+    return { accessToken: newToken };
   }
 
   return { accessToken: twitter.accessToken as string };

@@ -2,6 +2,29 @@ import { adminDb } from "@/lib/admin";
 
 /* ─── Token Management ─── */
 
+async function refreshInstagramToken(userId: string, currentToken: string): Promise<string> {
+  // Instagram/Meta uses long-lived token exchange
+  const res = await fetch(
+    `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.META_APP_ID}&client_secret=${process.env.META_APP_SECRET}&fb_exchange_token=${currentToken}`
+  );
+
+  const tokenData = await res.json();
+  if (!tokenData.access_token) {
+    console.error("[Instagram] Token refresh failed:", JSON.stringify(tokenData));
+    throw new Error("Instagram token refresh failed — please reconnect in Connections.");
+  }
+
+  // Persist the new token
+  const updates: Record<string, any> = {
+    "instagram.accessToken": tokenData.access_token,
+    "instagram.expiryDate": Date.now() + (tokenData.expires_in || 5184000) * 1000,
+  };
+
+  await adminDb.doc(`users/${userId}/settings/connections`).update(updates);
+  console.log(`[Instagram] Token refreshed for user ${userId}`);
+  return tokenData.access_token;
+}
+
 async function getInstagramTokens(userId: string) {
   const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
   if (!snap.exists) throw new Error("No connections found — connect Instagram first");
@@ -11,6 +34,20 @@ async function getInstagramTokens(userId: string) {
 
   if (!ig?.connected || !ig?.accessToken) {
     throw new Error("Instagram is not connected. Go to Connections to set it up.");
+  }
+
+  // Proactive token refresh — Meta tokens expire every ~60 days
+  const now = Date.now();
+  if (ig.expiryDate && ig.expiryDate < now + 24 * 60 * 60_000) {
+    // Refresh if expiring within 24 hours (Meta token exchange needs a valid token)
+    console.log(`[Instagram] Token expiring soon, refreshing...`);
+    try {
+      const newToken = await refreshInstagramToken(userId, ig.accessToken);
+      return { accessToken: newToken };
+    } catch (e) {
+      // If refresh fails, try with existing token — it might still be valid
+      console.warn(`[Instagram] Refresh failed, trying existing token:`, (e as Error).message);
+    }
   }
 
   return { accessToken: ig.accessToken as string };

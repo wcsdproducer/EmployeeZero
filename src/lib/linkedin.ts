@@ -2,6 +2,40 @@ import { adminDb } from "@/lib/admin";
 
 /* ─── Token Management ─── */
 
+async function refreshLinkedInToken(userId: string, refreshToken: string): Promise<string> {
+  const clientId = process.env.LINKEDIN_CLIENT_ID?.trim();
+  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) throw new Error("LinkedIn OAuth credentials not configured");
+
+  const res = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+
+  const tokenData = await res.json();
+  if (!tokenData.access_token) {
+    console.error("[LinkedIn] Token refresh failed:", JSON.stringify(tokenData));
+    throw new Error("LinkedIn token refresh failed — please reconnect in Connections.");
+  }
+
+  // Persist the new tokens
+  const updates: Record<string, any> = {
+    "linkedin.accessToken": tokenData.access_token,
+    "linkedin.expiryDate": Date.now() + (tokenData.expires_in || 5184000) * 1000,
+  };
+  if (tokenData.refresh_token) updates["linkedin.refreshToken"] = tokenData.refresh_token;
+
+  await adminDb.doc(`users/${userId}/settings/connections`).update(updates);
+  console.log(`[LinkedIn] Token refreshed for user ${userId}`);
+  return tokenData.access_token;
+}
+
 async function getLinkedInTokens(userId: string) {
   const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
   if (!snap.exists) throw new Error("No connections found — connect LinkedIn first");
@@ -11,6 +45,14 @@ async function getLinkedInTokens(userId: string) {
 
   if (!linkedin?.connected || !linkedin?.accessToken) {
     throw new Error("LinkedIn is not connected. Go to Connections to set it up.");
+  }
+
+  // Proactive token refresh — LinkedIn tokens expire every 60 days
+  const now = Date.now();
+  if (linkedin.refreshToken && linkedin.expiryDate && linkedin.expiryDate < now + 5 * 60_000) {
+    console.log(`[LinkedIn] Token expired or expiring soon, refreshing...`);
+    const newToken = await refreshLinkedInToken(userId, linkedin.refreshToken);
+    return { accessToken: newToken };
   }
 
   return { accessToken: linkedin.accessToken as string };

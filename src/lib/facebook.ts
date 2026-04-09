@@ -2,6 +2,28 @@ import { adminDb } from "@/lib/admin";
 
 /* ─── Token Management ─── */
 
+async function refreshFacebookToken(userId: string, currentToken: string): Promise<string> {
+  // Facebook/Meta uses long-lived token exchange
+  const res = await fetch(
+    `https://graph.facebook.com/v21.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.META_APP_ID}&client_secret=${process.env.META_APP_SECRET}&fb_exchange_token=${currentToken}`
+  );
+
+  const tokenData = await res.json();
+  if (!tokenData.access_token) {
+    console.error("[Facebook] Token refresh failed:", JSON.stringify(tokenData));
+    throw new Error("Facebook token refresh failed — please reconnect in Connections.");
+  }
+
+  const updates: Record<string, any> = {
+    "facebook.accessToken": tokenData.access_token,
+    "facebook.expiryDate": Date.now() + (tokenData.expires_in || 5184000) * 1000,
+  };
+
+  await adminDb.doc(`users/${userId}/settings/connections`).update(updates);
+  console.log(`[Facebook] Token refreshed for user ${userId}`);
+  return tokenData.access_token;
+}
+
 async function getFacebookTokens(userId: string) {
   const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
   if (!snap.exists) throw new Error("No connections found — connect Facebook first");
@@ -11,6 +33,18 @@ async function getFacebookTokens(userId: string) {
 
   if (!fb?.connected || !fb?.accessToken) {
     throw new Error("Facebook is not connected. Go to Connections to set it up.");
+  }
+
+  // Proactive token refresh — Meta tokens expire every ~60 days
+  const now = Date.now();
+  if (fb.expiryDate && fb.expiryDate < now + 24 * 60 * 60_000) {
+    console.log(`[Facebook] Token expiring soon, refreshing...`);
+    try {
+      const newToken = await refreshFacebookToken(userId, fb.accessToken);
+      return { accessToken: newToken };
+    } catch (e) {
+      console.warn(`[Facebook] Refresh failed, trying existing token:`, (e as Error).message);
+    }
   }
 
   return { accessToken: fb.accessToken as string };
