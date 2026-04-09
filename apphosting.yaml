@@ -46,3 +46,5 @@ env:
     secret: TWITTER_CONSUMER_KEY
   - variable: TWITTER_CONSUMER_SECRET
     secret: TWITTER_CONSUMER_SECRET
+  - variable: CRON_SECRET
+    secret: CRON_SECRET
