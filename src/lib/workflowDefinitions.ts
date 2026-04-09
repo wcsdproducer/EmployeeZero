@@ -315,24 +315,23 @@ Present actionable insights, not just raw data.`,
     id: "social-engagement-sweep",
     goal: `You are running the Social Engagement Sweep workflow. Check all connected social platforms and respond to engagement:
 
-1. **Twitter/X**: Get mentions and check follower notifications. For each mention:
-   - If it's a positive comment → like it and reply with a brief thank you
-   - If it's a question → reply with a helpful answer
-   - If it's negative → do NOT reply, just flag it for review
-2. **Instagram**: Get recent comments on the latest 5 posts. For each comment:
+**NOTE: Twitter/X is on the free API tier (write-only). You CANNOT read mentions, search tweets, or get timeline data. Skip all Twitter read operations.**
+
+1. **Instagram**: Get recent comments on the latest 5 posts. For each comment:
    - If compliment or simple reaction → reply with a brief thank you
    - If question about products/services → reply helpfully
    - If spam → flag for deletion review
-3. **Facebook**: Get comments on recent page posts. Apply the same logic as Instagram.
-4. **YouTube**: Get comments on the latest 3 videos. Reply to substantive comments.
-5. Save a summary note titled "Social Engagement [today's date]" with:
-   - 📊 **Engagement Summary**: Mentions, comments, replies sent
+2. **Facebook**: Get comments on recent page posts. Apply the same logic as Instagram.
+3. **YouTube**: Get comments on the latest 3 videos. Reply to substantive comments.
+4. Save a summary note titled "Social Engagement [today's date]" with:
+   - 📊 **Engagement Summary**: Comments found, replies sent per platform
    - 🔥 **Hot Topics**: What people are saying most about
    - ⚠️ **Needs Attention**: Negative items flagged for manual review
    - 🎯 **Engagement Rate**: Approximate interaction quality
+   - ℹ️ **Twitter/X**: Skipped (free tier, write-only access)
 
 Do NOT delete or block anyone without permission. Be authentic and on-brand in all replies.`,
-    requiredConnections: ["twitter", "instagram"],
+    requiredConnections: ["instagram"],
   },
 
   "social-post-all-platforms": {
@@ -361,38 +360,39 @@ Present a confirmation summary showing all posted content with links.`,
     id: "social-analytics-report",
     goal: `You are running the Social Analytics Report workflow. Gather metrics from all connected platforms:
 
-1. **Twitter/X**: Get profile stats (followers count), get recent timeline to count likes/retweets, check bookmarks for saved content ideas.
-2. **Instagram**: Get profile stats (followers, posts), get account insights, check post insights for the last 5 posts to find top performers.
-3. **Facebook**: Get page insights, get page details, count recent post engagement.
-4. **LinkedIn**: Get profile info, get recent posts and their reactions.
-5. **YouTube**: Get channel analytics, list recent videos and their view counts.
-6. Compile a comprehensive report and save as a note titled "Social Analytics Report [date]":
-   - 📊 **Platform Overview**: Followers/subscribers per platform
+**NOTE: Twitter/X is on the free API tier (write-only). You CANNOT read profile stats, timeline, or analytics. Skip all Twitter read operations.**
+
+1. **Instagram**: Get profile stats (followers, posts), get account insights, check post insights for the last 5 posts to find top performers.
+2. **Facebook**: Get page insights, get page details, count recent post engagement.
+3. **LinkedIn**: Get profile info, get recent posts and their reactions.
+4. **YouTube**: Get channel analytics, list recent videos and their view counts.
+5. Compile a comprehensive report and save as a note titled "Social Analytics Report [date]":
+   - 📊 **Platform Overview**: Followers/subscribers per platform (excluding Twitter — no read access)
    - 🔥 **Top Performing Content**: Best posts across all platforms
    - 📈 **Growth Trends**: Any notable changes
    - 💡 **Content Recommendations**: What type of content is working best
    - 🎯 **Action Items**: Specific suggestions for growth
 
 Also log the raw numbers in a Google Sheet (create a new spreadsheet called "Social Analytics" or append to existing).`,
-    requiredConnections: ["twitter", "instagram"],
+    requiredConnections: ["instagram"],
   },
 
   "twitter-growth-engine": {
     id: "twitter-growth-engine",
     goal: `You are running the Twitter Growth Engine workflow. Do the following:
 
-1. Search Twitter for trending topics in the user's niche using web search.
-2. Get the user's Twitter profile to understand their brand.
-3. Get the user's recent timeline to analyze what's performing well.
-4. Get liked tweets and bookmarked tweets for content inspiration.
-5. Create 3 high-engagement tweets:
-   - **Tweet 1**: Hot take or insight on a trending topic (use a hook → value → CTA format)
-   - **Tweet 2**: Thread-worthy educational content (send as a reply chain)
-   - **Tweet 3**: Engagement bait (question, poll-style, or "help me decide")
-6. Like and reply to 5 recent tweets from accounts similar to the user (use search to find them).
-7. Save engagement stats and content ideas to notes.
+**NOTE: Twitter/X is on the free API tier (write-only). You CANNOT search tweets, read timeline, or get profile data. Use web search for research, then post content.**
 
-Present what was posted and any engagement opportunities found.`,
+1. Use web search to find trending topics in the user's niche (search for "trending topics [industry] today").
+2. Use web search to find the user's brand positioning from their website.
+3. Create 3 high-engagement tweets:
+   - **Tweet 1**: Hot take or insight on a trending topic (use a hook → value → CTA format)
+   - **Tweet 2**: Thread-worthy educational content (send as a reply chain using reply_to_tweet)
+   - **Tweet 3**: Engagement bait (question, poll-style, or "help me decide")
+4. Post all 3 tweets using the create_tweet tool.
+5. Save the posted content to notes.
+
+Present what was posted and suggest engagement strategies.`,
     requiredConnections: ["twitter"],
   },
 
@@ -551,19 +551,19 @@ Present all draft messages for review. Do NOT send without permission.`,
     goal: `You are running the Brand Mention Monitor workflow. Track what people say about you:
 
 1. Ask the user for their brand/company name (or use the one from their profile).
-2. **Twitter**: Search tweets mentioning the brand name. For positive mentions → like them. Flag negative ones.
-3. **Web**: Search Google for recent mentions of the brand name.
-4. **Instagram**: Check tagged media — see who tagged the brand in their posts.
-5. **YouTube**: Search YouTube for the brand name — any reviews, unboxings, or mentions.
-6. **Email**: Search emails for the brand name in case of customer feedback.
-7. Compile a Brand Health Report:
+2. **Web**: Search Google for recent mentions of the brand name (include site:twitter.com, site:reddit.com, site:linkedin.com).
+3. **Instagram**: Check tagged media — see who tagged the brand in their posts.
+4. **YouTube**: Search YouTube for the brand name — any reviews, unboxings, or mentions.
+5. **Email**: Search emails for the brand name in case of customer feedback.
+6. Compile a Brand Health Report:
    - 📊 **Mention Volume**: How many mentions found across platforms
    - 😊 **Sentiment**: Positive / Neutral / Negative breakdown
    - 🌟 **Top Advocates**: People who mention the brand positively (potential partners)
    - ⚠️ **Negative Alerts**: Issues that need addressing
    - 💡 **PR Opportunities**: Positive mentions worth amplifying
-8. Save as a note titled "Brand Monitor [date]".`,
-    requiredConnections: ["twitter"],
+   - ℹ️ **Note**: Twitter search via API unavailable (free tier). Web search used as fallback.
+7. Save as a note titled "Brand Monitor [date]".`,
+    requiredConnections: [],
   },
 
   "youtube-channel-manager": {
@@ -849,7 +849,7 @@ This keeps the knowledge base clean and actionable.`,
    - List today's meetings with prep notes
    - Find free slots for follow-ups
 3. **SOCIAL MEDIA SCAN**:
-   - Twitter: Check mentions, like positive ones
+   - Twitter: Post daily content (read access unavailable on free tier)
    - Instagram: Check latest comments, reply to genuine ones
    - Facebook: Check page comments
    - LinkedIn: Check any notifications via recent posts

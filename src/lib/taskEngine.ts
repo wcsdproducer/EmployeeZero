@@ -433,14 +433,12 @@ const LINKEDIN_TOOLS = [
   { name: "get_linkedin_posts", description: "Get recent LinkedIn posts.", parameters: { type: Type.OBJECT, properties: { count: { type: Type.NUMBER } } } },
 ];
 
+// NOTE: Twitter/X free tier is WRITE-ONLY. Read endpoints (search, mentions, timeline, profile)
+// return 403 "Credits Depleted". Only post/like/reply are available.
 const TWITTER_TOOLS = [
-  { name: "get_twitter_profile", description: "Get X/Twitter profile.", parameters: { type: Type.OBJECT, properties: {} } },
-  { name: "get_twitter_timeline", description: "Get recent tweets.", parameters: { type: Type.OBJECT, properties: { max_results: { type: Type.NUMBER } } } },
-  { name: "create_tweet", description: "Post a tweet.", parameters: { type: Type.OBJECT, properties: { text: { type: Type.STRING } }, required: ["text"] } },
-  { name: "search_tweets", description: "Search tweets.", parameters: { type: Type.OBJECT, properties: { query: { type: Type.STRING }, max_results: { type: Type.NUMBER } }, required: ["query"] } },
-  { name: "get_twitter_mentions", description: "Get mentions.", parameters: { type: Type.OBJECT, properties: { max_results: { type: Type.NUMBER } } } },
-  { name: "like_tweet", description: "Like a tweet.", parameters: { type: Type.OBJECT, properties: { tweet_id: { type: Type.STRING } }, required: ["tweet_id"] } },
-  { name: "reply_to_tweet", description: "Reply to a tweet.", parameters: { type: Type.OBJECT, properties: { tweet_id: { type: Type.STRING }, text: { type: Type.STRING } }, required: ["tweet_id", "text"] } },
+  { name: "create_tweet", description: "Post a tweet to X/Twitter.", parameters: { type: Type.OBJECT, properties: { text: { type: Type.STRING } }, required: ["text"] } },
+  { name: "like_tweet", description: "Like a tweet (requires tweet_id from another source).", parameters: { type: Type.OBJECT, properties: { tweet_id: { type: Type.STRING } }, required: ["tweet_id"] } },
+  { name: "reply_to_tweet", description: "Reply to a tweet (requires tweet_id from another source).", parameters: { type: Type.OBJECT, properties: { tweet_id: { type: Type.STRING }, text: { type: Type.STRING } }, required: ["tweet_id", "text"] } },
 ];
 
 const INSTAGRAM_TOOLS = [
