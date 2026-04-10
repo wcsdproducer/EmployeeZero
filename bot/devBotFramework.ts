@@ -37,6 +37,7 @@ interface BotState {
   mode: BotMode;
   lastDevActivity: number;
   autoLockTimer: NodeJS.Timeout | null;
+  conversationHistory: Array<{ role: string; content: string }>;
 }
 
 // ──────────────────────────────────────────────
@@ -76,10 +77,21 @@ export function createDevBot(config: DevBotConfig): Bot {
   const memory = createMemoryStore(config.workspaceRoot);
   console.log(`🧠 Memory initialized for ${config.workspaceName} (${memory.count()} memories)`);
 
+  // Load soul.md if it exists
+  const soulPath = path.join(config.workspaceRoot, "bot", "soul.md");
+  let soulPrompt = `You are the ${config.workspaceName} Dev Bot. You help Jack Freeman manage this workspace.`;
+  try {
+    if (fs.existsSync(soulPath)) {
+      soulPrompt = fs.readFileSync(soulPath, "utf-8");
+      console.log(`👻 Soul loaded for ${config.workspaceName}`);
+    }
+  } catch { /* use default */ }
+
   const state: BotState = {
     mode: "ops",
     lastDevActivity: 0,
     autoLockTimer: null,
+    conversationHistory: [],
   };
 
   // ── Auth middleware ──
@@ -340,18 +352,108 @@ export function createDevBot(config: DevBotConfig): Bot {
     await ctx.reply(deleted ? `🗑️ Memory #${idStr} deleted.` : `❌ Memory #${idStr} not found.`);
   });
 
-  // ── Free text (AI responses in future) ──
+  // ── Free text → Gemini AI chat ──
   bot.on("message:text", async (ctx) => {
     const text = ctx.message.text;
-    if (text.startsWith("/")) return; // Unknown command, ignore
+    if (text.startsWith("/")) return;
 
-    await ctx.reply(
-      `💬 Free text AI is coming soon. For now use commands:\n` +
-      `/status, /read, /build, /run, /git\n` +
-      `/remember, /recall, /memories, /forget\n` +
-      `Mode: \`${state.mode}\``,
-      { parse_mode: "Markdown" }
-    );
+    const apiKey = process.env.GOOGLE_GENAI_API_KEY;
+    if (!apiKey) {
+      await ctx.reply("⚠️ GOOGLE_GENAI_API_KEY not set in .env — AI chat unavailable.");
+      return;
+    }
+
+    // Build context from recent memories
+    let memoryContext = "";
+    try {
+      const relevantMemories = memory.search(text);
+      if (relevantMemories.length > 0) {
+        memoryContext = "\n\nRelevant memories:\n" +
+          relevantMemories.map(m => `- [${m.category}] ${m.content}`).join("\n");
+      }
+    } catch { /* ignore */ }
+
+    // Build workspace status context
+    let statusContext = "";
+    try {
+      const branch = safeExec("git branch --show-current", config.workspaceRoot).trim();
+      statusContext = `\nCurrent branch: ${branch}, Mode: ${state.mode}`;
+    } catch { /* ignore */ }
+
+    // Add user message to history (keep last 20 messages)
+    state.conversationHistory.push({ role: "user", content: text });
+    if (state.conversationHistory.length > 20) {
+      state.conversationHistory = state.conversationHistory.slice(-20);
+    }
+
+    // Build Gemini request
+    const systemInstruction = soulPrompt +
+      `\n\nWorkspace: ${config.workspaceRoot}` +
+      `\nFirebase: ${config.firebaseProjectId || "unknown"}` +
+      `\nMode: ${state.mode} (${state.mode === "dev" ? "can edit files and run commands" : "read-only ops"})` +
+      memoryContext +
+      statusContext +
+      `\n\nKeep responses concise for Telegram. Use markdown formatting.`;
+
+    const contents = state.conversationHistory.map(msg => ({
+      role: msg.role === "user" ? "user" : "model",
+      parts: [{ text: msg.content }],
+    }));
+
+    try {
+      await ctx.replyWithChatAction("typing");
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            generationConfig: {
+              maxOutputTokens: 1500,
+              temperature: 0.7,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error("Gemini API error:", response.status, err);
+        await ctx.reply("❌ AI error — try again.");
+        return;
+      }
+
+      const data = await response.json();
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!aiText) {
+        await ctx.reply("🤔 Got an empty response. Try rephrasing.");
+        return;
+      }
+
+      // Add AI response to history
+      state.conversationHistory.push({ role: "model", content: aiText });
+
+      // Telegram has a 4096 char limit
+      if (aiText.length > 4000) {
+        const chunks = aiText.match(/.{1,4000}/gs) || [aiText];
+        for (const chunk of chunks) {
+          await ctx.reply(chunk, { parse_mode: "Markdown" }).catch(() =>
+            ctx.reply(chunk) // fallback without markdown if parsing fails
+          );
+        }
+      } else {
+        await ctx.reply(aiText, { parse_mode: "Markdown" }).catch(() =>
+          ctx.reply(aiText) // fallback without markdown
+        );
+      }
+    } catch (e: any) {
+      console.error("AI chat error:", e.message);
+      await ctx.reply(`❌ ${e.message}`);
+    }
   });
 
   return bot;

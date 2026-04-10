@@ -282,19 +282,19 @@ function ChatPageInner() {
   const isFoundingAvailable = foundingCount !== null && foundingCount < FOUNDING_LIMIT;
   const slotsRemaining = foundingCount !== null ? Math.max(0, FOUNDING_LIMIT - foundingCount) : null;
 
-  // Build full agents list: primary + purchased
-  const allAgents = [
-    ...agents,
-    ...purchasedAgents
-      .filter(a => a.status === "active")
-      .map(a => ({
-        id: a.id,
-        name: a.name,
-        icon: <span className="text-sm">{AVATAR_EMOJIS[a.avatar] || "🤖"}</span>,
-        color: "text-blue-400" as const,
-        emoji: AVATAR_EMOJIS[a.avatar] || "🤖",
-      })),
-  ];
+  // Build full agents list: use Firestore agents if available, otherwise fall back to legacy employeeName
+  const activeAgents = purchasedAgents
+    .filter(a => a.status === "active")
+    .map(a => ({
+      id: a.id,
+      name: a.name,
+      icon: <span className="text-sm">{AVATAR_EMOJIS[a.avatar] || "🤖"}</span>,
+      color: "text-blue-400" as const,
+      emoji: AVATAR_EMOJIS[a.avatar] || "🤖",
+    }));
+
+  // Only show legacy primary agent if no Firestore agents exist (backward compatibility)
+  const allAgents = activeAgents.length > 0 ? activeAgents : agents;
 
   // Fetch user profile for employee name
   useEffect(() => {
