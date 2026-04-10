@@ -143,7 +143,7 @@ const TOOL_MAP: Record<string, string[]> = {
   analytics: ["List Properties", "Run Report", "Realtime Data"],
   business: ["List Accounts", "List Locations", "Get Reviews", "Reply to Review", "Create Post"],
   notes: ["Create Note", "List Notes", "Update Note", "Delete Note", "Search Notes", "Knowledge Base"],
-  twitter: ["Profile", "Timeline", "Tweet", "Search", "Delete", "Reply", "Retweet", "Like", "Unlike", "Mentions", "Followers", "Bookmark", "Bookmarks", "Liked Tweets", "Follow", "Unfollow", "Mute", "Block"],
+  twitter: ["Tweet", "Delete", "Reply", "Retweet", "Like", "Unlike"],
   instagram: ["Profile", "Media", "Post", "Comments", "Reply", "Carousel", "Reel", "Post Insights", "Account Insights", "Stories", "Hashtag Search", "Delete Post", "Create Story", "Story Insights", "Tagged Media"],
   facebook: ["Profile", "Pages", "Page Posts", "Create Post", "Insights", "Comments", "Reply", "Delete Post", "Photo Post", "Schedule Post", "Video Upload", "Create Reel", "Scheduled Posts", "Cancel Scheduled"],
   tiktok: ["Profile"],

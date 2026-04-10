@@ -2079,7 +2079,7 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
       }
 
       if (connections.twitter?.connected) {
-        systemPrompt += `\n\n### X/Twitter Access\nYou can view the user's X profile, read their recent tweets with engagement stats, post new tweets, and search recent tweets. Always confirm tweet content with the user before posting.`;
+        systemPrompt += `\n\n### X/Twitter Access (Write-Only)\nYou are on the X/Twitter FREE API tier which is WRITE-ONLY. You can ONLY: post new tweets, delete tweets, reply to tweets (if you have a tweet_id), retweet, and like tweets. You CANNOT read tweets, search tweets, view profile data, get mentions, get followers, or access any read endpoints. Do NOT attempt any read operations — they will fail with "Credits Depleted". Always confirm tweet content with the user before posting.`;
       }
 
       if (connections.instagram?.connected) {
