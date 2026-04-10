@@ -11,10 +11,11 @@
  * - Per-workspace memory (SQLite + FTS5)
  */
 
-import { Bot, Context } from "grammy";
+import { Bot, Context, InputFile } from "grammy";
 import { execSync, exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import puppeteer, { Browser } from "puppeteer";
 import { createMemoryStore, MemoryStore } from "./memoryStore.js";
 
 // ──────────────────────────────────────────────
@@ -38,6 +39,7 @@ interface BotState {
   lastDevActivity: number;
   autoLockTimer: NodeJS.Timeout | null;
   conversationHistory: Array<{ role: string; content: string }>;
+  browser: Browser | null;
 }
 
 // ──────────────────────────────────────────────
@@ -92,6 +94,7 @@ export function createDevBot(config: DevBotConfig): Bot {
     lastDevActivity: 0,
     autoLockTimer: null,
     conversationHistory: [],
+    browser: null,
   };
 
   // ── Auth middleware ──
@@ -118,6 +121,7 @@ export function createDevBot(config: DevBotConfig): Bot {
       `  /mode — Current mode\n` +
       `  /run <cmd> — Run command (dev mode)\n` +
       `  /read <file> — Read file contents\n` +
+      `  /browse <url> — Screenshot & extract page text\n` +
       `  /build — Run build\n` +
       `  /git <args> — Git operations (dev mode)\n` +
       `\n🧠 Memory:\n` +
@@ -352,6 +356,70 @@ export function createDevBot(config: DevBotConfig): Bot {
     await ctx.reply(deleted ? `🗑️ Memory #${idStr} deleted.` : `❌ Memory #${idStr} not found.`);
   });
 
+  // ── /browse <url> ──
+  bot.command("browse", async (ctx) => {
+    const url = ctx.match?.trim();
+    if (!url) {
+      await ctx.reply("Usage: `/browse <url>`\nExample: `/browse https://example.com`", { parse_mode: "Markdown" });
+      return;
+    }
+
+    // Validate URL
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url.startsWith("http") ? url : `https://${url}`);
+    } catch {
+      await ctx.reply("❌ Invalid URL.");
+      return;
+    }
+
+    await ctx.replyWithChatAction("upload_photo");
+
+    try {
+      // Launch browser if not already open
+      if (!state.browser || !state.browser.connected) {
+        state.browser = await puppeteer.launch({
+          headless: true,
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        });
+      }
+
+      const page = await state.browser.newPage();
+      await page.setViewport({ width: 1280, height: 900 });
+
+      // Navigate with timeout
+      await page.goto(parsedUrl.href, { waitUntil: "networkidle2", timeout: 20_000 });
+
+      // Take screenshot
+      const screenshotBuffer = await page.screenshot({ type: "png", fullPage: false }) as Buffer;
+
+      // Extract page text (truncated)
+      const pageText = await page.evaluate(() => {
+        return document.body?.innerText?.slice(0, 2000) || "(no text content)";
+      });
+      const title = await page.title();
+
+      await page.close();
+
+      // Send screenshot
+      await ctx.replyWithPhoto(new InputFile(screenshotBuffer, "screenshot.png"), {
+        caption: `🌐 *${title}*\n${parsedUrl.href}`,
+        parse_mode: "Markdown",
+      });
+
+      // Send extracted text
+      if (pageText.trim()) {
+        const textPreview = pageText.slice(0, 3000);
+        await ctx.reply(`📄 *Page Text:*\n\`\`\`\n${textPreview}\n\`\`\``, { parse_mode: "Markdown" }).catch(() =>
+          ctx.reply(`📄 Page Text:\n${textPreview}`)
+        );
+      }
+    } catch (e: any) {
+      console.error("Browse error:", e.message);
+      await ctx.reply(`❌ Browser error: ${e.message.slice(0, 500)}`);
+    }
+  });
+
   // ── Free text → Gemini AI chat ──
   bot.on("message:text", async (ctx) => {
     const text = ctx.message.text;
@@ -455,6 +523,16 @@ export function createDevBot(config: DevBotConfig): Bot {
       await ctx.reply(`❌ ${e.message}`);
     }
   });
+
+  // Cleanup browser on bot stop
+  const originalStop = bot.stop.bind(bot);
+  bot.stop = async () => {
+    if (state.browser) {
+      await state.browser.close().catch(() => {});
+      state.browser = null;
+    }
+    return originalStop();
+  };
 
   return bot;
 }
