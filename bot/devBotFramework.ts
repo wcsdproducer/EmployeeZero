@@ -473,20 +473,11 @@ export function createDevBot(config: DevBotConfig): Bot {
       parts: [{ text: msg.content }],
     }));
 
-    // Tool declarations for function calling
-    const toolDeclarations = [
-      {
-        name: "web_search",
-        description: "Search the web for information. Returns results with titles, URLs, and snippets. Use this to research competitors, find industry news, or look up any information.",
-        parameters: {
-          type: "OBJECT",
-          properties: { query: { type: "STRING", description: "Search query" } },
-          required: ["query"],
-        },
-      },
+    // Tool declarations: native Google Search grounding + custom browse_url
+    const browseToolDecl = [
       {
         name: "browse_url",
-        description: "Fetch and read the text content of any web page. Returns the page title and extracted text. Use for articles, competitor sites, docs, or any URL.",
+        description: "Fetch and read the text content of any web page. Returns the page title and extracted text. Use for reading articles, competitor sites, docs, or any URL you find from search results.",
         parameters: {
           type: "OBJECT",
           properties: {
@@ -496,6 +487,11 @@ export function createDevBot(config: DevBotConfig): Bot {
           required: ["url"],
         },
       },
+    ];
+    // Gemini's built-in Google Search grounding (actual Google results, not scraping)
+    const toolsPayload = [
+      { google_search: {} },
+      { function_declarations: browseToolDecl },
     ];
 
     try {
@@ -514,7 +510,7 @@ export function createDevBot(config: DevBotConfig): Bot {
             body: JSON.stringify({
               system_instruction: { parts: [{ text: systemInstruction }] },
               contents: currentContents,
-              tools: [{ function_declarations: toolDeclarations }],
+              tools: toolsPayload,
               generationConfig: { maxOutputTokens: 3000, temperature: 0.7 },
             }),
           }
@@ -546,8 +542,7 @@ export function createDevBot(config: DevBotConfig): Bot {
           const { name, args } = part.functionCall;
           let result: any;
           try {
-            if (name === "web_search") result = await webSearchLight(args.query);
-            else if (name === "browse_url") result = await browseUrlLight(args.url, { extractLinks: args.extract_links });
+            if (name === "browse_url") result = await browseUrlLight(args.url, { extractLinks: args.extract_links });
             else result = { error: `Unknown tool: ${name}` };
           } catch (e: any) {
             result = { error: e.message };
@@ -664,29 +659,7 @@ function safeExec(cmd: string, cwd: string, timeout = 15_000): string {
 
 const WEB_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-async function webSearchLight(query: string): Promise<{ results: { title: string; url: string; snippet: string }[] }> {
-  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=8`;
-  const res = await fetch(searchUrl, {
-    headers: { "User-Agent": WEB_UA, Accept: "text/html" },
-    signal: AbortSignal.timeout(10000),
-  });
-  const html = await res.text();
-  const results: { title: string; url: string; snippet: string }[] = [];
-  const blocks = html.split('<div class="g"');
-  for (const block of blocks.slice(1, 9)) {
-    const urlMatch = block.match(/href="(https?:\/\/[^"]+)"/);
-    const titleMatch = block.match(/<h3[^>]*>([\s\S]*?)<\/h3>/);
-    const snippetMatch = block.match(/<span[^>]*class="[^"]*"[^>]*>([\s\S]*?)<\/span>/);
-    if (urlMatch && titleMatch) {
-      results.push({
-        title: titleMatch[1].replace(/<[^>]*>/g, "").trim(),
-        url: urlMatch[1],
-        snippet: snippetMatch ? snippetMatch[1].replace(/<[^>]*>/g, "").trim().substring(0, 300) : "",
-      });
-    }
-  }
-  return { results };
-}
+// webSearchLight removed — now using Gemini's built-in google_search grounding
 
 async function browseUrlLight(
   url: string,
