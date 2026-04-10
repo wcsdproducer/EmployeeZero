@@ -473,87 +473,34 @@ export function createDevBot(config: DevBotConfig): Bot {
       parts: [{ text: msg.content }],
     }));
 
-    // Tool declarations: native Google Search grounding + custom browse_url
-    const browseToolDecl = [
-      {
-        name: "browse_url",
-        description: "Fetch and read the text content of any web page. Returns the page title and extracted text. Use for reading articles, competitor sites, docs, or any URL you find from search results.",
-        parameters: {
-          type: "OBJECT",
-          properties: {
-            url: { type: "STRING", description: "The URL to browse" },
-            extract_links: { type: "BOOLEAN", description: "Set true to extract links" },
-          },
-          required: ["url"],
-        },
-      },
-    ];
-    // Gemini's built-in Google Search grounding (actual Google results, not scraping)
-    const toolsPayload = [
-      { google_search: {} },
-      { function_declarations: browseToolDecl },
-    ];
 
     try {
-      // Tool execution loop (max 5 rounds)
-      let currentContents = [...contents];
-      let finalText = "";
+      await ctx.replyWithChatAction("typing").catch(() => {});
 
-      for (let round = 0; round < 5; round++) {
-        await ctx.replyWithChatAction("typing").catch(() => {});
-
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemInstruction }] },
-              contents: currentContents,
-              tools: toolsPayload,
-              generationConfig: { maxOutputTokens: 3000, temperature: 0.7 },
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const err = await response.text();
-          console.error("Gemini API error:", response.status, err);
-          await ctx.reply("❌ AI error — try again.");
-          return;
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            tools: [{ google_search: {} }],
+            generationConfig: { maxOutputTokens: 4000, temperature: 0.7 },
+          }),
         }
+      );
 
-        const data = await response.json();
-        const parts = data.candidates?.[0]?.content?.parts || [];
-        const functionCalls = parts.filter((p: any) => p.functionCall);
-        const textParts = parts.filter((p: any) => p.text);
-
-        if (functionCalls.length === 0) {
-          finalText = textParts.map((p: any) => p.text).join("\n");
-          break;
-        }
-
-        // Show user we're researching on first tool call
-        if (round === 0) await ctx.reply("🔍 Researching...").catch(() => {});
-
-        // Execute tool calls
-        const functionResponses: any[] = [];
-        for (const part of functionCalls) {
-          const { name, args } = part.functionCall;
-          let result: any;
-          try {
-            if (name === "browse_url") result = await browseUrlLight(args.url, { extractLinks: args.extract_links });
-            else result = { error: `Unknown tool: ${name}` };
-          } catch (e: any) {
-            result = { error: e.message };
-          }
-          functionResponses.push({ functionResponse: { name, response: result } });
-        }
-
-        // Append model response + tool results
-        currentContents.push({ role: "model", parts });
-        currentContents.push({ role: "user", parts: functionResponses });
+      if (!response.ok) {
+        const err = await response.text();
+        console.error("Gemini API error:", response.status, err);
+        await ctx.reply("❌ AI error — try again.");
+        return;
       }
+
+      const data = await response.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const finalText = parts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
 
       if (!finalText) {
         await ctx.reply("🤔 Got an empty response. Try rephrasing.");
