@@ -842,22 +842,10 @@ const LINKEDIN_TOOLS = [
   },
 ];
 
+// NOTE: Twitter/X free tier is WRITE-ONLY. Read endpoints (search, mentions,
+// timeline, profile, followers, bookmarks, liked_tweets) return 403 "Credits Depleted".
+// Only write operations are available.
 const TWITTER_TOOLS = [
-  {
-    name: "get_twitter_profile",
-    description: "Get the user's X/Twitter profile (name, handle, followers, tweet count)",
-    parameters: { type: Type.OBJECT, properties: {} },
-  },
-  {
-    name: "get_twitter_timeline",
-    description: "Get the user's recent tweets with engagement stats",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        max_results: { type: Type.NUMBER, description: "Max tweets to return (default 10, max 100)" },
-      },
-    },
-  },
   {
     name: "create_tweet",
     description: "Post a new tweet on X/Twitter. Always confirm content with user before posting.",
@@ -867,18 +855,6 @@ const TWITTER_TOOLS = [
         text: { type: Type.STRING, description: "Tweet text (max 280 characters)" },
       },
       required: ["text"],
-    },
-  },
-  {
-    name: "search_tweets",
-    description: "Search recent tweets on X/Twitter",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        query: { type: Type.STRING, description: "Search query" },
-        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
-      },
-      required: ["query"],
     },
   },
   {
@@ -894,7 +870,7 @@ const TWITTER_TOOLS = [
   },
   {
     name: "reply_to_tweet",
-    description: "Reply to a tweet. Always confirm reply content with user.",
+    description: "Reply to a tweet (requires tweet_id from another source). Always confirm reply content with user.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -928,7 +904,7 @@ const TWITTER_TOOLS = [
   },
   {
     name: "like_tweet",
-    description: "Like a tweet",
+    description: "Like a tweet (requires tweet_id from another source)",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -946,101 +922,6 @@ const TWITTER_TOOLS = [
         tweet_id: { type: Type.STRING, description: "Tweet ID to unlike" },
       },
       required: ["tweet_id"],
-    },
-  },
-  {
-    name: "get_twitter_mentions",
-    description: "Get recent tweets that mention the user",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
-      },
-    },
-  },
-  {
-    name: "get_twitter_followers",
-    description: "Get a list of the user's X/Twitter followers with their profile info",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        max_results: { type: Type.NUMBER, description: "Max followers to return (default 20, max 100)" },
-      },
-    },
-  },
-  {
-    name: "bookmark_tweet",
-    description: "Bookmark a tweet for later",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        tweet_id: { type: Type.STRING, description: "Tweet ID to bookmark" },
-      },
-      required: ["tweet_id"],
-    },
-  },
-  {
-    name: "get_twitter_bookmarks",
-    description: "Get your saved/bookmarked tweets",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
-      },
-    },
-  },
-  {
-    name: "get_twitter_liked_tweets",
-    description: "Get tweets you have liked",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        max_results: { type: Type.NUMBER, description: "Max results (default 10)" },
-      },
-    },
-  },
-  {
-    name: "follow_twitter_user",
-    description: "Follow a user on X/Twitter",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        target_user_id: { type: Type.STRING, description: "User ID to follow" },
-      },
-      required: ["target_user_id"],
-    },
-  },
-  {
-    name: "unfollow_twitter_user",
-    description: "Unfollow a user on X/Twitter",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        target_user_id: { type: Type.STRING, description: "User ID to unfollow" },
-      },
-      required: ["target_user_id"],
-    },
-  },
-  {
-    name: "mute_twitter_user",
-    description: "Mute a user on X/Twitter (hide their tweets)",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        target_user_id: { type: Type.STRING, description: "User ID to mute" },
-      },
-      required: ["target_user_id"],
-    },
-  },
-  {
-    name: "block_twitter_user",
-    description: "Block a user on X/Twitter",
-    parameters: {
-      type: Type.OBJECT,
-      properties: {
-        target_user_id: { type: Type.STRING, description: "User ID to block" },
-      },
-      required: ["target_user_id"],
     },
   },
 ];
