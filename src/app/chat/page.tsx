@@ -1314,6 +1314,7 @@ function ChatPageInner() {
                     const res = await authFetch("/api/checkout", {
                       method: "POST",
                       body: JSON.stringify({
+                        userId: user.uid,
                         email: user.email,
                       }),
                     });

@@ -1,0 +1,332 @@
+/**
+ * Dev Bot Framework — shared by all workspace dev bots
+ * 
+ * Features:
+ * - Ops mode (default): read-only status queries
+ * - Dev mode: full file editing, builds, git operations
+ * - User ID verification (only Jack can interact)
+ * - Auto-lock after 60 min inactivity
+ * - File system sandboxing to workspace root
+ * - Command whitelisting
+ */
+
+import { Bot, Context } from "grammy";
+import { execSync, exec } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+
+// ──────────────────────────────────────────────
+// Types
+// ──────────────────────────────────────────────
+
+export interface DevBotConfig {
+  token: string;
+  ownerId: number;
+  workspaceRoot: string;
+  workspaceName: string;
+  devPassphrase?: string;       // defaults to "gravity"
+  autoLockMinutes?: number;     // defaults to 60
+  firebaseProjectId?: string;
+}
+
+type BotMode = "ops" | "dev";
+
+interface BotState {
+  mode: BotMode;
+  lastDevActivity: number;
+  autoLockTimer: NodeJS.Timeout | null;
+}
+
+// ──────────────────────────────────────────────
+// Whitelisted commands
+// ──────────────────────────────────────────────
+
+const WHITELISTED_COMMANDS = [
+  "npm", "npx", "node", "tsx",
+  "git", "tsc",
+  "cat", "ls", "find", "grep", "head", "tail", "wc",
+  "echo", "pwd",
+  "firebase",
+];
+
+const BLOCKED_PATTERNS = [
+  /rm\s+(-rf?|--recursive)/i,
+  /sudo/i,
+  /chmod\s+777/i,
+  />\s*\/dev/i,
+  /mkfs/i,
+  /dd\s+if=/i,
+  /:(){ :\|:& };:/,     // fork bomb
+  /curl.*\|.*sh/i,       // pipe to shell
+  /wget.*\|.*sh/i,
+];
+
+// ──────────────────────────────────────────────
+// Core Framework
+// ──────────────────────────────────────────────
+
+export function createDevBot(config: DevBotConfig): Bot {
+  const bot = new Bot(config.token);
+  const passphrase = config.devPassphrase ?? "gravity";
+  const autoLockMs = (config.autoLockMinutes ?? 60) * 60 * 1000;
+
+  const state: BotState = {
+    mode: "ops",
+    lastDevActivity: 0,
+    autoLockTimer: null,
+  };
+
+  // ── Auth middleware ──
+  bot.use(async (ctx, next) => {
+    const userId = ctx.from?.id;
+    if (userId !== config.ownerId) {
+      console.warn(`⚠️ Unauthorized: User ${userId} tried to access ${config.workspaceName} bot`);
+      return; // silent ignore
+    }
+    return next();
+  });
+
+  // ── /start ──
+  bot.command("start", async (ctx) => {
+    await ctx.reply(
+      `🤖 *${config.workspaceName} Dev Bot*\n\n` +
+      `Mode: \`${state.mode}\`\n` +
+      `Workspace: \`${config.workspaceRoot}\`\n` +
+      (config.firebaseProjectId ? `Firebase: \`${config.firebaseProjectId}\`\n` : "") +
+      `\nCommands:\n` +
+      `  /status — Project status\n` +
+      `  /dev <passphrase> — Enter dev mode\n` +
+      `  /lock — Return to ops mode\n` +
+      `  /mode — Current mode\n` +
+      `  /run <cmd> — Run command (dev mode)\n` +
+      `  /read <file> — Read file contents\n` +
+      `  /build — Run build\n` +
+      `  /git <args> — Git operations (dev mode)`,
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  // ── /mode ──
+  bot.command("mode", async (ctx) => {
+    const emoji = state.mode === "dev" ? "🔓" : "🔒";
+    await ctx.reply(`${emoji} Current mode: *${state.mode.toUpperCase()}*`, { parse_mode: "Markdown" });
+  });
+
+  // ── /dev <passphrase> ──
+  bot.command("dev", async (ctx) => {
+    const input = ctx.match?.trim();
+    if (input !== passphrase) {
+      await ctx.reply("❌ Wrong passphrase.");
+      return;
+    }
+    state.mode = "dev";
+    state.lastDevActivity = Date.now();
+    resetAutoLock(state, autoLockMs, ctx);
+    await ctx.reply(
+      `🔓 *DEV MODE ACTIVATED*\n` +
+      `Auto-lock in ${config.autoLockMinutes ?? 60} minutes of inactivity.\n` +
+      `Use /lock to return to ops mode.`,
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  // ── /lock ──
+  bot.command("lock", async (ctx) => {
+    state.mode = "ops";
+    if (state.autoLockTimer) clearTimeout(state.autoLockTimer);
+    state.autoLockTimer = null;
+    await ctx.reply("🔒 *OPS MODE* — Dev features locked.", { parse_mode: "Markdown" });
+  });
+
+  // ── /status ──
+  bot.command("status", async (ctx) => {
+    try {
+      const gitStatus = safeExec("git status --short", config.workspaceRoot);
+      const gitBranch = safeExec("git branch --show-current", config.workspaceRoot);
+      const nodeModules = fs.existsSync(path.join(config.workspaceRoot, "node_modules"));
+      const packageJson = fs.existsSync(path.join(config.workspaceRoot, "package.json"));
+
+      let status = `📊 *${config.workspaceName} Status*\n\n`;
+      status += `Branch: \`${gitBranch.trim() || "unknown"}\`\n`;
+      status += `Node modules: ${nodeModules ? "✅" : "❌"}\n`;
+      status += `package.json: ${packageJson ? "✅" : "❌"}\n`;
+      status += `Mode: \`${state.mode}\`\n`;
+
+      if (gitStatus.trim()) {
+        status += `\nUncommitted changes:\n\`\`\`\n${gitStatus.slice(0, 1000)}\n\`\`\``;
+      } else {
+        status += `\n✅ Working tree clean`;
+      }
+
+      await ctx.reply(status, { parse_mode: "Markdown" });
+    } catch (e: any) {
+      await ctx.reply(`❌ Error: ${e.message}`);
+    }
+  });
+
+  // ── /read <file> ──
+  bot.command("read", async (ctx) => {
+    const filePath = ctx.match?.trim();
+    if (!filePath) {
+      await ctx.reply("Usage: `/read <filepath>`", { parse_mode: "Markdown" });
+      return;
+    }
+
+    const resolved = resolveSafePath(config.workspaceRoot, filePath);
+    if (!resolved) {
+      await ctx.reply("❌ Path is outside workspace boundary.");
+      return;
+    }
+
+    try {
+      const content = fs.readFileSync(resolved, "utf-8");
+      const truncated = content.slice(0, 3500);
+      const suffix = content.length > 3500 ? `\n\n... (truncated, ${content.length} chars total)` : "";
+      await ctx.reply(`📄 \`${filePath}\`\n\`\`\`\n${truncated}${suffix}\n\`\`\``, { parse_mode: "Markdown" });
+    } catch (e: any) {
+      await ctx.reply(`❌ ${e.message}`);
+    }
+  });
+
+  // ── /build ──
+  bot.command("build", async (ctx) => {
+    if (!requireDev(state, ctx)) return;
+    touchDevActivity(state, autoLockMs, ctx);
+
+    await ctx.reply("🔨 Starting build...");
+    try {
+      const output = safeExec("npm run build 2>&1", config.workspaceRoot, 120_000);
+      const truncated = output.slice(-2000);
+      await ctx.reply(`✅ Build complete:\n\`\`\`\n${truncated}\n\`\`\``, { parse_mode: "Markdown" });
+    } catch (e: any) {
+      const errOutput = e.stdout?.toString()?.slice(-2000) || e.message;
+      await ctx.reply(`❌ Build failed:\n\`\`\`\n${errOutput}\n\`\`\``, { parse_mode: "Markdown" });
+    }
+  });
+
+  // ── /run <command> ──
+  bot.command("run", async (ctx) => {
+    if (!requireDev(state, ctx)) return;
+    touchDevActivity(state, autoLockMs, ctx);
+
+    const cmd = ctx.match?.trim();
+    if (!cmd) {
+      await ctx.reply("Usage: `/run <command>`", { parse_mode: "Markdown" });
+      return;
+    }
+
+    if (!isCommandSafe(cmd)) {
+      await ctx.reply("❌ Command blocked — contains unsafe pattern.");
+      return;
+    }
+
+    try {
+      const output = safeExec(cmd + " 2>&1", config.workspaceRoot, 30_000);
+      const truncated = output.slice(-3000);
+      await ctx.reply(`\`$ ${cmd}\`\n\`\`\`\n${truncated}\n\`\`\``, { parse_mode: "Markdown" });
+    } catch (e: any) {
+      const errOutput = e.stdout?.toString()?.slice(-2000) || e.message;
+      await ctx.reply(`❌ Failed:\n\`\`\`\n${errOutput}\n\`\`\``, { parse_mode: "Markdown" });
+    }
+  });
+
+  // ── /git <args> ──
+  bot.command("git", async (ctx) => {
+    if (!requireDev(state, ctx)) return;
+    touchDevActivity(state, autoLockMs, ctx);
+
+    const args = ctx.match?.trim();
+    if (!args) {
+      await ctx.reply("Usage: `/git <args>`\nExamples: `status`, `add -A`, `commit -m \"msg\"`, `push`", { parse_mode: "Markdown" });
+      return;
+    }
+
+    // Block destructive git operations
+    if (/force|--force|-f.*push|push.*-f|reset\s+--hard/i.test(args)) {
+      await ctx.reply("❌ Force operations blocked. Do these manually.");
+      return;
+    }
+
+    try {
+      const output = safeExec(`git ${args} 2>&1`, config.workspaceRoot, 30_000);
+      const truncated = output.slice(-3000);
+      await ctx.reply(`\`$ git ${args}\`\n\`\`\`\n${truncated}\n\`\`\``, { parse_mode: "Markdown" });
+    } catch (e: any) {
+      const errOutput = e.stdout?.toString()?.slice(-2000) || e.message;
+      await ctx.reply(`❌ Failed:\n\`\`\`\n${errOutput}\n\`\`\``, { parse_mode: "Markdown" });
+    }
+  });
+
+  // ── Free text (AI responses in future) ──
+  bot.on("message:text", async (ctx) => {
+    const text = ctx.message.text;
+    if (text.startsWith("/")) return; // Unknown command, ignore
+
+    await ctx.reply(
+      `💬 Free text AI is coming soon. For now use commands:\n` +
+      `/status, /read, /build, /run, /git\n` +
+      `Mode: \`${state.mode}\``,
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  return bot;
+}
+
+// ──────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────
+
+function requireDev(state: BotState, ctx: Context): boolean {
+  if (state.mode !== "dev") {
+    ctx.reply("🔒 This command requires *dev mode*. Use `/dev <passphrase>` first.", { parse_mode: "Markdown" });
+    return false;
+  }
+  return true;
+}
+
+function touchDevActivity(state: BotState, autoLockMs: number, ctx: Context): void {
+  state.lastDevActivity = Date.now();
+  resetAutoLock(state, autoLockMs, ctx);
+}
+
+function resetAutoLock(state: BotState, autoLockMs: number, ctx: Context): void {
+  if (state.autoLockTimer) clearTimeout(state.autoLockTimer);
+  state.autoLockTimer = setTimeout(async () => {
+    state.mode = "ops";
+    state.autoLockTimer = null;
+    try {
+      await ctx.reply("🔒 *Auto-locked* — 60 min inactivity. Use /dev to re-enter.", { parse_mode: "Markdown" });
+    } catch { /* chat may be unavailable */ }
+  }, autoLockMs);
+}
+
+function resolveSafePath(root: string, filePath: string): string | null {
+  const resolved = path.resolve(root, filePath);
+  if (!resolved.startsWith(path.resolve(root))) return null;
+  return resolved;
+}
+
+function isCommandSafe(cmd: string): boolean {
+  // Check against blocked patterns
+  for (const pattern of BLOCKED_PATTERNS) {
+    if (pattern.test(cmd)) return false;
+  }
+
+  // Extract the base command
+  const baseCmd = cmd.trim().split(/\s+/)[0];
+  const cmdName = path.basename(baseCmd);
+
+  // Check whitelist
+  return WHITELISTED_COMMANDS.includes(cmdName);
+}
+
+function safeExec(cmd: string, cwd: string, timeout = 15_000): string {
+  return execSync(cmd, {
+    cwd,
+    timeout,
+    maxBuffer: 10 * 1024 * 1024, // 10MB
+    encoding: "utf-8",
+    env: { ...process.env, PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.HOME}/.nvm/versions/node/v22.22.1/bin:${process.env.PATH}` },
+  });
+}
