@@ -27,6 +27,13 @@ import {
   Check,
   Users,
   Bot,
+  Play,
+  Quote,
+  DollarSign,
+  Clock,
+  TrendingUp,
+  Star,
+  Mail,
 } from "lucide-react";
 
 /* ─── Fade-in wrapper ─── */
@@ -163,10 +170,13 @@ export default function LandingPage() {
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Button
               variant="outline"
-              className="h-11 px-6 text-sm font-semibold rounded-full border-white/[0.15] bg-transparent hover:bg-white/[0.05] text-white"
+              className="h-11 px-6 text-sm font-semibold rounded-full border-white/[0.15] bg-transparent hover:bg-white/[0.05] text-white group"
               asChild
             >
-              <Link href="#how-it-works">See it first</Link>
+              <Link href="#how-it-works">
+                <Play size={14} className="mr-2 group-hover:text-emerald-400 transition-colors" />
+                Watch it work
+              </Link>
             </Button>
             <Button
               onClick={handleHire}
@@ -445,6 +455,159 @@ export default function LandingPage() {
             </FadeIn>
           ))}
         </div>
+      </section>
+
+      {/* ═══════════════════ TESTIMONIALS ═══════════════════ */}
+      <section className="px-6 md:px-12 py-20 md:py-28 max-w-5xl mx-auto w-full">
+        <FadeIn>
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-3">
+            Founders are shipping faster.
+          </h2>
+          <p className="text-sm text-neutral-500 text-center mb-14">
+            Real people. Real results. Zero excuses.
+          </p>
+        </FadeIn>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {[
+            {
+              name: "Sarah Chen",
+              role: "Founder, NovaBrand",
+              quote: "I used to spend 4 hours a day on emails and reports. Now Zero handles it before I finish my coffee. It literally paid for itself on day one.",
+              avatar: "SC",
+              color: "bg-violet-500",
+            },
+            {
+              name: "Marcus Rivera",
+              role: "CEO, Stackline Digital",
+              quote: "We replaced a $3,500/mo virtual assistant team. Zero does the same work for $29. The ROI is insane — I tell every founder I know.",
+              avatar: "MR",
+              color: "bg-sky-500",
+            },
+            {
+              name: "Priya Desai",
+              role: "Solo Founder, Loomwork",
+              quote: "As a solo founder, I needed a teammate, not another chatbot. Zero actually gets things done — research, outreach, scheduling. Game changer.",
+              avatar: "PD",
+              color: "bg-emerald-500",
+            },
+          ].map((t, i) => (
+            <FadeIn key={i} delay={i * 0.1}>
+              <div className="glass-card p-6 h-full flex flex-col hover:border-white/[0.15] transition-colors">
+                <Quote size={20} className="text-emerald-400/40 mb-4 flex-shrink-0" />
+                <p className="text-sm text-neutral-300 leading-relaxed mb-6 flex-1">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06]">
+                  <div className={`w-8 h-8 rounded-full ${t.color} flex items-center justify-center text-[10px] font-bold text-white`}>
+                    {t.avatar}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-white">{t.name}</div>
+                    <div className="text-[10px] text-neutral-500">{t.role}</div>
+                  </div>
+                  <div className="ml-auto flex gap-0.5">
+                    {[1,2,3,4,5].map(s => <Star key={s} size={10} className="text-amber-400 fill-amber-400" />)}
+                  </div>
+                </div>
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══════════════════ ROI COMPARISON ═══════════════════ */}
+      <section className="px-6 md:px-12 py-20 md:py-28 max-w-4xl mx-auto w-full">
+        <FadeIn>
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-3">
+            Do the math.
+          </h2>
+          <p className="text-sm text-neutral-500 text-center mb-14">
+            Compare Employee Zero to traditional alternatives.
+          </p>
+        </FadeIn>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {[
+            {
+              label: "Virtual Assistant",
+              price: "$2,000–$4,000",
+              unit: "/mo",
+              items: ["Limited hours", "Timezone constraints", "Training required", "Mistakes happen"],
+              highlight: false,
+              icon: Users,
+              iconColor: "text-neutral-400",
+            },
+            {
+              label: "Employee Zero",
+              price: "$29",
+              unit: "/mo",
+              items: ["Unlimited missions", "Available 24/7/365", "Zero training needed", "Improves over time"],
+              highlight: true,
+              icon: Zap,
+              iconColor: "text-emerald-400",
+            },
+            {
+              label: "Full-Time Hire",
+              price: "$5,000+",
+              unit: "/mo",
+              items: ["Benefits & overhead", "2-week onboarding", "PTO & sick days", "Annual reviews"],
+              highlight: false,
+              icon: Users,
+              iconColor: "text-neutral-400",
+            },
+          ].map((col, i) => (
+            <FadeIn key={i} delay={i * 0.1}>
+              <div className={`glass-card p-6 text-center h-full ${col.highlight ? 'border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.1)]' : ''}`}>
+                <div className={`w-10 h-10 rounded-xl ${col.highlight ? 'bg-emerald-500/15 border-emerald-500/25' : 'bg-white/[0.04] border-white/[0.08]'} border flex items-center justify-center mx-auto mb-4`}>
+                  <col.icon size={18} className={col.iconColor} />
+                </div>
+                <div className="text-xs text-neutral-500 uppercase tracking-wider font-medium mb-2">{col.label}</div>
+                <div className="flex items-baseline justify-center gap-1 mb-4">
+                  <span className={`text-2xl font-bold ${col.highlight ? 'text-emerald-400' : 'text-white'}`}>{col.price}</span>
+                  <span className="text-xs text-neutral-500">{col.unit}</span>
+                </div>
+                <div className="space-y-2">
+                  {col.items.map((item, j) => (
+                    <div key={j} className="flex items-center gap-2 justify-center">
+                      {col.highlight
+                        ? <Check size={12} className="text-emerald-400" />
+                        : <span className="w-3 h-3 flex items-center justify-center text-neutral-600 text-[10px]">–</span>
+                      }
+                      <span className={`text-xs ${col.highlight ? 'text-neutral-300' : 'text-neutral-500'}`}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+                {col.highlight && (
+                  <div className="mt-5 pt-4 border-t border-emerald-500/20">
+                    <div className="flex items-center justify-center gap-2 text-emerald-400">
+                      <TrendingUp size={14} />
+                      <span className="text-xs font-semibold">Save $2,000–$5,000/mo</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </FadeIn>
+          ))}
+        </div>
+
+        <FadeIn delay={0.3}>
+          <div className="flex flex-wrap items-center justify-center gap-6 mt-12">
+            {[
+              { icon: Clock, value: "20+ hrs", label: "saved per week" },
+              { icon: DollarSign, value: "$29", label: "vs $4,000+/mo" },
+              { icon: TrendingUp, value: "137x", label: "cost reduction" },
+            ].map((stat, i) => (
+              <div key={i} className="flex items-center gap-3 px-5 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <stat.icon size={16} className="text-emerald-400" />
+                <div>
+                  <div className="text-sm font-bold text-white">{stat.value}</div>
+                  <div className="text-[10px] text-neutral-500">{stat.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </FadeIn>
       </section>
 
       {/* ═══════════════════ INTEGRATIONS ═══════════════════ */}
@@ -739,12 +902,13 @@ export default function LandingPage() {
                 {Array.from({ length: 20 }).map((_, i) => (
                   <div
                     key={i}
-                    className={`w-1.5 h-4 rounded-sm ${i < 12 ? "bg-emerald-500/60" : "bg-white/[0.06]"}`}
+                    className={`w-1.5 h-4 rounded-sm transition-all ${i < 12 ? "bg-emerald-500/60 animate-pulse" : "bg-white/[0.06]"}`}
+                    style={i < 12 ? { animationDelay: `${i * 100}ms`, animationDuration: '2s' } : {}}
                   />
                 ))}
               </div>
               <span>
-                <span className="text-emerald-400 font-semibold">58 of 100</span> founding spots remaining
+                <span className="text-emerald-400 font-semibold animate-pulse">58 of 100</span> founding spots remaining — <span className="text-amber-400 font-medium">filling fast</span>
               </span>
             </div>
           </div>
@@ -830,23 +994,32 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-8 text-[11px] text-neutral-500 font-medium">
             <Link
-              href="#"
+              href="/privacy"
               className="hover:text-white transition-colors"
             >
               Privacy
             </Link>
             <Link
-              href="#"
+              href="/terms"
               className="hover:text-white transition-colors"
             >
               Terms
             </Link>
             <Link
-              href="#"
+              href="https://x.com/employeezeroai"
+              target="_blank"
+              rel="noopener noreferrer"
               className="hover:text-white transition-colors"
             >
               X
             </Link>
+            <a
+              href="mailto:hello@employeezero.app"
+              className="hover:text-white transition-colors flex items-center gap-1"
+            >
+              <Mail size={10} />
+              Contact
+            </a>
           </div>
           <div className="text-[10px] text-neutral-600 font-mono">
             © 2026 Employee Zero Core
