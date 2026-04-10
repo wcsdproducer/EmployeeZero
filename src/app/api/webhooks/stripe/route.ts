@@ -37,34 +37,45 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as import("stripe").Stripe.Checkout.Session;
-    const { userId, plan } = session.metadata || {};
+    const { userId, plan, employeeName, avatar, isOnboarding } = session.metadata || {};
 
     if (!userId || !plan) {
       console.error("Missing metadata in checkout session completion event.");
       return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
     }
 
-    console.log(`Processing subscription for user ${userId}, plan ${plan}`);
+    console.log(`Processing subscription for user ${userId}, plan ${plan}, onboarding: ${isOnboarding || "false"}`);
 
     try {
+      // Determine agent name and status based on whether this is from onboarding or in-app
+      const agentName = employeeName || "New Agent";
+      const agentAvatar = avatar || "robot";
+      // If onboarding provided the name, agent is ready to go. Otherwise pending_setup.
+      const agentStatus = employeeName ? "active" : "pending_setup";
+
       // 1. Create a new agent document in the user's agents subcollection
-      //    The agent starts as "pending" — user will name it on return
       const agentRef = await adminDb.collection(`users/${userId}/agents`).add({
-        name: "New Agent",
-        avatar: "robot",
-        status: "pending_setup",
+        name: agentName,
+        avatar: agentAvatar,
+        status: agentStatus,
         plan,
         stripeSubscriptionId: session.subscription as string,
         createdAt: new Date().toISOString(),
       });
 
-      console.log(`Created pending agent ${agentRef.id} for user ${userId}`);
+      console.log(`Created ${agentStatus} agent "${agentName}" (${agentRef.id}) for user ${userId}`);
 
-      // 2. Increment the user's agent count
-      await adminDb.doc(`users/${userId}`).set(
-        { agentCount: FieldValue.increment(1) },
-        { merge: true }
-      );
+      // 2. Update the user document
+      const userUpdate: Record<string, any> = {
+        agentCount: FieldValue.increment(1),
+      };
+
+      // If this is the first agent (onboarding), also update the user's plan
+      if (isOnboarding === "true") {
+        userUpdate.plan = plan;
+      }
+
+      await adminDb.doc(`users/${userId}`).set(userUpdate, { merge: true });
 
       // 3. If founding plan, increment the global founding count
       if (plan === "founding") {

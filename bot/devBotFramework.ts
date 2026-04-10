@@ -8,12 +8,14 @@
  * - Auto-lock after 60 min inactivity
  * - File system sandboxing to workspace root
  * - Command whitelisting
+ * - Per-workspace memory (SQLite + FTS5)
  */
 
 import { Bot, Context } from "grammy";
 import { execSync, exec } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import { createMemoryStore, MemoryStore } from "./memoryStore.js";
 
 // ──────────────────────────────────────────────
 // Types
@@ -70,6 +72,10 @@ export function createDevBot(config: DevBotConfig): Bot {
   const passphrase = config.devPassphrase ?? "gravity";
   const autoLockMs = (config.autoLockMinutes ?? 60) * 60 * 1000;
 
+  // Initialize per-workspace memory
+  const memory = createMemoryStore(config.workspaceRoot);
+  console.log(`🧠 Memory initialized for ${config.workspaceName} (${memory.count()} memories)`);
+
   const state: BotState = {
     mode: "ops",
     lastDevActivity: 0,
@@ -101,7 +107,12 @@ export function createDevBot(config: DevBotConfig): Bot {
       `  /run <cmd> — Run command (dev mode)\n` +
       `  /read <file> — Read file contents\n` +
       `  /build — Run build\n` +
-      `  /git <args> — Git operations (dev mode)`,
+      `  /git <args> — Git operations (dev mode)\n` +
+      `\n🧠 Memory:\n` +
+      `  /remember <text> — Store a memory\n` +
+      `  /recall <query> — Search memories\n` +
+      `  /memories — List recent memories\n` +
+      `  /forget <id> — Delete a memory`,
       { parse_mode: "Markdown" }
     );
   });
@@ -257,6 +268,78 @@ export function createDevBot(config: DevBotConfig): Bot {
     }
   });
 
+  // ── /remember <text> ──
+  bot.command("remember", async (ctx) => {
+    const content = ctx.match?.trim();
+    if (!content) {
+      await ctx.reply("Usage: `/remember <what to remember>`", { parse_mode: "Markdown" });
+      return;
+    }
+
+    // Auto-categorize based on keywords
+    let category = "general";
+    if (/prefer|always|never|style|like|hate/i.test(content)) category = "preference";
+    else if (/bug|error|fix|issue|broke/i.test(content)) category = "issue";
+    else if (/deploy|release|version/i.test(content)) category = "deploy";
+    else if (/password|key|token|secret/i.test(content)) {
+      await ctx.reply("⚠️ Don't store credentials in memory. Use .env files.");
+      return;
+    }
+
+    const id = memory.store(content, category);
+    await ctx.reply(`🧠 Remembered (ID: ${id}, category: ${category}):\n"${content}"`);
+  });
+
+  // ── /recall <query> ──
+  bot.command("recall", async (ctx) => {
+    const query = ctx.match?.trim();
+    if (!query) {
+      await ctx.reply("Usage: `/recall <search query>`", { parse_mode: "Markdown" });
+      return;
+    }
+
+    const results = memory.search(query);
+    if (results.length === 0) {
+      await ctx.reply("No matching memories found.");
+      return;
+    }
+
+    const formatted = results
+      .map(r => `*#${r.id}* [${r.category}] ${r.content}\n_${r.created_at}_`)
+      .join("\n\n");
+    await ctx.reply(`🧠 Found ${results.length} memories:\n\n${formatted}`, { parse_mode: "Markdown" });
+  });
+
+  // ── /memories ──
+  bot.command("memories", async (ctx) => {
+    const count = memory.count();
+    if (count === 0) {
+      await ctx.reply("No memories stored yet. Use /remember to add one.");
+      return;
+    }
+
+    const recent = memory.list(15);
+    const formatted = recent
+      .map(r => `*#${r.id}* [${r.category}] ${r.content.slice(0, 80)}`)
+      .join("\n");
+    await ctx.reply(
+      `🧠 *${config.workspaceName} Memory* (${count} total)\n\n${formatted}`,
+      { parse_mode: "Markdown" }
+    );
+  });
+
+  // ── /forget <id> ──
+  bot.command("forget", async (ctx) => {
+    const idStr = ctx.match?.trim();
+    if (!idStr || isNaN(parseInt(idStr))) {
+      await ctx.reply("Usage: `/forget <memory_id>`", { parse_mode: "Markdown" });
+      return;
+    }
+
+    const deleted = memory.forget(parseInt(idStr));
+    await ctx.reply(deleted ? `🗑️ Memory #${idStr} deleted.` : `❌ Memory #${idStr} not found.`);
+  });
+
   // ── Free text (AI responses in future) ──
   bot.on("message:text", async (ctx) => {
     const text = ctx.message.text;
@@ -265,6 +348,7 @@ export function createDevBot(config: DevBotConfig): Bot {
     await ctx.reply(
       `💬 Free text AI is coming soon. For now use commands:\n` +
       `/status, /read, /build, /run, /git\n` +
+      `/remember, /recall, /memories, /forget\n` +
       `Mode: \`${state.mode}\``,
       { parse_mode: "Markdown" }
     );

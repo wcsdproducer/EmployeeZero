@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   const Stripe = (await import("stripe")).default;
   const stripe = new Stripe(key, { apiVersion: "2025-02-24.acacia" as any });
-  const { userId, email } = await request.json();
+  const { userId, email, employeeName, avatar, isOnboarding } = await request.json();
 
   if (!userId || !email) {
     return NextResponse.json({ error: "Missing userId or email" }, { status: 400 });
@@ -52,17 +52,23 @@ export async function POST(request: Request) {
     );
   }
 
+  const origin = request.headers.get("origin") || "https://employeezero.app";
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
       customer_email: email,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${request.headers.get("origin")}/chat?success=true&plan=${plan}`,
-      cancel_url: `${request.headers.get("origin")}/chat`,
+      success_url: `${origin}/chat?success=true&plan=${plan}`,
+      cancel_url: isOnboarding ? `${origin}/onboarding` : `${origin}/chat`,
       metadata: {
         userId,
         plan,
+        // Pass employee details so the webhook can create the agent with the right name/avatar
+        ...(employeeName && { employeeName }),
+        ...(avatar && { avatar }),
+        ...(isOnboarding && { isOnboarding: "true" }),
       },
     });
 

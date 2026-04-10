@@ -6,7 +6,8 @@
     "dev": "next dev -p 3003",
     "build": "NODE_OPTIONS='--max-old-space-size=3584' next build",
     "start": "next start -p 3003",
-    "lint": "next lint"
+    "lint": "next lint",
+    "bot": "tsx bot/index.ts"
   },
   "dependencies": {
     "@google/genai": "^1.46.0",
@@ -19,12 +20,14 @@
     "better-sqlite3": "^12.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.4.1",
     "firebase": "^11.0.0",
     "firebase-admin": "^13.7.0",
     "firebase-frameworks": "^0.11.8",
     "firebase-functions": "^7.2.2",
     "framer-motion": "^12.38.0",
     "googleapis": "^171.4.0",
+    "grammy": "^1.42.0",
     "lucide-react": "^0.468.0",
     "next": "^16.2.1",
     "react": "19.0.0",
@@ -33,6 +36,7 @@
     "stripe": "^20.4.1",
     "tailwind-merge": "^2.6.1",
     "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.21.0",
     "twitter-api-v2": "^1.29.0"
   },
   "devDependencies": {

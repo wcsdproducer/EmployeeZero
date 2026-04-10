@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { signInWithGoogle, signInWithEmail, signUpWithEmail, auth, db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Mail, ArrowRight, Zap, Loader2, Sparkles } from "lucide-react";
+import { Mail, ArrowRight, Zap, Loader2, Sparkles, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const AVATARS = [
@@ -89,22 +89,56 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     setLoading(true);
+    setError(null);
     try {
       const user = auth.currentUser;
-      if (user) {
-        await setDoc(doc(db, "users", user.uid), {
-          name: userName,
+      if (!user) {
+        setError("Authentication lost. Please refresh and try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Save user profile to Firestore (no agent created yet — that happens after payment)
+      await setDoc(doc(db, "users", user.uid), {
+        name: userName,
+        email: user.email || email,
+        employeeName,
+        avatar: selectedAvatar || "robot",
+        onboardedAt: new Date().toISOString(),
+        plan: "pending", // No free plan — payment required
+      }, { merge: true });
+
+      // Get auth token for the checkout API call
+      const token = await user.getIdToken();
+
+      // Redirect to Stripe checkout for the first agent
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: user.uid,
           email: user.email || email,
           employeeName,
           avatar: selectedAvatar || "robot",
-          onboardedAt: new Date().toISOString(),
-          plan: "free",
-        }, { merge: true });
+          isOnboarding: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("Checkout error:", data.error);
+        setError(data.error || "Failed to start checkout. Please try again.");
+        setLoading(false);
       }
-      router.push("/chat");
     } catch (err) {
-      console.error("Failed to save profile:", err);
-      router.push("/chat");
+      console.error("Failed to start checkout:", err);
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
     }
   };
 
@@ -284,7 +318,7 @@ export default function Onboarding() {
             </motion.div>
           )}
 
-          {/* ─── STEP 3: Avatar Selection ─── */}
+          {/* ─── STEP 3: Avatar Selection + Checkout ─── */}
           {step === 3 && (
             <motion.div
               key="step3"
@@ -328,6 +362,21 @@ export default function Onboarding() {
                   ))}
                 </div>
 
+                {/* Price callout */}
+                <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-white">Founding Member</p>
+                    <p className="text-xs text-neutral-500">Locked at $29/mo forever</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-white">$29<span className="text-sm font-normal text-neutral-500">/mo</span></p>
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="text-xs text-red-400 font-medium px-1">{error}</p>
+                )}
+
                 <Button
                   onClick={handleFinish}
                   disabled={!selectedAvatar || loading}
@@ -335,9 +384,14 @@ export default function Onboarding() {
                 >
                   {loading ? (
                     <Loader2 size={20} className="animate-spin mr-2" />
-                  ) : null}
-                  Enter Terminal
+                  ) : (
+                    <CreditCard size={20} className="mr-2" />
+                  )}
+                  Subscribe & Activate
                 </Button>
+                <p className="text-[10px] text-neutral-600 font-mono uppercase tracking-wider">
+                  Cancel anytime • No long-term commitment
+                </p>
               </div>
             </motion.div>
           )}
