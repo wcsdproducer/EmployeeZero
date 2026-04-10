@@ -48,3 +48,11 @@ env:
     secret: TWITTER_CONSUMER_SECRET
   - variable: CRON_SECRET
     secret: CRON_SECRET
+  - variable: STRIPE_SECRET_KEY
+    secret: STRIPE_SECRET_KEY
+  - variable: STRIPE_WEBHOOK_SECRET
+    secret: STRIPE_WEBHOOK_SECRET
+  - variable: STRIPE_FOUNDING_PRICE_ID
+    secret: STRIPE_FOUNDING_PRICE_ID
+  - variable: STRIPE_REGULAR_PRICE_ID
+    secret: STRIPE_REGULAR_PRICE_ID
