@@ -510,6 +510,9 @@ export function createDevBot(config: DevBotConfig): Bot {
       // Add AI response to history
       state.conversationHistory.push({ role: "model", content: finalText });
 
+      // Auto-extract key facts into permanent memory (async, non-blocking)
+      autoExtractMemories(text, finalText, apiKey).catch(() => {});
+
       // Telegram has a 4096 char limit
       if (finalText.length > 4000) {
         const chunks = finalText.match(/.{1,4000}/gs) || [finalText];
@@ -528,6 +531,81 @@ export function createDevBot(config: DevBotConfig): Bot {
       await ctx.reply(`❌ ${e.message}`);
     }
   });
+
+  // ── Auto-extract key facts from conversations into memory ──
+  async function autoExtractMemories(
+    userMessage: string,
+    aiResponse: string,
+    apiKey: string
+  ): Promise<void> {
+    try {
+      const extractionPrompt = `You are a memory extraction system. Analyze this conversation exchange and extract ONLY the important, reusable facts worth remembering long-term.
+
+USER said: "${userMessage.slice(0, 500)}"
+AI responded: "${aiResponse.slice(0, 2000)}"
+
+Extract key facts as a JSON array. Each item should have:
+- "fact": A concise, self-contained statement (one sentence)
+- "category": One of: "business", "competitor", "decision", "contact", "metric", "plan", "preference", "technical"
+
+Rules:
+- Only extract CONCRETE facts (names, numbers, decisions, plans, deadlines, competitor info)
+- Skip generic observations, opinions, or filler
+- Skip anything that's just restating the user's question
+- If there are NO important facts worth remembering, return an empty array: []
+- Maximum 5 facts per exchange
+- Each fact must be understandable WITHOUT the original conversation
+
+Respond with ONLY valid JSON, no markdown fences.`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: extractionPrompt }] }],
+            generationConfig: { temperature: 0.1, maxOutputTokens: 800 },
+          }),
+        }
+      );
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (!text) return;
+
+      // Parse the JSON response
+      const cleaned = text.replace(/```json\n?|\n?```/g, "").trim();
+      const facts: Array<{ fact: string; category: string }> = JSON.parse(cleaned);
+
+      if (!Array.isArray(facts) || facts.length === 0) return;
+
+      let stored = 0;
+      for (const { fact, category } of facts.slice(0, 5)) {
+        if (fact && fact.length > 10 && fact.length < 500) {
+          // Check for duplicates via search
+          const existing = memory.search(fact);
+          const isDuplicate = existing.some(m =>
+            m.content.toLowerCase().includes(fact.toLowerCase().slice(0, 50)) ||
+            fact.toLowerCase().includes(m.content.toLowerCase().slice(0, 50))
+          );
+          if (!isDuplicate) {
+            memory.store(fact, category || "general");
+            stored++;
+          }
+        }
+      }
+
+      if (stored > 0) {
+        console.log(`🧠 Auto-extracted ${stored} fact(s) into memory`);
+      }
+    } catch (e: any) {
+      // Silent fail — extraction is best-effort
+      console.debug("Memory extraction skipped:", e.message);
+    }
+  }
 
   // Cleanup browser on bot stop
   const originalStop = bot.stop.bind(bot);
