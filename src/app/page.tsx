@@ -85,6 +85,24 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function LandingPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailCaptured, setEmailCaptured] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+
+  const handleEmailCapture = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !email.includes("@")) return;
+    setEmailLoading(true);
+    try {
+      await fetch("/api/tools/email-capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, source: "landing-hero" }),
+      });
+      setEmailCaptured(true);
+    } catch { /* silent */ }
+    setEmailLoading(false);
+  };
 
   const handleHire = async () => {
     setLoading(true);
@@ -210,6 +228,35 @@ export default function LandingPage() {
             <span className="text-xs text-neutral-500">
               42 businesses already running
             </span>
+          </div>
+        </FadeIn>
+        {/* Email capture */}
+        <FadeIn delay={0.5}>
+          <div className="mt-8">
+            {emailCaptured ? (
+              <div className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <Check size={14} className="text-emerald-400" />
+                <span className="text-sm text-emerald-400 font-medium">You&apos;re on the list — we&apos;ll be in touch.</span>
+              </div>
+            ) : (
+              <form onSubmit={handleEmailCapture} className="flex items-center gap-2 max-w-sm mx-auto">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="flex-1 h-10 px-4 text-sm bg-white/[0.05] border border-white/[0.1] rounded-full text-white placeholder:text-neutral-600 focus:outline-none focus:border-emerald-500/40 transition-colors"
+                  required
+                />
+                <Button
+                  type="submit"
+                  disabled={emailLoading}
+                  className="h-10 px-5 text-xs font-semibold bg-white/[0.08] hover:bg-white/[0.12] text-white rounded-full border border-white/[0.1] transition-all"
+                >
+                  {emailLoading ? "..." : "Get updates"}
+                </Button>
+              </form>
+            )}
           </div>
         </FadeIn>
       </section>
