@@ -1,9 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   GmailIcon, CalendarIcon, DocsIcon, SheetsIcon, DriveIcon, MeetIcon,
@@ -56,6 +56,211 @@ function FadeIn({
     >
       {children}
     </motion.div>
+  );
+}
+
+/* ─── Animated Counter ─── */
+function AnimatedCounter({ target, suffix = "", prefix = "" }: { target: number; suffix?: string; prefix?: string }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started.current) {
+          started.current = true;
+          const duration = 1500;
+          const steps = 40;
+          const increment = target / steps;
+          let current = 0;
+          const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+              setCount(target);
+              clearInterval(timer);
+            } else {
+              setCount(Math.floor(current));
+            }
+          }, duration / steps);
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [target]);
+
+  return <span ref={ref}>{prefix}{count}{suffix}</span>;
+}
+
+/* ─── Typing Demo ─── */
+function TypingDemo() {
+  const [visibleMessages, setVisibleMessages] = useState(0);
+  const [showTyping, setShowTyping] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const started = useRef(false);
+
+  const messages = [
+    { role: "user", text: "Research top 5 competitors in the AI assistant space and draft an outreach email to their customers." },
+    { role: "ai", text: "I've identified the top 5 competitors by market share and user reviews. Drafting a personalized outreach sequence now...", badges: [
+      { text: "✓ 5 competitors analyzed", color: "emerald" },
+      { text: "✓ Email drafted", color: "sky" },
+      { text: "✓ 3 follow-ups queued", color: "violet" },
+    ]},
+    { role: "user", text: "Great — now schedule the first 10 sends for Monday 8 AM." },
+    { role: "ai", text: "Done. 10 personalized emails scheduled for Mon 8:00 AM EST. I'll notify you when they go out and track opens + replies automatically." },
+  ];
+
+  const animate = useCallback(() => {
+    if (started.current) return;
+    started.current = true;
+    const delays = [0, 1200, 2800, 4000];
+    delays.forEach((delay, i) => {
+      setTimeout(() => {
+        if (i > 0 && messages[i].role === "ai") {
+          setShowTyping(true);
+          setTimeout(() => {
+            setShowTyping(false);
+            setVisibleMessages(i + 1);
+          }, 800);
+        } else {
+          setVisibleMessages(i + 1);
+        }
+      }, delay);
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) animate(); },
+      { threshold: 0.3 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [animate]);
+
+  return (
+    <div ref={containerRef} className="glass-card p-5 md:p-6 max-w-2xl mx-auto">
+      {/* Chat header */}
+      <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/[0.06]">
+        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+          <Zap size={14} className="text-emerald-400" />
+        </div>
+        <div>
+          <div className="text-xs font-semibold">Zero</div>
+          <div className="text-[10px] text-emerald-400 flex items-center gap-1">
+            <motion.span animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            Online
+          </div>
+        </div>
+      </div>
+
+      {/* Chat messages */}
+      <div className="space-y-4 min-h-[220px]">
+        <AnimatePresence>
+          {messages.slice(0, visibleMessages).map((msg, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 16, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div className={msg.role === "user"
+                ? "bg-emerald-500/10 border border-emerald-500/20 rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%]"
+                : "bg-white/[0.04] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3 max-w-[85%]"
+              }>
+                <p className={`text-xs leading-relaxed ${msg.role === "user" ? "text-white" : "text-neutral-300"} ${msg.badges ? "mb-3" : ""}`}>
+                  {msg.text}
+                </p>
+                {msg.badges && (
+                  <div className="flex flex-wrap gap-2">
+                    {msg.badges.map((badge, j) => (
+                      <motion.span
+                        key={j}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.3 + j * 0.2, duration: 0.3 }}
+                        className={`text-[10px] px-2 py-1 rounded-md bg-${badge.color}-500/10 text-${badge.color}-400 border border-${badge.color}-500/20`}
+                      >
+                        {badge.text}
+                      </motion.span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        {/* Typing indicator */}
+        <AnimatePresence>
+          {showTyping && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex justify-start"
+            >
+              <div className="bg-white/[0.04] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3">
+                <div className="flex gap-1">
+                  {[0, 1, 2].map(i => (
+                    <motion.div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-neutral-500"
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Input bar */}
+      <div className="mt-5 pt-4 border-t border-white/[0.06]">
+        <div className="flex items-center gap-3 bg-white/[0.03] rounded-xl px-4 py-3 border border-white/[0.06]">
+          <MessageSquare size={14} className="text-neutral-600" />
+          <span className="text-xs text-neutral-600">Give Zero a mission...</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Floating Particles ─── */
+function ParticleGrid() {
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      {/* Animated gradient orbs */}
+      <motion.div
+        className="absolute top-[10%] left-[15%] w-[400px] h-[400px] rounded-full bg-emerald-500/[0.03] blur-[120px]"
+        animate={{ x: [0, 60, 0], y: [0, -40, 0], scale: [1, 1.1, 1] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute top-[50%] right-[10%] w-[350px] h-[350px] rounded-full bg-violet-500/[0.03] blur-[120px]"
+        animate={{ x: [0, -50, 0], y: [0, 50, 0], scale: [1, 1.15, 1] }}
+        transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute bottom-[20%] left-[30%] w-[300px] h-[300px] rounded-full bg-sky-500/[0.02] blur-[100px]"
+        animate={{ x: [0, 40, 0], y: [0, -60, 0] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+      />
+      {/* Grid dots */}
+      <div className="absolute inset-0" style={{
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)',
+        backgroundSize: '50px 50px',
+      }} />
+    </div>
   );
 }
 
@@ -131,8 +336,8 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[#0a0e1a] text-white selection:bg-emerald-400/30 selection:text-white overflow-hidden font-sans">
-      {/* ── Ambient glow ── */}
-      <div className="fixed top-[-200px] left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-emerald-500/[0.04] blur-[150px] rounded-full -z-10 pointer-events-none" />
+      {/* ── Animated particle background ── */}
+      <ParticleGrid />
 
       {/* ═══════════════════ NAV ═══════════════════ */}
       <nav className="p-6 md:px-12 flex justify-between items-center z-50 border-b border-white/[0.05]">
@@ -172,7 +377,15 @@ export default function LandingPage() {
           <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight leading-[1.05] max-w-3xl">
             Hire your first
             <br />
-            <span className="text-gradient-hero">AI Employee.</span>
+            <span className="text-gradient-hero relative">
+              AI Employee.
+              <motion.span
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.12] to-transparent"
+                style={{ WebkitBackgroundClip: 'text' }}
+                animate={{ x: ['-100%', '200%'] }}
+                transition={{ duration: 3, repeat: Infinity, repeatDelay: 4, ease: 'easeInOut' }}
+              />
+            </span>
           </h1>
         </FadeIn>
 
@@ -324,83 +537,7 @@ export default function LandingPage() {
         </FadeIn>
 
         <FadeIn delay={0.15}>
-          <div className="glass-card p-5 md:p-6 max-w-2xl mx-auto">
-            {/* Chat header */}
-            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/[0.06]">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <Zap size={14} className="text-emerald-400" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold">Zero</div>
-                <div className="text-[10px] text-emerald-400">● Online</div>
-              </div>
-            </div>
-
-            {/* Chat messages */}
-            <div className="space-y-4">
-              {/* User message */}
-              <div className="flex justify-end">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%]">
-                  <p className="text-xs text-white leading-relaxed">
-                    Research top 5 competitors in the AI assistant space and
-                    draft an outreach email to their customers.
-                  </p>
-                </div>
-              </div>
-
-              {/* AI response */}
-              <div className="flex justify-start">
-                <div className="bg-white/[0.04] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3 max-w-[85%]">
-                  <p className="text-xs text-neutral-300 leading-relaxed mb-3">
-                    I've identified the top 5 competitors by market share and
-                    user reviews. Drafting a personalized outreach sequence
-                    now...
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="text-[10px] px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      ✓ 5 competitors analyzed
-                    </span>
-                    <span className="text-[10px] px-2 py-1 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                      ✓ Email drafted
-                    </span>
-                    <span className="text-[10px] px-2 py-1 rounded-md bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                      ✓ 3 follow-ups queued
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Another user message */}
-              <div className="flex justify-end">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl rounded-br-md px-4 py-2.5 max-w-[80%]">
-                  <p className="text-xs text-white leading-relaxed">
-                    Great — now schedule the first 10 sends for Monday 8 AM.
-                  </p>
-                </div>
-              </div>
-
-              {/* AI confirmation */}
-              <div className="flex justify-start">
-                <div className="bg-white/[0.04] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3 max-w-[85%]">
-                  <p className="text-xs text-neutral-300 leading-relaxed">
-                    Done. 10 personalized emails scheduled for Mon 8:00 AM EST.
-                    I&apos;ll notify you when they go out and track opens +
-                    replies automatically.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Input bar */}
-            <div className="mt-5 pt-4 border-t border-white/[0.06]">
-              <div className="flex items-center gap-3 bg-white/[0.03] rounded-xl px-4 py-3 border border-white/[0.06]">
-                <MessageSquare size={14} className="text-neutral-600" />
-                <span className="text-xs text-neutral-600">
-                  Give Zero a mission...
-                </span>
-              </div>
-            </div>
-          </div>
+          <TypingDemo />
         </FadeIn>
       </section>
 
@@ -641,17 +778,24 @@ export default function LandingPage() {
         <FadeIn delay={0.3}>
           <div className="flex flex-wrap items-center justify-center gap-6 mt-12">
             {[
-              { icon: Clock, value: "20+ hrs", label: "saved per week" },
-              { icon: DollarSign, value: "$29", label: "vs $4,000+/mo" },
-              { icon: TrendingUp, value: "137x", label: "cost reduction" },
+              { icon: Clock, target: 20, suffix: "+ hrs", label: "saved per week" },
+              { icon: DollarSign, target: 29, prefix: "$", label: "vs $4,000+/mo" },
+              { icon: TrendingUp, target: 137, suffix: "x", label: "cost reduction" },
             ].map((stat, i) => (
-              <div key={i} className="flex items-center gap-3 px-5 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+              <motion.div
+                key={i}
+                className="flex items-center gap-3 px-5 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+                whileHover={{ scale: 1.05, borderColor: 'rgba(16,185,129,0.3)' }}
+                transition={{ duration: 0.2 }}
+              >
                 <stat.icon size={16} className="text-emerald-400" />
                 <div>
-                  <div className="text-sm font-bold text-white">{stat.value}</div>
+                  <div className="text-sm font-bold text-white">
+                    <AnimatedCounter target={stat.target} suffix={stat.suffix || ""} prefix={stat.prefix || ""} />
+                  </div>
                   <div className="text-[10px] text-neutral-500">{stat.label}</div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </FadeIn>
@@ -673,7 +817,27 @@ export default function LandingPage() {
             {/* Center hub */}
             <div className="flex justify-center mb-14">
               <div className="relative">
-                <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-2xl scale-150" />
+                <motion.div
+                  className="absolute inset-0 rounded-full bg-emerald-500/20 blur-2xl scale-150"
+                  animate={{ scale: [1.5, 1.8, 1.5], opacity: [0.2, 0.35, 0.2] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                />
+                {/* Orbital ring */}
+                <motion.div
+                  className="absolute inset-[-20px] rounded-full border border-emerald-500/10"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                >
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400/60" />
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-1.5 h-1.5 rounded-full bg-violet-400/40" />
+                </motion.div>
+                <motion.div
+                  className="absolute inset-[-35px] rounded-full border border-emerald-500/5"
+                  animate={{ rotate: -360 }}
+                  transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+                >
+                  <div className="absolute top-1/2 right-0 translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-sky-400/40" />
+                </motion.div>
                 <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-[0_0_60px_rgba(16,185,129,0.3)]">
                   <Zap size={32} className="text-white" />
                 </div>
