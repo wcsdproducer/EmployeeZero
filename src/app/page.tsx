@@ -268,21 +268,39 @@ function ParticleGrid() {
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <button
+    <motion.button
       onClick={() => setOpen(!open)}
-      className="w-full text-left border border-white/[0.08] rounded-xl p-5 hover:border-white/[0.15] transition-colors"
+      className="w-full text-left border border-white/[0.08] rounded-xl p-5 transition-all relative overflow-hidden group"
+      whileHover={{ borderColor: 'rgba(16,185,129,0.25)', boxShadow: '0 4px 20px rgba(0,0,0,0.2), inset 3px 0 0 rgba(16,185,129,0.5)' }}
+      transition={{ duration: 0.2 }}
     >
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-white">{q}</span>
-        <ChevronDown
-          size={16}
-          className={`text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`}
-        />
+        <span className="text-sm font-medium text-white group-hover:text-emerald-300 transition-colors">{q}</span>
+        <motion.div
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <ChevronDown
+            size={16}
+            className="text-neutral-500 group-hover:text-emerald-400 transition-colors"
+          />
+        </motion.div>
       </div>
-      {open && (
-        <p className="mt-3 text-sm text-neutral-400 leading-relaxed">{a}</p>
-      )}
-    </button>
+      <AnimatePresence>
+        {open && (
+          <motion.p
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="text-sm text-neutral-400 leading-relaxed overflow-hidden"
+            style={{ marginTop: 12 }}
+          >
+            {a}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </motion.button>
   );
 }
 
@@ -343,9 +361,11 @@ export default function LandingPage() {
       <nav className="p-6 md:px-12 flex justify-between items-center z-50 border-b border-white/[0.05]">
         <Link
           href="/"
-          className="text-sm font-bold tracking-tight flex items-center gap-2"
+          className="text-sm font-bold tracking-tight flex items-center gap-2 group"
         >
-          <Zap size={16} className="text-emerald-400" />
+          <motion.span whileHover={{ rotate: 180 }} transition={{ duration: 0.4 }}>
+            <Zap size={16} className="text-emerald-400 group-hover:drop-shadow-[0_0_6px_rgba(16,185,129,0.5)] transition-all" />
+          </motion.span>
           Employee Zero
         </Link>
         <div className="flex items-center gap-4">
@@ -399,24 +419,28 @@ export default function LandingPage() {
 
         <FadeIn delay={0.3}>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Button
-              variant="outline"
-              className="h-11 px-6 text-sm font-semibold rounded-full border-white/[0.15] bg-transparent hover:bg-white/[0.05] text-white group"
-              asChild
-            >
-              <Link href="#how-it-works">
-                <Play size={14} className="mr-2 group-hover:text-emerald-400 transition-colors" />
-                Watch it work
-              </Link>
-            </Button>
-            <Button
-              onClick={handleHire}
-              disabled={loading}
-              className="h-11 px-6 text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-black rounded-full transition-all shadow-[0_0_30px_rgba(16,185,129,0.2)]"
-            >
-              {loading ? "Starting..." : "Launch for $29/mo"}
-              <ArrowRight size={14} className="ml-2" />
-            </Button>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400 }}>
+              <Button
+                variant="outline"
+                className="h-11 px-6 text-sm font-semibold rounded-full border-white/[0.15] bg-transparent hover:bg-white/[0.05] hover:border-emerald-500/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.08)] text-white group transition-all"
+                asChild
+              >
+                <Link href="#how-it-works">
+                  <Play size={14} className="mr-2 group-hover:text-emerald-400 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.6)] transition-all" />
+                  Watch it work
+                </Link>
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05, boxShadow: '0 0 50px rgba(16,185,129,0.3)' }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400 }}>
+              <Button
+                onClick={handleHire}
+                disabled={loading}
+                className="h-11 px-6 text-sm font-semibold bg-emerald-500 hover:bg-emerald-400 text-black rounded-full transition-all shadow-[0_0_30px_rgba(16,185,129,0.2)]"
+              >
+                {loading ? "Starting..." : "Launch for $29/mo"}
+                <ArrowRight size={14} className="ml-2" />
+              </Button>
+            </motion.div>
           </div>
         </FadeIn>
 
@@ -507,10 +531,18 @@ export default function LandingPage() {
             },
           ].map((step, i) => (
             <FadeIn key={i} delay={i * 0.1}>
-              <div className="flex gap-5 items-start">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <motion.div
+                className="flex gap-5 items-start p-4 -mx-4 rounded-2xl cursor-default"
+                whileHover={{ x: 8, backgroundColor: 'rgba(255,255,255,0.02)' }}
+                transition={{ duration: 0.25 }}
+              >
+                <motion.div
+                  className="flex-shrink-0 w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center"
+                  whileHover={{ scale: 1.15, borderColor: 'rgba(16,185,129,0.5)', boxShadow: '0 0 20px rgba(16,185,129,0.15)' }}
+                  transition={{ duration: 0.2 }}
+                >
                   <step.icon size={18} className="text-emerald-400" />
-                </div>
+                </motion.div>
                 <div>
                   <h3 className="text-sm font-semibold text-white mb-1">
                     {step.title}
@@ -519,7 +551,7 @@ export default function LandingPage() {
                     {step.desc}
                   </p>
                 </div>
-              </div>
+              </motion.div>
             </FadeIn>
           ))}
         </div>
@@ -588,19 +620,25 @@ export default function LandingPage() {
             },
           ].map((cap, i) => (
             <FadeIn key={i} delay={i * 0.08}>
-              <div className="glass-card p-5 h-full hover:border-white/[0.15] transition-colors group">
-                <div
+              <motion.div
+                className="glass-card p-5 h-full group cursor-default"
+                whileHover={{ y: -6, borderColor: 'rgba(255,255,255,0.15)', boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+              >
+                <motion.div
                   className={`w-9 h-9 rounded-lg ${cap.bg} border ${cap.border} flex items-center justify-center mb-4`}
+                  whileHover={{ scale: 1.2, rotate: 8 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <cap.icon size={16} className={cap.color} />
-                </div>
-                <h3 className="text-sm font-semibold text-white mb-1.5">
+                  <cap.icon size={16} className={`${cap.color} group-hover:drop-shadow-[0_0_8px_currentColor] transition-all`} />
+                </motion.div>
+                <h3 className="text-sm font-semibold text-white mb-1.5 group-hover:text-emerald-300 transition-colors">
                   {cap.title}
                 </h3>
                 <p className="text-xs text-neutral-400 leading-relaxed">
                   {cap.desc}
                 </p>
-              </div>
+              </motion.div>
             </FadeIn>
           ))}
         </div>
@@ -625,17 +663,25 @@ export default function LandingPage() {
             },
           ].map((v, i) => (
             <FadeIn key={i} delay={i * 0.08}>
-              <div className="glass-card p-5 text-center hover:border-white/[0.15] transition-colors">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-                  <v.icon size={18} className="text-emerald-400" />
-                </div>
+              <motion.div
+                className="glass-card p-5 text-center cursor-default group"
+                whileHover={{ y: -4, borderColor: 'rgba(16,185,129,0.25)', boxShadow: '0 8px 30px rgba(0,0,0,0.2), 0 0 0 1px rgba(16,185,129,0.1)' }}
+                transition={{ duration: 0.25 }}
+              >
+                <motion.div
+                  className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4"
+                  whileHover={{ scale: 1.15, boxShadow: '0 0 25px rgba(16,185,129,0.2)' }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <v.icon size={18} className="text-emerald-400 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-all" />
+                </motion.div>
                 <h3 className="text-sm font-semibold text-white mb-1.5">
                   {v.title}
                 </h3>
-                <p className="text-xs text-neutral-400 leading-relaxed">
+                <p className="text-xs text-neutral-400 leading-relaxed group-hover:text-neutral-300 transition-colors">
                   {v.desc}
                 </p>
-              </div>
+              </motion.div>
             </FadeIn>
           ))}
         </div>
@@ -677,24 +723,32 @@ export default function LandingPage() {
             },
           ].map((t, i) => (
             <FadeIn key={i} delay={i * 0.1}>
-              <div className="glass-card p-6 h-full flex flex-col hover:border-white/[0.15] transition-colors">
-                <Quote size={20} className="text-emerald-400/40 mb-4 flex-shrink-0" />
-                <p className="text-sm text-neutral-300 leading-relaxed mb-6 flex-1">
+              <motion.div
+                className="glass-card p-6 h-full flex flex-col cursor-default group"
+                whileHover={{ y: -6, borderColor: 'rgba(255,255,255,0.15)', boxShadow: '0 16px 50px rgba(0,0,0,0.3)' }}
+                transition={{ duration: 0.3 }}
+              >
+                <Quote size={20} className="text-emerald-400/40 mb-4 flex-shrink-0 group-hover:text-emerald-400/70 transition-colors" />
+                <p className="text-sm text-neutral-300 leading-relaxed mb-6 flex-1 group-hover:text-neutral-200 transition-colors">
                   &ldquo;{t.quote}&rdquo;
                 </p>
-                <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06]">
-                  <div className={`w-8 h-8 rounded-full ${t.color} flex items-center justify-center text-[10px] font-bold text-white`}>
+                <div className="flex items-center gap-3 pt-4 border-t border-white/[0.06] group-hover:border-white/[0.12] transition-colors">
+                  <motion.div
+                    className={`w-8 h-8 rounded-full ${t.color} flex items-center justify-center text-[10px] font-bold text-white`}
+                    whileHover={{ scale: 1.2 }}
+                    transition={{ type: 'spring', stiffness: 400 }}
+                  >
                     {t.avatar}
-                  </div>
+                  </motion.div>
                   <div>
                     <div className="text-xs font-semibold text-white">{t.name}</div>
                     <div className="text-[10px] text-neutral-500">{t.role}</div>
                   </div>
                   <div className="ml-auto flex gap-0.5">
-                    {[1,2,3,4,5].map(s => <Star key={s} size={10} className="text-amber-400 fill-amber-400" />)}
+                    {[1,2,3,4,5].map(s => <Star key={s} size={10} className="text-amber-400 fill-amber-400 group-hover:drop-shadow-[0_0_4px_rgba(251,191,36,0.5)] transition-all" />)}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </FadeIn>
           ))}
         </div>
@@ -865,11 +919,12 @@ export default function LandingPage() {
                     key={app.name}
                     initial={{ opacity: 0, scale: 0.8 }}
                     whileInView={{ opacity: 1, scale: 1 }}
+                    whileHover={{ y: -6, scale: 1.08, boxShadow: '0 12px 30px rgba(0,0,0,0.3), 0 0 20px rgba(16,185,129,0.08)' }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.1 + i * 0.06, duration: 0.5 }}
-                    className="group"
+                    className="group cursor-default"
                   >
-                    <div className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.06] transition-all cursor-default">
+                    <div className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] group-hover:border-emerald-500/20 group-hover:bg-white/[0.06] transition-all">
                       <app.Icon size={36} />
                       <span className="text-[11px] font-medium text-neutral-400 group-hover:text-white transition-colors">
                         {app.name}
@@ -905,11 +960,12 @@ export default function LandingPage() {
                     key={app.name}
                     initial={{ opacity: 0, scale: 0.8 }}
                     whileInView={{ opacity: 1, scale: 1 }}
+                    whileHover={{ y: -6, scale: 1.08, boxShadow: '0 12px 30px rgba(0,0,0,0.3), 0 0 20px rgba(16,185,129,0.08)' }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.3 + i * 0.06, duration: 0.5 }}
-                    className="group"
+                    className="group cursor-default"
                   >
-                    <div className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] hover:bg-white/[0.06] transition-all cursor-default">
+                    <div className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] group-hover:border-emerald-500/20 group-hover:bg-white/[0.06] transition-all">
                       <app.Icon size={36} />
                       <span className="text-[11px] font-medium text-neutral-400 group-hover:text-white transition-colors">
                         {app.name}
@@ -1004,7 +1060,7 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-2xl mx-auto">
           {/* Monthly Plan */}
           <FadeIn delay={0.1}>
-            <div className="glass-card p-7 relative overflow-hidden h-full flex flex-col">
+            <motion.div className="glass-card p-7 relative overflow-hidden h-full flex flex-col" whileHover={{ y: -4, borderColor: 'rgba(255,255,255,0.15)', boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }} transition={{ duration: 0.25 }}>
               <div className="absolute top-4 right-4">
                 <span className="text-[10px] px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold">
                   FOUNDING
@@ -1050,12 +1106,12 @@ export default function LandingPage() {
               >
                 {loading ? "Starting..." : "Hire for $29/mo →"}
               </Button>
-            </div>
+            </motion.div>
           </FadeIn>
 
           {/* Annual Plan */}
           <FadeIn delay={0.2}>
-            <div className="glass-card p-7 relative overflow-hidden h-full flex flex-col border-emerald-500/30 glow">
+            <motion.div className="glass-card p-7 relative overflow-hidden h-full flex flex-col border-emerald-500/30 glow" whileHover={{ y: -4, boxShadow: '0 16px 50px rgba(16,185,129,0.15), 0 0 0 1px rgba(16,185,129,0.3)' }} transition={{ duration: 0.25 }}>
               <div className="absolute top-4 right-4">
                 <span className="text-[10px] px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-semibold">
                   BEST VALUE
@@ -1101,7 +1157,7 @@ export default function LandingPage() {
               >
                 {loading ? "Starting..." : "Go Annual — $199/yr →"}
               </Button>
-            </div>
+            </motion.div>
           </FadeIn>
         </div>
 
