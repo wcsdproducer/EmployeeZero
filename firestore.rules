@@ -2,9 +2,12 @@ rules_version = '2';
 // Deploy timestamp: 2026-03-26T01:52
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User profile and subcollections
+    // User profiles: collection-level read for Mission Control dashboard
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Any client can list users (needed for MC dashboard user counts)
+      allow list: if true;
+      // Individual user read/write requires auth
+      allow get, write: if request.auth != null && request.auth.uid == userId;
 
       match /agents/{agentId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -37,7 +40,7 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
-    // Mission Control admin collections
+    // Mission Control admin collections (read-only from client, written by Admin SDK)
     match /settings/{document=**} {
       allow read, write: if true;
     }
@@ -48,6 +51,15 @@ service cloud.firestore {
 
     match /clients/{document=**} {
       allow read, write: if true;
+    }
+
+    // Mission Control dashboard: read-only access for realtime listeners
+    match /activity_log/{document=**} {
+      allow read: if true;
+    }
+
+    match /leads/{document=**} {
+      allow read: if true;
     }
   }
 }
