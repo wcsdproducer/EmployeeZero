@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /chat
+Disallow: /settings
+Disallow: /onboarding
+Disallow: /setup
+Disallow: /connections
+Disallow: /cron
+Disallow: /data-deletion
+Disallow: /api/
+
+Sitemap: https://employeezero.app/sitemap.xml
