@@ -73,3 +73,19 @@
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: hsl(var(--muted)); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
+
+/* Blog Typography */
+.prose {
+  @apply max-w-none text-neutral-300 leading-relaxed;
+}
+.prose h1 { @apply text-4xl font-bold text-white mb-8 tracking-tighter; }
+.prose h2 { @apply text-2xl font-bold text-white mt-12 mb-6 tracking-tight; }
+.prose h3 { @apply text-xl font-bold text-white mt-8 mb-4; }
+.prose p { @apply mb-6 text-neutral-400 leading-relaxed; }
+.prose b, .prose strong { @apply text-white font-bold; }
+.prose ul { @apply list-disc list-inside mb-8 space-y-2 text-neutral-400; }
+.prose ol { @apply list-decimal list-inside mb-8 space-y-2 text-neutral-400; }
+.prose blockquote { @apply border-l-4 border-emerald-500/50 pl-6 my-8 italic text-neutral-200 bg-emerald-500/5 py-4 rounded-r-xl; }
+.prose a { @apply text-emerald-400 underline hover:text-emerald-300 transition-colors font-medium; }
+.prose img { @apply rounded-3xl border border-white/10 my-12; }
+.prose hr { @apply border-white/5 my-12; }

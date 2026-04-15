@@ -1,7 +1,10 @@
-import type { Metadata } from "next";
+import { Inter, DM_Serif_Display } from "next/font/google";
 import Script from "next/script";
 import SupportChatWrapper from "@/components/SupportChatWrapper";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const dmSerif = DM_Serif_Display({ weight: "400", subsets: ["latin"], variable: "--font-serif" });
 
 export const metadata: Metadata = {
   title: "Employee Zero | Digital Office",
@@ -31,12 +34,10 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className="h-full bg-background text-foreground antialiased font-sans">
+      <body className={`${inter.variable} ${dmSerif.variable} h-full bg-background text-foreground antialiased font-sans`}>
         {children}
         <SupportChatWrapper />
       </body>
     </html>
-  );
-}
   );
 }
