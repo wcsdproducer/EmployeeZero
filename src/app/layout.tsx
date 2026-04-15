@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import SupportChatWrapper from "@/components/SupportChatWrapper";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,7 +33,10 @@ export default function RootLayout({
       </head>
       <body className="h-full bg-background text-foreground antialiased font-sans">
         {children}
+        <SupportChatWrapper />
       </body>
     </html>
+  );
+}
   );
 }
