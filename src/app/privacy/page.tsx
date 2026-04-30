@@ -37,6 +37,7 @@ export default function PrivacyPolicyPage() {
               <li>Conversation data: messages you exchange with AI agents</li>
               <li>API keys: third-party service credentials you choose to connect</li>
               <li>Memory data: facts and preferences you share with your AI employees</li>
+              <li>Social integration data: if you connect third-party platforms (e.g., TikTok), we may collect authorized information such as your public profile, access tokens, and content metadata necessary to provide the Service</li>
             </ul>
             <h3 className="text-base font-medium text-neutral-200 mt-4 mb-2">Information Collected Automatically</h3>
             <ul className="list-disc pl-6 space-y-1">
@@ -56,6 +57,7 @@ export default function PrivacyPolicyPage() {
               <li>Communicate with you about updates, features, and support</li>
               <li>Detect and prevent fraud, abuse, and security incidents</li>
               <li>Comply with legal obligations</li>
+              <li>Publish content to connected social platforms (e.g., TikTok) strictly as authorized and directed by you</li>
             </ul>
           </section>
 
@@ -67,9 +69,9 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-3">5. API Keys and Credentials</h2>
+            <h2 className="text-xl font-semibold text-white mb-3">5. API Keys, Social Logins, and Credentials</h2>
             <p>
-              When you connect third-party API keys to the Service, they are stored in encrypted Firestore documents accessible only to your account. We use your API keys solely to make API calls on your behalf and never share them with third parties.
+              When you connect third-party API keys or use social logins (e.g., connecting a TikTok account) to the Service, credentials and access tokens are stored in encrypted Firestore documents accessible only to your account. We use these credentials solely to make authorized API calls on your behalf. We do not sell or share this data with third parties. You may revoke our access to your social media accounts at any time through the respective platform&apos;s settings or within our Service.
             </p>
           </section>
 
@@ -103,7 +105,7 @@ export default function PrivacyPolicyPage() {
               <li>Withdraw consent at any time</li>
             </ul>
             <p className="mt-2">
-              To exercise these rights, contact us at{" "}
+              To exercise these rights, or to request the complete deletion of data obtained from third-party integrations (such as TikTok), contact us at{" "}
               <a href="mailto:privacy@t3kniq.com" className="text-blue-400 hover:underline">
                 privacy@t3kniq.com
               </a>.

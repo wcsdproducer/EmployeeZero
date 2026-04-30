@@ -3,10 +3,10 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { ArrowLeft, Calendar, User, Share2, Clock, ArrowRight } from "lucide-react";
+import { ArrowLeft, Calendar, User, Share2, Clock, ArrowRight, Search } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 interface Props {
   params: { slug: string };

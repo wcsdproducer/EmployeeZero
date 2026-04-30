@@ -21,9 +21,6 @@ export async function POST(req: Request) {
 
     const { topic } = await req.json().catch(() => ({ topic: null }));
 
-    // 2. Specialized Strategy Prompt
-    const model = genai.getGenerativeModel({ model: "gemini-1.5-flash" });
-    
     // Create a dynamic prompt that focuses on maximizing Employee Zero
     const strategistPrompt = `
       You are the Head of Scaling Strategy at Employee Zero, an AI Employee Platform. 
@@ -47,8 +44,12 @@ export async function POST(req: Request) {
       }
     `;
 
-    const result = await model.generateContent(strategistPrompt);
-    const responseText = result.response.text();
+    // 2. Specialized Strategy Prompt
+    const result = await genai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: strategistPrompt,
+    });
+    const responseText = result.text;
     const cleanedJson = responseText.replace(/```json|```/g, "").trim();
     const data = JSON.parse(cleanedJson);
 

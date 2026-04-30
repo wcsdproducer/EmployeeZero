@@ -87,7 +87,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white mb-3">7. Third-Party Platform Compliance</h2>
             <p>
-              The Service may interface with or connect to third-party platforms, APIs, and services (including but not limited to Google Workspace, social media platforms, messaging services, payment processors, and AI providers). By using the Service with any third-party platform, you agree to:
+              The Service may interface with or connect to third-party platforms, APIs, and services (including but not limited to Google Workspace, social media platforms like TikTok, messaging services, payment processors, and AI providers). By using the Service with any third-party platform, you agree to:
             </p>
             <ul className="list-disc pl-6 mt-2 space-y-1">
               <li>Comply with all terms of service, acceptable use policies, and community guidelines of every third-party platform accessed through the Service</li>

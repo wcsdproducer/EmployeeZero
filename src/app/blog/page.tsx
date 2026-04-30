@@ -4,7 +4,7 @@ import Image from "next/image";
 import { ArrowUpRight, ArrowRight, Calendar, User, Search } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 
-export const revalidate = 3600; // Revalidate every hour
+export const dynamic = 'force-dynamic';
 
 export default async function BlogIndex() {
   const allPosts = await getPublishedPosts();
@@ -151,7 +151,7 @@ export default async function BlogIndex() {
             ))}
           </div>
 
-          {remainingPosts.length === 0 && posts.length <= 4 && (
+          {remainingPosts.length === 0 && allPosts.length <= 4 && (
             <div className="text-center py-40 border border-dashed border-white/10 rounded-sm">
               <p className="text-neutral-500 font-serif italic text-2xl">The archive is currently empty.</p>
             </div>

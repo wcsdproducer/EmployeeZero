@@ -1,4 +1,5 @@
 import { Inter, DM_Serif_Display } from "next/font/google";
+import { Metadata } from "next";
 import Script from "next/script";
 import SupportChatWrapper from "@/components/SupportChatWrapper";
 import "./globals.css";
