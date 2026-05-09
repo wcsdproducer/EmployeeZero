@@ -45,7 +45,7 @@ export default function HiringHall() {
       <div className="max-w-4xl w-full border-2 border-green-500 p-6 md:p-10 shadow-[0_0_30px_rgba(34,197,94,0.3)] bg-black/80 backdrop-blur-sm">
         <div className="mb-8 border-b border-green-900 pb-4">
           <p className="text-xs opacity-70 mb-1 font-mono uppercase tracking-tighter text-green-700">UNAUTHORIZED ACCESS DETECTED - GRAVITY CLAW PROTOCOL</p>
-          <h1 className="text-xl md:text-3xl font-bold tracking-tighter">EMPLOYEE_ZERO // HIRING_HALL</h1>
+          <h1 className="text-xl md:text-3xl font-bold tracking-tighter">EMPLOYEE_ZERO // HIRE_AN_AI_AGENT</h1>
           <p className="text-[10px] opacity-40 mt-1 uppercase">EST. 2026.03.23.11.34 // SITE_ID: ELITE-001</p>
         </div>
         

@@ -130,14 +130,14 @@ export default async function BlogPostPage({ params }: Props) {
                <div className="space-y-2">
                  <h2 className="text-3xl md:text-5xl font-serif">Ready to transition?</h2>
                  <p className="text-neutral-400 max-w-md mx-auto">
-                   Explore curated AI professionals in the Hiring Hall for your next growth phase.
+                   Explore curated AI professionals and hire an AI agent for your next growth phase.
                  </p>
                </div>
                <Link 
                 href="/hiring-hall" 
                 className="group flex items-center gap-3 px-8 py-4 rounded-full bg-white text-black font-bold hover:bg-emerald-400 transition-all"
                >
-                 Go to Hiring Hall
+                 Hire an AI Agent
                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                </Link>
             </section>
