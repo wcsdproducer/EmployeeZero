@@ -48,9 +48,13 @@ export async function POST(req: Request) {
     const result = await genai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: strategistPrompt,
+      config: {
+        responseMimeType: "application/json"
+      }
     });
     const responseText = result.text;
     const cleanedJson = responseText.replace(/```json|```/g, "").trim();
+    console.log("CLEANED JSON:", cleanedJson);
     const data = JSON.parse(cleanedJson);
 
     // 3. Generate High-End Visual
