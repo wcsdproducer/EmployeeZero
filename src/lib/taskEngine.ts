@@ -4,6 +4,11 @@ import { getMcpToolDeclarations, executeMcpTool } from "@/lib/mcpClient";
 import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
 import {
+  loadUserLLMConfig,
+  createOpenRouterClient,
+  convertToolsToOpenAIFormat,
+} from "@/lib/llmProvider";
+import {
   listEmails, getEmail, sendEmail, replyToEmail,
   getUnreadCount, archiveEmail, trashEmail,
 } from "@/lib/gmail";
@@ -1080,7 +1085,23 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
   }
 
   const { tools, services } = await getAvailableTools(userId);
-  const ai = new GoogleGenAI({ apiKey });
+
+  // ── Brain Selection: User's OpenRouter account OR platform Gemini fallback ──
+  // When user has connected OpenRouter, ALL API costs go to their account.
+  // EZ is never charged. Platform Gemini is only used as a last resort.
+  const llmConfig = await loadUserLLMConfig(userId);
+  const useOpenRouter = !!(llmConfig?.apiKey && llmConfig?.model);
+
+  let ai: GoogleGenAI | null = null;
+  let openRouterClient: ReturnType<typeof createOpenRouterClient> | null = null;
+
+  if (useOpenRouter) {
+    openRouterClient = createOpenRouterClient(llmConfig!.apiKey);
+    console.log(`[TaskEngine] Using OpenRouter — model: ${llmConfig!.model} (user: ${userId})`);
+  } else {
+    ai = new GoogleGenAI({ apiKey });
+    console.log(`[TaskEngine] Using platform Gemini fallback (user: ${userId})`);
+  }
 
   // Load user context for personalized execution
   const [memories, userTimezone] = await Promise.all([
@@ -1163,19 +1184,85 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
       await updateTask(taskId, { status: "failed", result: finalResult, steps });
       return finalResult;
     }
-    // Call Gemini with retry for transient errors
+    // ── LLM Call: OpenRouter or Gemini ─────────────────────────────────────
     let response;
     const MAX_RETRIES = 3;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents,
-          config: {
-            systemInstruction: systemPrompt,
-            tools: [{ functionDeclarations: tools }],
-          },
-        });
+        if (useOpenRouter && openRouterClient) {
+          // OpenRouter path — OpenAI-compatible, tool calls in OpenAI format
+          const openAITools = convertToolsToOpenAIFormat(tools);
+          const orResponse = await openRouterClient.chat.completions.create({
+            model: llmConfig!.model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...contents.map((c: any) => {
+                if (c.role === "user" && c.parts?.[0]?.text) {
+                  return { role: "user" as const, content: c.parts[0].text };
+                }
+                if (c.role === "user" && c.parts?.[0]?.functionResponse) {
+                  const fr = c.parts[0].functionResponse;
+                  return {
+                    role: "tool" as const,
+                    tool_call_id: fr.name,
+                    content: JSON.stringify(fr.response),
+                  };
+                }
+                if (c.role === "model" && c.parts?.[0]?.functionCall) {
+                  const fc = c.parts[0].functionCall;
+                  return {
+                    role: "assistant" as const,
+                    tool_calls: [{
+                      id: fc.name,
+                      type: "function" as const,
+                      function: { name: fc.name, arguments: JSON.stringify(fc.args || {}) },
+                    }],
+                  };
+                }
+                if (c.role === "model" && c.parts?.[0]?.text) {
+                  return { role: "assistant" as const, content: c.parts[0].text };
+                }
+                return { role: "user" as const, content: "(continued)" };
+              }),
+            ],
+            tools: openAITools,
+            tool_choice: "auto",
+          });
+
+          // Normalise OpenRouter response into Gemini-compatible shape
+          const choice = orResponse.choices[0];
+          const toolCall = choice.message?.tool_calls?.[0];
+          if (toolCall) {
+            response = {
+              candidates: [{
+                content: {
+                  parts: [{
+                    functionCall: {
+                      name: toolCall.function.name,
+                      args: JSON.parse(toolCall.function.arguments || "{}"),
+                    },
+                  }],
+                },
+              }],
+              text: "",
+            };
+          } else {
+            response = {
+              candidates: [{ content: { parts: [{ text: choice.message?.content || "" }] } }],
+              text: choice.message?.content || "",
+            };
+          }
+        } else {
+          // Gemini fallback path
+          response = await ai!.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents,
+            config: {
+              systemInstruction: systemPrompt,
+              tools: [{ functionDeclarations: tools }],
+            },
+          });
+        }
         break; // success
       } catch (err: any) {
         const isTransient = /fetch failed|ECONNRESET|503|429|timeout|ETIMEDOUT|socket hang up/i.test(err.message);
@@ -1184,7 +1271,7 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
           await new Promise(r => setTimeout(r, attempt * 2000));
           continue;
         }
-        console.error(`[TaskEngine] Gemini error at step ${stepCount}:`, err.message);
+        console.error(`[TaskEngine] AI error at step ${stepCount}:`, err.message);
         await updateTask(taskId, {
           status: "failed",
           result: `AI error: ${err.message}`,
@@ -1410,7 +1497,17 @@ export async function resumeTask(taskId: string, userInput: string, overrideApiK
   }
 
   const { tools, services } = await getAvailableTools(userId);
-  const ai = new GoogleGenAI({ apiKey });
+
+  // ── Brain Selection (same logic as executeTask) ───────────────────────────
+  const llmConfig = await loadUserLLMConfig(userId);
+  const useOpenRouter = !!(llmConfig?.apiKey && llmConfig?.model);
+  let ai: GoogleGenAI | null = null;
+  let openRouterClient: ReturnType<typeof createOpenRouterClient> | null = null;
+  if (useOpenRouter) {
+    openRouterClient = createOpenRouterClient(llmConfig!.apiKey);
+  } else {
+    ai = new GoogleGenAI({ apiKey });
+  }
 
   const [memories, userTimezone] = await Promise.all([
     loadMemories(userId),
@@ -1479,14 +1576,43 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
     const MAX_RETRIES = 3;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents,
-          config: {
-            systemInstruction: systemPrompt,
-            tools: [{ functionDeclarations: tools }],
-          },
-        });
+        if (useOpenRouter && openRouterClient) {
+          const openAITools = convertToolsToOpenAIFormat(tools);
+          const orResponse = await openRouterClient.chat.completions.create({
+            model: llmConfig!.model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...contents.map((c: any) => {
+                if (c.role === "user" && c.parts?.[0]?.text) return { role: "user" as const, content: c.parts[0].text };
+                if (c.role === "user" && c.parts?.[0]?.functionResponse) {
+                  const fr = c.parts[0].functionResponse;
+                  return { role: "tool" as const, tool_call_id: fr.name, content: JSON.stringify(fr.response) };
+                }
+                if (c.role === "model" && c.parts?.[0]?.functionCall) {
+                  const fc = c.parts[0].functionCall;
+                  return { role: "assistant" as const, tool_calls: [{ id: fc.name, type: "function" as const, function: { name: fc.name, arguments: JSON.stringify(fc.args || {}) } }] };
+                }
+                if (c.role === "model" && c.parts?.[0]?.text) return { role: "assistant" as const, content: c.parts[0].text };
+                return { role: "user" as const, content: "(continued)" };
+              }),
+            ],
+            tools: openAITools,
+            tool_choice: "auto",
+          });
+          const choice = orResponse.choices[0];
+          const toolCall = choice.message?.tool_calls?.[0];
+          if (toolCall) {
+            response = { candidates: [{ content: { parts: [{ functionCall: { name: toolCall.function.name, args: JSON.parse(toolCall.function.arguments || "{}") } }] } }], text: "" };
+          } else {
+            response = { candidates: [{ content: { parts: [{ text: choice.message?.content || "" }] } }], text: choice.message?.content || "" };
+          }
+        } else {
+          response = await ai!.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents,
+            config: { systemInstruction: systemPrompt, tools: [{ functionDeclarations: tools }] },
+          });
+        }
         break;
       } catch (err: any) {
         const isTransient = /fetch failed|ECONNRESET|503|429|timeout|ETIMEDOUT|socket hang up/i.test(err.message);
@@ -1495,7 +1621,7 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
           await new Promise(r => setTimeout(r, attempt * 2000));
           continue;
         }
-        console.error(`[TaskEngine:Resume] Gemini error at step ${stepCount}:`, err.message);
+        console.error(`[TaskEngine:Resume] AI error at step ${stepCount}:`, err.message);
         await updateTask(taskId, { status: "failed", result: `AI error: ${err.message}`, steps });
         return `Task failed: ${err.message}`;
       }
