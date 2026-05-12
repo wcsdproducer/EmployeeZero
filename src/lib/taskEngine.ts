@@ -3,11 +3,10 @@ import { recordWorkflowMetric, loadPreferences, getWorkflowOptimization } from "
 import { getMcpToolDeclarations, executeMcpTool } from "@/lib/mcpClient";
 import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
-import {
-  loadUserLLMConfig,
-  createOpenRouterClient,
-  convertToolsToOpenAIFormat,
-} from "@/lib/llmProvider";
+import { loadUserLLMConfig } from "@/lib/llmProviderAdmin";
+import { createOpenRouterClient, convertToolsToOpenAIFormat } from "@/lib/llmProvider";
+import { loadUserSOUL } from "@/lib/soulAdmin";
+import { buildSOULPrompt } from "@/lib/soul";
 import {
   listEmails, getEmail, sendEmail, replyToEmail,
   getUnreadCount, archiveEmail, trashEmail,
@@ -1104,13 +1103,19 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
   }
 
   // Load user context for personalized execution
-  const [memories, userTimezone] = await Promise.all([
+  const [memories, userTimezone, userSOUL] = await Promise.all([
     loadMemories(userId),
     loadUserTimezone(userId),
+    loadUserSOUL(userId),
   ]);
 
-  // Build system prompt — strongly emphasize reporting
-  let systemPrompt = `You are an autonomous AI employee executing a workflow task. You have access to tools and must complete the given goal step by step.
+  const soulPrefix = buildSOULPrompt(userSOUL);
+
+  // Build system prompt with SOUL persona prefix
+  let systemPrompt = `${soulPrefix}
+
+## Task Mode
+You are now executing an autonomous workflow task. Use your tools to complete the given goal step by step.
 
 ## Available Services: ${services.length > 0 ? services.join(", ") : "None"}
 
@@ -1238,8 +1243,8 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
                 content: {
                   parts: [{
                     functionCall: {
-                      name: toolCall.function.name,
-                      args: JSON.parse(toolCall.function.arguments || "{}"),
+                      name: (toolCall as any).function.name,
+                      args: JSON.parse((toolCall as any).function.arguments || "{}"),
                     },
                   }],
                 },
@@ -1602,7 +1607,7 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
           const choice = orResponse.choices[0];
           const toolCall = choice.message?.tool_calls?.[0];
           if (toolCall) {
-            response = { candidates: [{ content: { parts: [{ functionCall: { name: toolCall.function.name, args: JSON.parse(toolCall.function.arguments || "{}") } }] } }], text: "" };
+            response = { candidates: [{ content: { parts: [{ functionCall: { name: (toolCall as any).function.name, args: JSON.parse((toolCall as any).function.arguments || "{}") } }] } }], text: "" };
           } else {
             response = { candidates: [{ content: { parts: [{ text: choice.message?.content || "" }] } }], text: choice.message?.content || "" };
           }

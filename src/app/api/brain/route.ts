@@ -1,25 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuthToken } from "@/lib/admin";
+import { verifyAuth } from "@/lib/auth";
+import { testOpenRouterConnection } from "@/lib/llmProvider";
 import {
-  testOpenRouterConnection,
   saveUserLLMConfig,
   clearUserLLMConfig,
   loadUserLLMConfig,
-} from "@/lib/llmProvider";
+} from "@/lib/llmProviderAdmin";
 
 export async function GET(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  const decoded = await verifyAuthToken(token || "");
-  if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await verifyAuth(req);
+  if (auth.error) return auth.error;
 
-  const config = await loadUserLLMConfig(decoded.uid);
+  const config = await loadUserLLMConfig(auth.userId!);
   return NextResponse.json({ config: config || null });
 }
 
 export async function POST(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  const decoded = await verifyAuthToken(token || "");
-  if (!decoded) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await verifyAuth(req);
+  if (auth.error) return auth.error;
 
   const { action, apiKey, model, modelLabel } = await req.json();
 
@@ -32,12 +30,11 @@ export async function POST(req: NextRequest) {
     if (!apiKey || !model || !modelLabel) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
-    // Verify connection before saving
     const test = await testOpenRouterConnection(apiKey, model);
     if (!test.ok) {
       return NextResponse.json({ error: test.error }, { status: 400 });
     }
-    await saveUserLLMConfig(decoded.uid, {
+    await saveUserLLMConfig(auth.userId!, {
       apiKey,
       model,
       modelLabel,
@@ -47,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "disconnect") {
-    await clearUserLLMConfig(decoded.uid);
+    await clearUserLLMConfig(auth.userId!);
     return NextResponse.json({ ok: true });
   }
 

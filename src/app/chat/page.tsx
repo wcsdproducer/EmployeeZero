@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { SERVICE_ICONS } from "@/components/ServiceIcons";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare } from "lucide-react";
+import { ConversationSearchModal } from "@/components/ConversationSearch";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, PanelLeftClose, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare, Menu } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -259,7 +260,8 @@ function ChatPageInner() {
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // default CLOSED on mobile
+  const [showSearch, setShowSearch] = useState(false);
   const [showHireModal, setShowHireModal] = useState(false);
   const [previewWorkflow, setPreviewWorkflow] = useState<WorkflowSuggestion | null>(null);
   const [foundingCount, setFoundingCount] = useState<number | null>(null);
@@ -281,6 +283,18 @@ function ChatPageInner() {
   const REGULAR_PRICE = 39;
   const isFoundingAvailable = foundingCount !== null && foundingCount < FOUNDING_LIMIT;
   const slotsRemaining = foundingCount !== null ? Math.max(0, FOUNDING_LIMIT - foundingCount) : null;
+
+  // Global Cmd+K / Ctrl+K to open search
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowSearch((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // Build full agents list: use Firestore agents if available, otherwise fall back to legacy employeeName
   const activeAgents = purchasedAgents
@@ -446,29 +460,58 @@ function ChatPageInner() {
 
   return (
     <div className="flex h-screen bg-[#0d0d0d] text-white selection:bg-white selection:text-black overflow-hidden font-sans">
-      
-      {/* Sidebar */}
+
+      {/* Mobile sidebar backdrop */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Conversation Search Modal */}
+      <AnimatePresence>
+        {showSearch && user && (
+          <ConversationSearchModal
+            userId={user.uid}
+            onClose={() => setShowSearch(false)}
+            onSelect={(id) => { setActiveConvId(id); }}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence initial={false}>
         {isSidebarOpen && (
           <motion.aside 
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 260, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            className="flex-shrink-0 bg-[#000000] flex flex-col border-r border-white/5"
+            initial={{ x: -260, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -260, opacity: 0 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="fixed md:relative inset-y-0 left-0 z-40 md:z-auto w-[260px] flex-shrink-0 bg-[#000000] flex flex-col border-r border-white/5"
           >
             <div className="p-3 space-y-4">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-between gap-2 border border-white/10 hover:bg-white/5 hover:text-white rounded-lg px-3 py-6 group text-white"
-                onClick={() => setActiveConvId(null)}
-              >
-                <div className="flex items-center gap-3 font-medium">
-                  <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-black">
-                    <Plus size={14} strokeWidth={3} />
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  className="flex-1 justify-between gap-2 border border-white/10 hover:bg-white/5 hover:text-white rounded-lg px-3 py-6 group text-white"
+                  onClick={() => setActiveConvId(null)}
+                >
+                  <div className="flex items-center gap-3 font-medium">
+                    <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-black">
+                      <Plus size={14} strokeWidth={3} />
+                    </div>
+                    New Conversation
                   </div>
-                  New Conversation
-                </div>
-              </Button>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowSearch(true)}
+                  className="border border-white/10 hover:bg-white/5 rounded-lg h-auto w-12 flex-shrink-0"
+                  title="Search (⌘K)"
+                >
+                  <Search size={15} className="text-neutral-500" />
+                </Button>
+              </div>
 
               <div className="space-y-1">
                 <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Active Workforce</p>
@@ -620,11 +663,9 @@ function ChatPageInner() {
         {/* Header */}
         <header className="h-14 border-b border-white/5 flex items-center justify-between px-4 z-20 bg-[#0d0d0d]/80 backdrop-blur-md">
             <div className="flex items-center gap-3">
-                {!isSidebarOpen && (
-                    <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)} className="text-neutral-500">
-                        <PanelLeftOpen size={18} />
-                    </Button>
-                )}
+                <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-neutral-500">
+                  {isSidebarOpen ? <PanelLeftClose size={18} /> : <Menu size={18} />}
+                </Button>
                 <div className="flex items-center gap-2">
                     <div className={cn("p-1.5 rounded-md bg-white/5", selectedAgent.color)}>
                         {selectedAgent.icon}
@@ -633,6 +674,16 @@ function ChatPageInner() {
                 </div>
             </div>
             <div className="flex items-center gap-2">
+                {/* Mobile search button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowSearch(true)}
+                  className="h-8 w-8 text-neutral-500 hover:text-neutral-300 md:hidden"
+                  title="Search conversations"
+                >
+                  <Search size={16} />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -875,7 +926,7 @@ function ChatPageInner() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                      className="grid grid-cols-2 gap-3"
+                      className="grid grid-cols-1 sm:grid-cols-2 gap-3"
                     >
                       {visibleWorkflows.map((wf) => (
                         <button
@@ -909,7 +960,7 @@ function ChatPageInner() {
         </div>
 
         {/* Input Area */}
-        <div className="p-6 pt-0">
+        <div className="p-4 md:p-6 pt-0 pb-safe-area-inset-bottom">
           <div className="max-w-3xl mx-auto relative group">
             {/* Connected Services */}
             {Object.keys(connectedServices).length > 0 && (
@@ -955,7 +1006,7 @@ function ChatPageInner() {
                     }
                 }}
                 placeholder={`Message ${selectedAgent.name}...`}
-                className="w-full bg-[#171717] border border-white/10 rounded-2xl py-4 pl-4 pr-14 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-transparent transition-all min-h-[60px] max-h-[200px] resize-none text-[15px] placeholder:text-neutral-600 shadow-2xl"
+                className="w-full bg-[#171717] border border-white/10 rounded-2xl py-4 pl-4 pr-14 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-transparent transition-all min-h-[60px] md:min-h-[60px] max-h-[200px] resize-none text-[15px] placeholder:text-neutral-600 shadow-2xl"
               />
               <div className="absolute right-3 bottom-3">
                 <Button 

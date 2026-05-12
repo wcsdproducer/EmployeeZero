@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { CURATED_MODELS, CuratedModel } from "@/lib/llmProvider";
 import { Check, ExternalLink, Loader2, ChevronRight, Brain, Zap, ArrowRight } from "lucide-react";
 
@@ -203,9 +203,9 @@ export default function BrainSetupPage() {
                 <ol className="space-y-3">
                   {[
                     "Click the button below to open OpenRouter",
-                    "Click "Create Key" in the top right",
-                    "Give it any name (e.g. "Employee Zero")",
-                    "Copy the code — you'll paste it in the next step",
+                    "Click ‘Create Key’ in the top right",
+                    "Give it any name (e.g. ‘Employee Zero’)",
+                    "Copy the code — you’ll paste it in the next step",
                   ].map((step, i) => (
                     <li key={i} className="flex items-start gap-3 text-sm text-neutral-300">
                       <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">

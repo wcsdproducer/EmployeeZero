@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CreditCard, Shield, Key, Bell, Check, ExternalLink, ChevronRight, User, X, Zap, Gift, ArrowRight } from "lucide-react";
+import { CreditCard, Shield, Key, Bell, Check, ExternalLink, ChevronRight, User, X, Zap, Gift, ArrowRight, Brain, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { useAuth } from "@/hooks/useAuth";
+import Link from "next/link";
 
 // ─── Retention Modal ───────────────────────────────────────────────────────────
 function RetentionModal({
@@ -285,6 +286,42 @@ export default function Settings() {
                 Edit Profile
                 <ChevronRight size={16} />
             </button>
+            </section>
+
+            {/* AI Configuration */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-2">
+                <Brain size={18} className="text-blue-600" />
+                <h2 className="text-lg font-bold text-gray-900">AI Configuration</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Link
+                  href="/settings/brain"
+                  className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-5 hover:border-blue-200 hover:shadow-md transition-all group"
+                >
+                  <div className="w-12 h-12 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Brain size={20} className="text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-900">Your AI Brain</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Connect your OpenRouter account</p>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                </Link>
+                <Link
+                  href="/settings/soul"
+                  className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-5 hover:border-purple-200 hover:shadow-md transition-all group"
+                >
+                  <div className="w-12 h-12 bg-purple-50 border border-purple-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Sparkles size={20} className="text-purple-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-900">Agent SOUL</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Personality, tone & focus areas</p>
+                  </div>
+                  <ChevronRight size={16} className="text-gray-300 group-hover:text-purple-500 transition-colors" />
+                </Link>
+              </div>
             </section>
 
             {/* Billing & Subscription */}

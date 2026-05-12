@@ -1,16 +1,10 @@
 /**
  * LLM Provider — OpenRouter Gateway
  *
- * Employee Zero never pays API costs. All LLM usage is billed directly
- * to the user's OpenRouter account. EZ only stores the routing config.
- *
- * Architecture:
- *   - User connects OpenRouter (one account, every AI model)
- *   - Task engine uses their key + chosen model for every task
- *   - If not connected, falls back to platform Gemini (grace period only)
+ * Client-safe: types, model list, OpenRouter client factory, tool conversion.
+ * Server-only Firestore CRUD is in llmProviderAdmin.ts
  */
 
-import { adminDb } from "@/lib/admin";
 import OpenAI from "openai";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -90,35 +84,9 @@ export const CURATED_MODELS: CuratedModel[] = [
   },
 ];
 
-// ─── Firestore CRUD ────────────────────────────────────────────────────────────
-
-const CONFIG_PATH = (userId: string) =>
-  `users/${userId}/settings/llmProvider`;
-
-export async function loadUserLLMConfig(
-  userId: string
-): Promise<LLMConfig | null> {
-  try {
-    const snap = await adminDb.doc(CONFIG_PATH(userId)).get();
-    if (!snap.exists) return null;
-    const data = snap.data() as LLMConfig;
-    if (!data?.apiKey || !data?.model) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-export async function saveUserLLMConfig(
-  userId: string,
-  config: LLMConfig
-): Promise<void> {
-  await adminDb.doc(CONFIG_PATH(userId)).set(config, { merge: true });
-}
-
-export async function clearUserLLMConfig(userId: string): Promise<void> {
-  await adminDb.doc(CONFIG_PATH(userId)).delete();
-}
+// ─── Firestore CRUD (server-only — see llmProviderAdmin.ts) ──────────────────
+// Import from @/lib/llmProviderAdmin in API routes and server components.
+// Do NOT import adminDb here — this file must remain client-safe.
 
 // ─── Client Factory ────────────────────────────────────────────────────────────
 
