@@ -90,6 +90,51 @@ export async function POST(req: Request) {
       console.error("Firestore update failed:", err.message);
       return NextResponse.json({ error: "Database update failed" }, { status: 500 });
     }
+  } else if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as import("stripe").Stripe.Subscription;
+    const subscriptionId = subscription.id;
+    const status = subscription.status; // 'active', 'canceled', 'unpaid', 'past_due', etc.
+
+    console.log(`Processing subscription update for ${subscriptionId}, status: ${status}`);
+
+    try {
+      // Find the agent with this subscription ID
+      const agentsSnapshot = await adminDb
+        .collectionGroup("agents")
+        .where("stripeSubscriptionId", "==", subscriptionId)
+        .get();
+
+      if (agentsSnapshot.empty) {
+        console.error(`No agent found with subscription ID ${subscriptionId}`);
+      } else {
+        for (const doc of agentsSnapshot.docs) {
+          const currentStatus = doc.data().status;
+          
+          // Determine the new agent status
+          let newStatus = currentStatus;
+          if (event.type === "customer.subscription.deleted" || status === "canceled" || status === "unpaid" || status === "past_due") {
+            newStatus = "inactive";
+          } else if (status === "active" || status === "trialing") {
+            // Only re-activate if it was previously marked inactive due to billing.
+            // Don't auto-activate if it's 'pending_setup'
+            if (currentStatus === "inactive") {
+              newStatus = "active";
+            }
+          }
+
+          await doc.ref.update({
+            stripeStatus: status,
+            status: newStatus,
+            updatedAt: new Date().toISOString()
+          });
+
+          console.log(`Updated agent ${doc.id} stripeStatus to ${status} and agent status to ${newStatus}`);
+        }
+      }
+    } catch (err: any) {
+      console.error(`Failed to process subscription update: ${err.message}`);
+      return NextResponse.json({ error: "Database update failed" }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ received: true });
