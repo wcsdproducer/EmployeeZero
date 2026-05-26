@@ -39,7 +39,13 @@ export default function LoginPage() {
         return;
       }
       if (mode === "signup") {
-        await signUpWithEmail(email, password);
+        const user = await signUpWithEmail(email, password);
+        const token = await user.getIdToken();
+        await fetch("/api/webhooks/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ email: user.email })
+        }).catch(console.error);
       } else {
         await signInWithEmail(email, password);
       }
@@ -68,8 +74,16 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const result = await signInWithGoogle();
-      if (result) {
+      const { user, isNewUser } = await signInWithGoogle();
+      if (user) {
+        if (isNewUser) {
+          const token = await user.getIdToken();
+          await fetch("/api/webhooks/auth/signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify({ email: user.email })
+          }).catch(console.error);
+        }
         router.push("/chat");
       }
       // If null, redirect is happening — page will reload

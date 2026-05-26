@@ -65,6 +65,16 @@ export async function POST(req: Request) {
 
       console.log(`Created ${agentStatus} agent "${agentName}" (${agentRef.id}) for user ${userId}`);
 
+      // Send telegram notification to admin
+      try {
+        const { sendAdminNotification } = await import("@/lib/telegram");
+        const userEmail = session.customer_details?.email || "Unknown Email";
+        const message = `🎉 <b>New Upgrade!</b>\nUser ${userEmail} (${userId}) just provisioned a <b>${plan.toUpperCase()}</b> agent (Name: ${agentName}).`;
+        await sendAdminNotification(message);
+      } catch (notifyErr) {
+        console.error("Failed to send telegram upgrade notification:", notifyErr);
+      }
+
       // 2. Update the user document
       const userUpdate: Record<string, any> = {
         agentCount: FieldValue.increment(1),

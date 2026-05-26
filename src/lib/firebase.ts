@@ -30,11 +30,13 @@ export const functions = getFunctions(app);
 
 const googleProvider = new GoogleAuthProvider();
 
-export async function signInWithGoogle(): Promise<User | null> {
+export async function signInWithGoogle(): Promise<{ user: User | null; isNewUser: boolean }> {
   try {
     // Try popup first — works in most environments
     const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
+    const { getAdditionalUserInfo } = await import("firebase/auth");
+    const additionalInfo = getAdditionalUserInfo(result);
+    return { user: result.user, isNewUser: !!additionalInfo?.isNewUser };
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
     // If popup is blocked by COOP or browser policy, fall back to redirect
@@ -45,7 +47,7 @@ export async function signInWithGoogle(): Promise<User | null> {
       code === "auth/internal-error"
     ) {
       await signInWithRedirect(auth, googleProvider);
-      return null; // redirect will reload the page
+      return { user: null, isNewUser: false }; // redirect will reload the page
     }
     throw err;
   }

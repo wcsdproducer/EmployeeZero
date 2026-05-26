@@ -44,8 +44,16 @@ export default function Onboarding() {
     setLoading(true);
     setError(null);
     try {
-      const user = await signInWithGoogle();
+      const { user, isNewUser } = await signInWithGoogle();
       if (user) {
+        if (isNewUser) {
+          const token = await user.getIdToken();
+          await fetch("/api/webhooks/auth/signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify({ email: user.email })
+          }).catch(console.error);
+        }
         // Pre-fill the user name from Google profile
         if (user.displayName) setUserName(user.displayName);
         setLoading(false);
@@ -64,7 +72,13 @@ export default function Onboarding() {
     setError(null);
     try {
       if (authMode === "signup") {
-        await signUpWithEmail(email, password);
+        const user = await signUpWithEmail(email, password);
+        const token = await user.getIdToken();
+        await fetch("/api/webhooks/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ email: user.email })
+        }).catch(console.error);
       } else {
         await signInWithEmail(email, password);
       }
