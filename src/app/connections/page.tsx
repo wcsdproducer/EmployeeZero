@@ -128,6 +128,10 @@ const SOCIAL_MEDIA = [
   { id: "facebook", name: "Facebook", description: "Page management and ads", icon: Facebook, color: "text-blue-400", hasSecret: false, comingSoon: false, requiresOAuth: true },
 ];
 
+const VOICE_AGENTS = [
+  { id: "elevenlabs", name: "ElevenLabs Voice Agent", description: "Ultra-low latency conversational agent", icon: Music2, color: "text-purple-400", hasSecret: false, comingSoon: false, requiresOAuth: false },
+];
+
 /* ─── Tool Map ─── */
 const TOOL_MAP: Record<string, string[]> = {
   gmail: ["Search Emails", "Read Email", "Send Email", "Reply", "Unread Count", "Archive", "Trash"],
@@ -169,6 +173,7 @@ function ConnectionsPageInner() {
     google: false,
     social: false,
     mcp: false,
+    voice: false,
   });
   const toggleSection = (key: string) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   const { user, loading: authLoading } = useAuth();
@@ -336,12 +341,26 @@ function ConnectionsPageInner() {
     if (!user?.uid) return;
     setSavingConnection(id);
     try {
-      const entry: ConnectionEntry = {
+      let entry: ConnectionEntry = {
         apiKey: editValue.trim(),
         connected: !!editValue.trim(),
         tokenType: "api_key",
       };
       if (hasSecret) entry.apiSecret = editSecret.trim();
+
+      if (id === "elevenlabs" && editValue.trim()) {
+        const res = await fetch("/api/elevenlabs/provision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: editValue.trim() })
+        });
+        const data = await res.json();
+        if (res.ok && data.agent_id) {
+          entry.apiSecret = data.agent_id; // Store agent_id
+        } else {
+          throw new Error(data.error || "Failed to provision agent");
+        }
+      }
 
       const updatedConnections = { ...connections, [id]: entry };
       await setDoc(doc(db, "users", user.uid, "settings", "connections"), updatedConnections);
@@ -1097,7 +1116,130 @@ function ConnectionsPageInner() {
           )}
           </AnimatePresence>
         </section>
+        
+        {/* ═══ VOICE AGENTS ═══ */}
+        <section className="rounded-2xl border border-white/5 bg-white/[0.015] overflow-hidden mb-4">
+          <button
+            onClick={() => toggleSection('voice')}
+            className="w-full flex items-center gap-3 p-5 hover:bg-white/[0.02] transition-colors"
+          >
+            <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20">
+              <Music2 size={18} className="text-purple-400" />
+            </div>
+            <div className="flex-1 text-left">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold tracking-tight">Voice Agents</h2>
+                {(() => { const c = Object.entries(connections).filter(([k,v]) => VOICE_AGENTS.some(s => s.id === k) && v.connected).length; return c > 0 ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{c} connected</span> : null; })()}
+              </div>
+              <p className="text-xs text-neutral-500">Ultra-low latency conversational agents</p>
+            </div>
+            <motion.div animate={{ rotate: openSections.voice ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown size={18} className="text-neutral-500" />
+            </motion.div>
+          </button>
+          <AnimatePresence initial={false}>
+          {openSections.voice && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+          <div className="px-5 pb-5 space-y-2">
+            {VOICE_AGENTS.map((svc) => {
+              const conn = connections[svc.id];
+              const isEditing = editingKey === svc.id;
+              const isConnected = conn?.connected;
+              const Icon = svc.icon;
+
+              return (
+                <div key={svc.id} className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                  <div className="flex items-center gap-4 p-4">
+                    <div className={cn("p-2.5 rounded-xl bg-white/5", svc.color)}>
+                      <Icon size={20} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold truncate">{svc.name}</h3>
+                        {isConnected && !isEditing && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">Connected</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-neutral-500 truncate">{svc.description}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {isConnected ? (
+                        <>
+                          <button
+                            onClick={() => { setEditingKey(isEditing ? null : svc.id); setEditValue(conn?.apiKey || ""); }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 transition-colors"
+                          >
+                            {isEditing ? "Cancel" : "Edit"}
+                          </button>
+                          <button
+                            onClick={() => disconnectService(svc.id)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors"
+                          >
+                            Disconnect
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => { setEditingKey(isEditing ? null : svc.id); setEditValue(""); }}
+                          className="px-4 py-1.5 rounded-lg text-xs font-medium bg-white text-black hover:bg-neutral-200 transition-colors"
+                        >
+                          {isEditing ? "Cancel" : "Connect"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <AnimatePresence initial={false}>
+                    {isEditing && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t border-white/5 bg-black/20"
+                      >
+                        <div className="p-4 space-y-3">
+                          <p className="text-xs text-neutral-400">
+                            Enter your ElevenLabs API key. The system will automatically configure your Conversational Agent.
+                          </p>
+                          <input
+                            type="password"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            placeholder={`${svc.name} API Key`}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-mono placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-white/20"
+                          />
+                          <div className="flex justify-end">
+                            <button
+                              onClick={() => saveConnection(svc.id, false)}
+                              disabled={!editValue.trim() || savingConnection === svc.id}
+                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-white text-black hover:bg-neutral-200 transition-colors disabled:opacity-50 flex items-center gap-2"
+                            >
+                              {savingConnection === svc.id ? <Loader2 size={14} className="animate-spin" /> : <Plug size={14} />}
+                              {savingConnection === svc.id ? "Connecting..." : "Connect"}
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+          </motion.div>
+          )}
+          </AnimatePresence>
+        </section>
+
         {/* ═══ UNIVERSAL MCP CONNECTOR ═══ */}
+
         <McpSection userId={user?.uid || ""} toast={toast} setToast={setToast} openSections={openSections} toggleSection={toggleSection} />
       </div>
     </div>

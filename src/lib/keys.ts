@@ -67,11 +67,31 @@ export async function saveIntegrationKey(
   integrationId: string,
   key: string
 ): Promise<void> {
-  await setDoc(integrationDoc(userId, integrationId), {
+  let docData: any = {
     key,
     connectedAt: serverTimestamp(),
     status: "connected" as IntegrationStatus,
-  });
+  };
+
+  if (integrationId === "elevenlabs") {
+    try {
+      // In case we are running client-side, we can call the relative path.
+      // If we are running server-side, this might fail, but saveIntegrationKey is mostly called from client components.
+      const res = await fetch("/api/elevenlabs/provision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key })
+      });
+      const data = await res.json();
+      if (res.ok && data.agent_id) {
+        docData.agent_id = data.agent_id;
+      }
+    } catch (e) {
+      console.error("ElevenLabs provisioning failed:", e);
+    }
+  }
+
+  await setDoc(integrationDoc(userId, integrationId), docData);
 }
 
 export async function getIntegrationKey(

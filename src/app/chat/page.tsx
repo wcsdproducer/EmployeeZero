@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import { useConversation, ConversationProvider } from "@elevenlabs/react";
 import { SERVICE_ICONS } from "@/components/ServiceIcons";
 import { ConversationSearchModal } from "@/components/ConversationSearch";
 import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, PanelLeftClose, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare, Menu, MessageCircle, CalendarDays, FileText, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
@@ -100,7 +101,9 @@ export default function ChatPage() {
         Loading...
       </div>
     }>
-      <ChatPageInner />
+      <ConversationProvider>
+        <ChatPageInner />
+      </ConversationProvider>
     </Suspense>
   );
 }
@@ -118,56 +121,40 @@ function ChatPageInner() {
 
   // Voice Mode State
   const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [elevenLabsKey, setElevenLabsKey] = useState<string | null>(null);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [agentId, setAgentId] = useState<string | null>(null);
 
-  // Fetch ElevenLabs key
+  const conversation = useConversation({
+    onConnect: () => setIsVoiceMode(true),
+    onDisconnect: () => setIsVoiceMode(false),
+    onError: (error: any) => console.error("ElevenLabs error:", error)
+  });
+
+  // Fetch ElevenLabs agent_id from connections
   useEffect(() => {
     if (!user?.uid) return;
-    getIntegrationKey(user.uid, "elevenlabs").then(record => {
-      if (record?.key) setElevenLabsKey(record.key);
-    }).catch(() => {});
+    import('firebase/firestore').then(({ doc, getDoc }) => {
+      getDoc(doc(db, "users", user.uid, "settings", "connections")).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.elevenlabs?.apiSecret) {
+            setAgentId(data.elevenlabs.apiSecret);
+          }
+        }
+      });
+    });
   }, [user?.uid]);
 
-  // Init SpeechRecognition
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        
-        recognition.onresult = (event: any) => {
-          let transcript = "";
-          for (let i = 0; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-          }
-          setInput(transcript);
-        };
-        
-        recognition.onerror = (e: any) => {
-          console.error("Speech recognition error", e);
-          setIsListening(false);
-        };
-        
-        recognition.onend = () => {
-          setIsListening(false);
-        };
-        
-        recognitionRef.current = recognition;
-      }
+  const toggleListening = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (!agentId) {
+      alert("Please connect ElevenLabs in Connections to use Voice Mode");
+      return;
     }
-  }, []);
-
-  const toggleListening = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (isListening) {
-      recognitionRef.current?.stop();
+    if (conversation.status === 'connected') {
+      await conversation.endSession();
     } else {
-      recognitionRef.current?.start();
-      setIsListening(true);
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      await conversation.startSession({ agentId });
     }
   };
 
@@ -478,18 +465,10 @@ function ChatPageInner() {
   useEffect(() => {
     if (!activeConv) return;
     
-    if (previousStatusRef.current === "running" && activeConv.status === "complete") {
-      if (isVoiceMode && elevenLabsKey) {
-        const lastMsg = activeConv.messages[activeConv.messages.length - 1];
-        if (lastMsg && lastMsg.role === "model" && typeof lastMsg.content === "string") {
-          playElevenLabsAudio(lastMsg.content, elevenLabsKey).catch(err => {
-            console.error("Failed to play ElevenLabs audio:", err);
-          });
-        }
-      }
-    }
+    // Note: Auto-play is handled automatically by ElevenLabs Conversational UI WebRTC session
+    
     previousStatusRef.current = activeConv.status;
-  }, [activeConv?.status, activeConv?.messages, isVoiceMode, elevenLabsKey]);
+  }, [activeConv?.status, activeConv?.messages, isVoiceMode]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -1174,23 +1153,23 @@ function ChatPageInner() {
             )}
             <form onSubmit={handleSubmit} className="relative">
               <div className="absolute top-[-36px] right-2 flex gap-2">
-                {elevenLabsKey && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsVoiceMode(!isVoiceMode)}
+                    onClick={toggleListening}
+                    disabled={!agentId}
                     className={cn(
                       "h-8 px-3 rounded-lg transition-colors text-xs font-medium border",
-                      isVoiceMode 
+                      conversation.status === 'connected' 
                         ? "bg-purple-500/20 text-purple-400 border-purple-500/30" 
                         : "bg-white/5 text-neutral-400 border-white/5 hover:text-white"
                     )}
+                    title={agentId ? "Connect WebRTC Session" : "Connect ElevenLabs API Key in Settings"}
                   >
-                    {isVoiceMode ? <Volume2 size={14} className="mr-1.5" /> : <VolumeX size={14} className="mr-1.5" />}
-                    Voice Response
+                    {conversation.status === 'connected' ? <Volume2 size={14} className="mr-1.5 animate-pulse" /> : <VolumeX size={14} className="mr-1.5" />}
+                    {conversation.status === 'connected' ? "Call Active" : "Call Agent"}
                   </Button>
-                )}
               </div>
               <textarea
                 value={input}
@@ -1210,12 +1189,14 @@ function ChatPageInner() {
                   variant="ghost"
                   size="icon"
                   onClick={toggleListening}
+                  disabled={!agentId}
                   className={cn(
                     "h-8 w-8 rounded-xl transition-all",
-                    isListening ? "bg-red-500/20 text-red-500 animate-pulse hover:bg-red-500/30" : "bg-white/5 text-neutral-400 hover:text-white"
+                    conversation.status === 'connected' ? "bg-red-500/20 text-red-500 animate-pulse hover:bg-red-500/30" : "bg-white/5 text-neutral-400 hover:text-white"
                   )}
+                  title={agentId ? "Call Agent" : "Connect ElevenLabs API Key in Settings"}
                 >
-                  {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                  {conversation.status === 'connected' ? <MicOff size={16} /> : <Mic size={16} />}
                 </Button>
                 <Button 
                     type="submit" 
