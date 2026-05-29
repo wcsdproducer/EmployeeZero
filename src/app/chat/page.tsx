@@ -6,16 +6,19 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { SERVICE_ICONS } from "@/components/ServiceIcons";
 import { ConversationSearchModal } from "@/components/ConversationSearch";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, PanelLeftClose, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare, Menu } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, PanelLeftClose, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare, Menu, MessageCircle, CalendarDays, FileText } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { authFetch } from "@/lib/authFetch";
+import packageJson from "../../../package.json";
 import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { signOut } from "@/lib/firebase";
 import ReactMarkdown from "react-markdown";
+import { AgentChart } from "@/components/AgentChart";
+import { DisplayPanel, DisplayContent } from "@/components/DisplayPanel";
 
 interface AgentDoc {
   id: string;
@@ -108,6 +111,7 @@ function ChatPageInner() {
   const hasAutoSelected = useRef(false);
   const [employeeName, setEmployeeName] = useState("Employee Zero");
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
+  const [displayContent, setDisplayContent] = useState<DisplayContent | null>(null);
   const agents = getAgents(employeeName, employeeAvatar);
 
   // Track active workflow IDs from both installed + cron
@@ -594,13 +598,18 @@ function ChatPageInner() {
               </Link>
             </div>
 
-            {/* Legal Links */}
-            <div className="px-6 pb-2 flex items-center gap-3 text-[10px] text-neutral-600">
-              <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms</Link>
-              <span>•</span>
-              <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy</Link>
-              <span>•</span>
-              <button onClick={() => setShowSupportModal(true)} className="hover:text-neutral-400 transition-colors">Support</button>
+            {/* Legal Links & Version */}
+            <div className="px-6 pb-2 flex items-center justify-between">
+              <div className="flex items-center gap-3 text-[10px] text-neutral-600">
+                <Link href="/terms" className="hover:text-neutral-400 transition-colors">Terms</Link>
+                <span>•</span>
+                <Link href="/privacy" className="hover:text-neutral-400 transition-colors">Privacy</Link>
+                <span>•</span>
+                <button onClick={() => setShowSupportModal(true)} className="hover:text-neutral-400 transition-colors">Support</button>
+              </div>
+              <div className="text-[10px] font-mono text-white/80">
+                v{packageJson.version}
+              </div>
             </div>
 
             <div className="p-3 border-t border-white/5">
@@ -658,7 +667,8 @@ function ChatPageInner() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#0d0d0d] relative">
+      <div className="flex-1 flex overflow-hidden min-w-0">
+        <main className="flex-1 flex flex-col min-w-0 bg-[#0d0d0d] relative">
         
         {/* Header */}
         <header className="h-14 border-b border-white/5 flex items-center justify-between px-4 z-20 bg-[#0d0d0d]/80 backdrop-blur-md">
@@ -846,6 +856,98 @@ function ChatPageInner() {
                               ),
                               code: ({ className, children }) => {
                                 const isInline = !className;
+                                if (className === "language-chart") {
+                                  try {
+                                    const json = JSON.parse(String(children));
+                                    const title = json.title || "Interactive Chart";
+                                    return (
+                                      <button
+                                        onClick={() => setDisplayContent({ type: "chart", title, props: { spec: json } })}
+                                        className="flex items-center gap-3 px-4 py-3 my-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group w-full max-w-sm text-left"
+                                      >
+                                        <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400 group-hover:scale-110 transition-transform">
+                                          <BarChart3 size={20} />
+                                        </div>
+                                        <div className="flex-1 truncate">
+                                          <p className="text-sm font-medium text-white truncate">{title}</p>
+                                          <p className="text-xs text-neutral-400 mt-0.5">Click to view in display panel</p>
+                                        </div>
+                                        <ChevronRight size={16} className="text-neutral-500 group-hover:text-white transition-colors" />
+                                      </button>
+                                    );
+                                  } catch (e) {
+                                    return <pre className="text-red-500">Error rendering chart</pre>;
+                                  }
+                                }
+                                if (className === "language-social_post") {
+                                  try {
+                                    const json = JSON.parse(String(children));
+                                    const title = `Social Post Draft - ${json.platform}`;
+                                    return (
+                                      <button
+                                        onClick={() => setDisplayContent({ type: "social_post", title, props: json })}
+                                        className="flex items-center gap-3 px-4 py-3 my-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group w-full max-w-sm text-left"
+                                      >
+                                        <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400 group-hover:scale-110 transition-transform">
+                                          <MessageCircle size={20} />
+                                        </div>
+                                        <div className="flex-1 truncate">
+                                          <p className="text-sm font-medium text-white truncate">{title}</p>
+                                          <p className="text-xs text-neutral-400 mt-0.5">Click to view draft and post</p>
+                                        </div>
+                                        <ChevronRight size={16} className="text-neutral-500 group-hover:text-white transition-colors" />
+                                      </button>
+                                    );
+                                  } catch (e) {
+                                    return <pre className="text-red-500">Error rendering social post draft</pre>;
+                                  }
+                                }
+                                if (className === "language-meeting_brief") {
+                                  try {
+                                    const json = JSON.parse(String(children));
+                                    const title = `Meeting Prep: ${json.meetingTitle}`;
+                                    return (
+                                      <button
+                                        onClick={() => setDisplayContent({ type: "meeting_brief", title, props: json })}
+                                        className="flex items-center gap-3 px-4 py-3 my-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group w-full max-w-sm text-left"
+                                      >
+                                        <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400 group-hover:scale-110 transition-transform">
+                                          <CalendarDays size={20} />
+                                        </div>
+                                        <div className="flex-1 truncate">
+                                          <p className="text-sm font-medium text-white truncate">{title}</p>
+                                          <p className="text-xs text-neutral-400 mt-0.5">Click to view meeting brief</p>
+                                        </div>
+                                        <ChevronRight size={16} className="text-neutral-500 group-hover:text-white transition-colors" />
+                                      </button>
+                                    );
+                                  } catch (e) {
+                                    return <pre className="text-red-500">Error rendering meeting brief</pre>;
+                                  }
+                                }
+                                if (className === "language-document_summary") {
+                                  try {
+                                    const json = JSON.parse(String(children));
+                                    const title = `Summary: ${json.documentTitle}`;
+                                    return (
+                                      <button
+                                        onClick={() => setDisplayContent({ type: "document_summary", title, props: json })}
+                                        className="flex items-center gap-3 px-4 py-3 my-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group w-full max-w-sm text-left"
+                                      >
+                                        <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400 group-hover:scale-110 transition-transform">
+                                          <FileText size={20} />
+                                        </div>
+                                        <div className="flex-1 truncate">
+                                          <p className="text-sm font-medium text-white truncate">{title}</p>
+                                          <p className="text-xs text-neutral-400 mt-0.5">Click to view document summary</p>
+                                        </div>
+                                        <ChevronRight size={16} className="text-neutral-500 group-hover:text-white transition-colors" />
+                                      </button>
+                                    );
+                                  } catch (e) {
+                                    return <pre className="text-red-500">Error rendering document summary</pre>;
+                                  }
+                                }
                                 return isInline ? (
                                   <code className="text-[13px] bg-white/10 text-amber-300 px-1.5 py-0.5 rounded-md font-mono">{children}</code>
                                 ) : (
@@ -1027,7 +1129,14 @@ function ChatPageInner() {
             </p>
           </div>
         </div>
-      </main>
+        </main>
+        
+        {/* Display Panel */}
+        <DisplayPanel 
+          content={displayContent} 
+          onClose={() => setDisplayContent(null)} 
+        />
+      </div>
 
       {/* Workflow Preview Modal */}
       <AnimatePresence>

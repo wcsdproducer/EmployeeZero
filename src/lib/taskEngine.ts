@@ -11,6 +11,7 @@ import {
   listEmails, getEmail, sendEmail, replyToEmail,
   getUnreadCount, archiveEmail, trashEmail,
 } from "@/lib/gmail";
+import { getStripeBalance, listStripeCharges, getStripeMetrics } from "./stripeTools";
 import { browseUrl, clickUrl, submitForm, webSearch } from "@/lib/browser";
 import {
   listEvents, getEvent, createEvent, updateEvent,
@@ -63,7 +64,7 @@ import {
 import {
   getProfile as getInstagramProfile,
   getRecentMedia as getInstagramMedia,
-  createPost as createInstagramPost,
+  createPost as getInstagramPost,
   getPostComments as getInstagramComments,
   replyToComment as replyToInstagramComment,
   createCarouselPost as createInstagramCarousel,
@@ -346,6 +347,43 @@ const CALENDAR_TOOLS = [
   },
 ];
 
+const FINANCE_TOOLS = [
+  {
+    name: "get_crypto_prices",
+    description: "Fetch real-time cryptocurrency prices in USD. Use this for highly dynamic market data.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        coin_ids: { type: Type.STRING, description: "Comma-separated list of coin IDs (e.g., 'bitcoin,ethereum,solana')" },
+      },
+      required: ["coin_ids"],
+    },
+  },
+];
+
+const STRIPE_TOOLS = [
+  {
+    name: "get_stripe_balance",
+    description: "Fetch current Stripe available and pending balance.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_stripe_metrics",
+    description: "Fetch Stripe MRR (Monthly Recurring Revenue) approximations and active subscription counts.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "list_stripe_charges",
+    description: "List recent Stripe charges or payments.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        limit: { type: Type.NUMBER, description: "Number of charges to retrieve (default 10)" },
+      },
+    },
+  },
+];
+
 const BROWSER_TOOLS = [
   {
     name: "browse_url",
@@ -531,6 +569,13 @@ async function executeTool(
     case "trash_email":
       await trashEmail(userId, args.message_id);
       return { success: true, action: "trashed" };
+    // Stripe
+    case "get_stripe_balance":
+      return await getStripeBalance(userId);
+    case "get_stripe_metrics":
+      return await getStripeMetrics(userId);
+    case "list_stripe_charges":
+      return await listStripeCharges(userId, args.limit || 10);
     // Browser
     case "browse_url":
       return await browseUrl(args.url, { extractLinks: args.extract_links });
@@ -542,6 +587,15 @@ async function executeTool(
     }
     case "web_search":
       return await webSearch(args.query);
+    case "get_crypto_prices": {
+      try {
+        const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${args.coin_ids}&vs_currencies=usd`);
+        const data = await response.json();
+        return { success: true, prices: data };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    }
     // Calendar
     case "list_events":
       return await listEvents(userId, args.time_min, args.time_max, args.max_results || 10);
@@ -667,7 +721,7 @@ async function executeTool(
     case "get_instagram_media":
       return await getInstagramMedia(userId, args.max_results || 10);
     case "create_instagram_post":
-      return await createInstagramPost(userId, args.image_url, args.caption);
+      return await getInstagramPost(userId, args.image_url, args.caption);
     case "get_instagram_comments":
       return await getInstagramComments(userId, args.media_id);
     case "reply_to_instagram_comment":
@@ -1011,7 +1065,11 @@ async function getAvailableTools(userId: string) {
     // Always include: meta-tools, browser, notes
     tools.push(...META_TOOLS);
     tools.push(...BROWSER_TOOLS);
+    tools.push(...FINANCE_TOOLS);
     tools.push(...NOTES_TOOLS);
+    if (connections.stripe?.connected) {
+      tools.push(...STRIPE_TOOLS);
+    }
     services.push("Web Browsing", "Notes");
 
     // Universal MCP Connector — load any user-connected MCP servers
@@ -1131,6 +1189,9 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 6. You can browse any website, follow links, search the web, and submit forms.
 7. You can save notes using create_note for persistent storage.
 8. If the goal asks you to ask the user a question, respond with ONLY the question text — do NOT call task_complete. The system will deliver your question and pause until the user responds.
+9. To display a Social Media Post draft to the user, use a fenced code block with the language "social_post" in your text response (not in task_complete). The content must be a JSON object: { "platform": "twitter"|"linkedin"|"instagram"|"facebook", "content": "The post text", "authorName": "...", "authorHandle": "...", "authorImage": "...", "postImage": "URL if any" }.
+10. To display a structured Meeting Brief (when preparing for calendar events), use a fenced code block with language "meeting_brief". Content must be JSON: { "meetingTitle": "...", "time": "...", "attendees": ["..."], "overview": "...", "talkingPoints": ["..."], "questionsToAsk": ["..."], "actionItems": ["..."] }.
+11. To display a structured Document Summary (when summarizing large drive files), use a fenced code block with language "document_summary". Content must be JSON: { "documentTitle": "...", "author": "...", "date": "...", "url": "...", "overview": "...", "keyTakeaways": ["..."], "actionItems": ["..."], "metadata": {"key": "val"} }.
 
 ## CRITICAL: Report Formatting
 When the goal is accomplished, call task_complete with a clean, beautifully formatted report.
@@ -1536,6 +1597,9 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 6. You can browse any website, follow links, search the web, and submit forms.
 7. You can save notes using create_note for persistent storage.
 8. If the goal asks you to ask the user a question, respond with ONLY the question text — do NOT call task_complete. The system will deliver your question and pause until the user responds.
+9. To display a Social Media Post draft to the user, use a fenced code block with the language "social_post" in your text response (not in task_complete). The content must be a JSON object: { "platform": "twitter"|"linkedin"|"instagram"|"facebook", "content": "The post text", "authorName": "...", "authorHandle": "...", "authorImage": "...", "postImage": "URL if any" }.
+10. To display a structured Meeting Brief (when preparing for calendar events), use a fenced code block with language "meeting_brief". Content must be JSON: { "meetingTitle": "...", "time": "...", "attendees": ["..."], "overview": "...", "talkingPoints": ["..."], "questionsToAsk": ["..."], "actionItems": ["..."] }.
+11. To display a structured Document Summary (when summarizing large drive files), use a fenced code block with language "document_summary". Content must be JSON: { "documentTitle": "...", "author": "...", "date": "...", "url": "...", "overview": "...", "keyTakeaways": ["..."], "actionItems": ["..."], "metadata": {"key": "val"} }.
 
 ## CRITICAL: Reporting Requirements
 When the goal is accomplished, you MUST call task_complete with the FULL, DETAILED REPORT as the result.

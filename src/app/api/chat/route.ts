@@ -22,6 +22,7 @@ import {
   deleteEvent,
   findFreeSlots,
 } from "@/lib/calendar";
+import { getStripeBalance, listStripeCharges, getStripeMetrics } from "@/lib/stripeTools";
 import {
   createCustomWorkflow,
   listCustomWorkflows,
@@ -85,7 +86,7 @@ import {
 import {
   getProfile as getInstagramProfile,
   getRecentMedia as getInstagramMedia,
-  createPost as createInstagramPost,
+  createPost as getInstagramPost,
   getPostComments as getInstagramComments,
   replyToComment as replyToInstagramComment,
   createCarouselPost as createInstagramCarousel,
@@ -508,6 +509,29 @@ const BROWSER_TOOLS = [
         query: { type: Type.STRING, description: "Search query" },
       },
       required: ["query"],
+    },
+  },
+];
+
+const STRIPE_TOOLS = [
+  {
+    name: "get_stripe_balance",
+    description: "Fetch current Stripe available and pending balance.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "get_stripe_metrics",
+    description: "Fetch Stripe MRR (Monthly Recurring Revenue) approximations and active subscription counts.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "list_stripe_charges",
+    description: "List recent Stripe charges or payments.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        limit: { type: Type.NUMBER, description: "Number of charges to retrieve (default 10)" },
+      },
     },
   },
 ];
@@ -1466,6 +1490,13 @@ async function executeTool(
     }
     case "web_search":
       return await webSearch(args.query);
+    // Stripe Tools
+    case "get_stripe_balance":
+      return await getStripeBalance(userId);
+    case "get_stripe_metrics":
+      return await getStripeMetrics(userId);
+    case "list_stripe_charges":
+      return await listStripeCharges(userId, args.limit || 10);
     // Calendar tools
     case "list_events":
       return await listEvents(userId, args.time_min, args.time_max, args.max_results || 10);
@@ -1585,7 +1616,7 @@ async function executeTool(
     case "get_instagram_media":
       return await getInstagramMedia(userId, args.max_results || 10);
     case "create_instagram_post":
-      return await createInstagramPost(userId, args.image_url, args.caption);
+      return await getInstagramPost(userId, args.image_url, args.caption);
     case "get_instagram_comments":
       return await getInstagramComments(userId, args.media_id);
     case "reply_to_instagram_comment":
@@ -2050,6 +2081,7 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
     if (connections.instagram?.connected) connectedServices.push("Instagram");
     if (connections.facebook?.connected) connectedServices.push("Facebook");
     if (connections.tiktok?.connected) connectedServices.push("TikTok");
+    if (connections.stripe?.connected) connectedServices.push("Stripe");
 
     if (connectedServices.length > 0) {
       systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
@@ -2092,6 +2124,10 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 
       if (connections.tiktok?.connected) {
         systemPrompt += `\n\n### TikTok Access\nYou can view the user's TikTok profile with follower count and video stats. Posting is not yet available (pending API approval).`;
+      }
+
+      if (connections.stripe?.connected) {
+        systemPrompt += `\n\n### Stripe Access\nYou have direct access to the user's Stripe account. When asked about revenue, balances, payments, or MRR, use the Stripe tools.`;
       }
 
       if (connections.tasks?.connected) {
@@ -2271,6 +2307,9 @@ The memory_extract section will be automatically processed and NOT shown to the 
         if (connections.youtube?.connected) {
           allTools.push(...YOUTUBE_TOOLS);
         }
+        if (connections.stripe?.connected) {
+          allTools.push(...STRIPE_TOOLS);
+        }
         if (connections.linkedin?.connected) {
           allTools.push(...LINKEDIN_TOOLS);
         }
@@ -2285,6 +2324,9 @@ The memory_extract section will be automatically processed and NOT shown to the 
         }
         if (connections.tiktok?.connected) {
           allTools.push(...TIKTOK_TOOLS);
+        }
+        if (connections.stripe?.connected) {
+          allTools.push(...STRIPE_TOOLS);
         }
         // Contacts: use any Google connection
         if (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected) {
