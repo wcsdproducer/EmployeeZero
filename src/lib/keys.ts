@@ -51,6 +51,7 @@ export const INTEGRATIONS: IntegrationConfig[] = [
   { id: "slack", name: "Slack", category: "tools", description: "Send messages, manage channels, post updates", placeholder: "Slack Bot token (xoxb-...)", helpUrl: "https://api.slack.com/apps" },
   { id: "notion", name: "Notion", category: "tools", description: "Create pages, manage databases, search content", placeholder: "Notion integration token", helpUrl: "https://www.notion.so/my-integrations" },
   { id: "zapier", name: "Zapier", category: "tools", description: "Trigger automations across 6,000+ apps", placeholder: "Zapier webhook URL or API key", helpUrl: "https://zapier.com/app/developer" },
+  { id: "elevenlabs", name: "ElevenLabs Voice", category: "tools", description: "Enable ultra-realistic Text-to-Speech in Voice Mode", placeholder: "ElevenLabs API Key", helpUrl: "https://elevenlabs.io/app/settings/api-keys" },
   { id: "stripe", name: "Stripe", category: "tools", description: "Create invoices, check balances, manage payments", placeholder: "Stripe secret key (sk_...)", helpUrl: "https://dashboard.stripe.com/apikeys" },
   { id: "hubspot", name: "HubSpot", category: "tools", description: "Manage contacts, deals, and marketing campaigns", placeholder: "HubSpot private app token", helpUrl: "https://app.hubspot.com/private-apps" },
 ];

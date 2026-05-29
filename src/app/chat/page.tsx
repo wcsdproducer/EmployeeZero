@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { SERVICE_ICONS } from "@/components/ServiceIcons";
 import { ConversationSearchModal } from "@/components/ConversationSearch";
-import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, PanelLeftClose, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare, Menu, MessageCircle, CalendarDays, FileText } from "lucide-react";
+import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, PanelLeftClose, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare, Menu, MessageCircle, CalendarDays, FileText, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { authFetch } from "@/lib/authFetch";
 import packageJson from "../../../package.json";
+import { getIntegrationKey } from "@/lib/keys";
+import { playElevenLabsAudio } from "@/lib/elevenlabs";
 import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { signOut } from "@/lib/firebase";
 import ReactMarkdown from "react-markdown";
@@ -113,6 +115,61 @@ function ChatPageInner() {
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
   const [displayContent, setDisplayContent] = useState<DisplayContent | null>(null);
   const agents = getAgents(employeeName, employeeAvatar);
+
+  // Voice Mode State
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [elevenLabsKey, setElevenLabsKey] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Fetch ElevenLabs key
+  useEffect(() => {
+    if (!user?.uid) return;
+    getIntegrationKey(user.uid, "elevenlabs").then(record => {
+      if (record?.key) setElevenLabsKey(record.key);
+    }).catch(() => {});
+  }, [user?.uid]);
+
+  // Init SpeechRecognition
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        
+        recognition.onresult = (event: any) => {
+          let transcript = "";
+          for (let i = 0; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+          }
+          setInput(transcript);
+        };
+        
+        recognition.onerror = (e: any) => {
+          console.error("Speech recognition error", e);
+          setIsListening(false);
+        };
+        
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+        
+        recognitionRef.current = recognition;
+      }
+    }
+  }, []);
+
+  const toggleListening = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else {
+      recognitionRef.current?.start();
+      setIsListening(true);
+    }
+  };
 
   // Track active workflow IDs from both installed + cron
   const [activeWorkflowIds, setActiveWorkflowIds] = useState<string[]>([]);
@@ -415,6 +472,24 @@ function ChatPageInner() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [activeConv?.messages?.length, activeConv?.status]);
+
+  // Voice Auto-Play on Message Complete
+  const previousStatusRef = useRef<string>("complete");
+  useEffect(() => {
+    if (!activeConv) return;
+    
+    if (previousStatusRef.current === "running" && activeConv.status === "complete") {
+      if (isVoiceMode && elevenLabsKey) {
+        const lastMsg = activeConv.messages[activeConv.messages.length - 1];
+        if (lastMsg && lastMsg.role === "model" && typeof lastMsg.content === "string") {
+          playElevenLabsAudio(lastMsg.content, elevenLabsKey).catch(err => {
+            console.error("Failed to play ElevenLabs audio:", err);
+          });
+        }
+      }
+    }
+    previousStatusRef.current = activeConv.status;
+  }, [activeConv?.status, activeConv?.messages, isVoiceMode, elevenLabsKey]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -1098,6 +1173,25 @@ function ChatPageInner() {
               </div>
             )}
             <form onSubmit={handleSubmit} className="relative">
+              <div className="absolute top-[-36px] right-2 flex gap-2">
+                {elevenLabsKey && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsVoiceMode(!isVoiceMode)}
+                    className={cn(
+                      "h-8 px-3 rounded-lg transition-colors text-xs font-medium border",
+                      isVoiceMode 
+                        ? "bg-purple-500/20 text-purple-400 border-purple-500/30" 
+                        : "bg-white/5 text-neutral-400 border-white/5 hover:text-white"
+                    )}
+                  >
+                    {isVoiceMode ? <Volume2 size={14} className="mr-1.5" /> : <VolumeX size={14} className="mr-1.5" />}
+                    Voice Response
+                  </Button>
+                )}
+              </div>
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -1108,9 +1202,21 @@ function ChatPageInner() {
                     }
                 }}
                 placeholder={`Message ${selectedAgent.name}...`}
-                className="w-full bg-[#171717] border border-white/10 rounded-2xl py-4 pl-4 pr-14 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-transparent transition-all min-h-[60px] md:min-h-[60px] max-h-[200px] resize-none text-[15px] placeholder:text-neutral-600 shadow-2xl"
+                className="w-full bg-[#171717] border border-white/10 rounded-2xl py-4 pl-4 pr-24 focus:outline-none focus:ring-2 focus:ring-white/10 focus:border-transparent transition-all min-h-[60px] md:min-h-[60px] max-h-[200px] resize-none text-[15px] placeholder:text-neutral-600 shadow-2xl"
               />
-              <div className="absolute right-3 bottom-3">
+              <div className="absolute right-3 bottom-3 flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleListening}
+                  className={cn(
+                    "h-8 w-8 rounded-xl transition-all",
+                    isListening ? "bg-red-500/20 text-red-500 animate-pulse hover:bg-red-500/30" : "bg-white/5 text-neutral-400 hover:text-white"
+                  )}
+                >
+                  {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+                </Button>
                 <Button 
                     type="submit" 
                     disabled={!input.trim() || submitting}
