@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { ElevenLabsVoiceSelector } from "@/components/ElevenLabsVoiceSelector";
 import {
   ArrowLeft,
   Brain,
@@ -1195,6 +1196,10 @@ function ConnectionsPageInner() {
                       )}
                     </div>
                   </div>
+
+                  {isConnected && !isEditing && svc.id === "elevenlabs" && conn?.apiKey && conn?.apiSecret && (
+                    <ElevenLabsVoiceSelector apiKey={conn.apiKey} agentId={conn.apiSecret} />
+                  )}
 
                   <AnimatePresence initial={false}>
                     {isEditing && (

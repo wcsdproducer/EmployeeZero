@@ -17,7 +17,7 @@ import { authFetch } from "@/lib/authFetch";
 import packageJson from "../../../package.json";
 import { getIntegrationKey } from "@/lib/keys";
 import { playElevenLabsAudio } from "@/lib/elevenlabs";
-import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import { signOut } from "@/lib/firebase";
 import ReactMarkdown from "react-markdown";
 import { AgentChart } from "@/components/AgentChart";
@@ -123,9 +123,40 @@ function ChatPageInner() {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
 
+  const activeConvIdRef = useRef(activeConvId);
+  useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
+
   const conversation = useConversation({
-    onConnect: () => setIsVoiceMode(true),
+    onConnect: async () => {
+      setIsVoiceMode(true);
+      if (!activeConvIdRef.current && user) {
+        try {
+          const docRef = await addDoc(collection(db, "conversations"), {
+            userId: user.uid,
+            title: "Voice Conversation",
+            messages: [],
+            status: "running",
+            createdAt: Timestamp.now(),
+          });
+          setActiveConvId(docRef.id);
+        } catch (err) {
+          console.error("Failed to create conversation for voice:", err);
+        }
+      }
+    },
     onDisconnect: () => setIsVoiceMode(false),
+    onMessage: async (msg: any) => {
+      const currentConvId = activeConvIdRef.current;
+      if (!currentConvId) return;
+      const role = msg.source === 'ai' ? 'model' : 'user';
+      try {
+        await updateDoc(doc(db, "conversations", currentConvId), {
+          messages: arrayUnion({ role, content: msg.message, timestamp: new Date().toISOString() })
+        });
+      } catch (err) {
+        console.error("Failed to append voice message:", err);
+      }
+    },
     onError: (error: any) => console.error("ElevenLabs error:", error)
   });
 
@@ -1152,25 +1183,6 @@ function ChatPageInner() {
               </div>
             )}
             <form onSubmit={handleSubmit} className="relative">
-              <div className="absolute top-[-36px] right-2 flex gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleListening}
-                    disabled={!agentId}
-                    className={cn(
-                      "h-8 px-3 rounded-lg transition-colors text-xs font-medium border",
-                      conversation.status === 'connected' 
-                        ? "bg-purple-500/20 text-purple-400 border-purple-500/30" 
-                        : "bg-white/5 text-neutral-400 border-white/5 hover:text-white"
-                    )}
-                    title={agentId ? "Connect WebRTC Session" : "Connect ElevenLabs API Key in Settings"}
-                  >
-                    {conversation.status === 'connected' ? <Volume2 size={14} className="mr-1.5 animate-pulse" /> : <VolumeX size={14} className="mr-1.5" />}
-                    {conversation.status === 'connected' ? "Call Active" : "Call Agent"}
-                  </Button>
-              </div>
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
