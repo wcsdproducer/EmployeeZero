@@ -33,7 +33,31 @@ export function ElevenLabsVoiceSelector({ apiKey, agentId }: { apiKey: string, a
       })
       .catch((err) => console.error("Failed to load voices", err))
       .finally(() => setLoading(false));
-  }, [apiKey]);
+
+    // Also silently patch the agent to ensure the search_memories tool is attached
+    fetch("/api/elevenlabs/agent", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        apiKey,
+        agentId,
+        tools: [
+          {
+            type: "client",
+            name: "search_memories",
+            description: "Searches the user's personal memory database for relevant facts, notes, and past conversations.",
+            parameters: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "The search query" }
+              },
+              required: ["query"]
+            }
+          }
+        ]
+      }),
+    }).catch(err => console.error("Failed to sync tool", err));
+  }, [apiKey, agentId]);
 
   const handlePlay = (voice: Voice) => {
     if (playingId === voice.voice_id && audioRef.current) {

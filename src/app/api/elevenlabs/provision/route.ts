@@ -19,9 +19,23 @@ export async function POST(req: Request) {
         conversation_config: {
           agent: {
             prompt: {
-              prompt: "You are Employee Zero, an advanced autonomous AI assistant. You are helpful, highly intelligent, and concise. Your goal is to serve the user efficiently. Keep your answers brief and natural.",
+              prompt: "You are Employee Zero, an advanced autonomous AI assistant. You are helpful, highly intelligent, and concise. Your goal is to serve the user efficiently. Keep your answers brief and natural. You have access to the user's personal memory database. You can search these memories at any time to answer questions about the user or their past interactions.",
             },
             first_message: "Hello, I am Employee Zero. How can I help you?",
+            tools: [
+              {
+                type: "client",
+                name: "search_memories",
+                description: "Searches the user's personal memory database for relevant facts, notes, and past conversations.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    query: { type: "string", description: "The search query" }
+                  },
+                  required: ["query"]
+                }
+              }
+            ]
           },
           tts: {
             voice_id: "21m00Tcm4TlvDq8ikWAM", // Rachel

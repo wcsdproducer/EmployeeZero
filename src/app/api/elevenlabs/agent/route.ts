@@ -2,10 +2,24 @@ import { NextResponse } from "next/server";
 
 export async function PATCH(req: Request) {
   try {
-    const { apiKey, agentId, voiceId } = await req.json();
+    const { apiKey, agentId, voiceId, tools, prompt } = await req.json();
 
-    if (!apiKey || !agentId || !voiceId) {
+    if (!apiKey || !agentId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const payload: any = {
+      conversation_config: {}
+    };
+
+    if (voiceId) {
+      payload.conversation_config.tts = { voice_id: voiceId };
+    }
+
+    if (tools || prompt) {
+      payload.conversation_config.agent = {};
+      if (tools) payload.conversation_config.agent.tools = tools;
+      if (prompt) payload.conversation_config.agent.prompt = { prompt };
     }
 
     const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
@@ -14,13 +28,7 @@ export async function PATCH(req: Request) {
         "xi-api-key": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        conversation_config: {
-          tts: {
-            voice_id: voiceId
-          }
-        }
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {

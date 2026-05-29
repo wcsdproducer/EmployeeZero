@@ -157,6 +157,30 @@ function ChatPageInner() {
         console.error("Failed to append voice message:", err);
       }
     },
+    clientTools: {
+      search_memories: async ({ query }: { query: string }) => {
+        if (!user) return "User not logged in.";
+        try {
+          const res = await authFetch("/api/memories", {
+            method: "POST",
+            body: JSON.stringify({
+              action: "search",
+              tenantId: user.uid,
+              agentId: "employee-zero",
+              query,
+            })
+          });
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            return JSON.stringify(data.results);
+          }
+          return "No relevant memories found.";
+        } catch (err) {
+          console.error("Client tool error:", err);
+          return "Failed to fetch memories.";
+        }
+      }
+    },
     onError: (error: any) => console.error("ElevenLabs error:", error)
   });
 
