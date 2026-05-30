@@ -335,16 +335,76 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             return;
           }
 
-          // Handle tool calls — run in parallel with a 12s timeout each
+          // Handle tool calls
+          // Slow read/search tools are auto-backgrounded so they never block the voice conversation.
+          // Atlas gets an instant "fetching" response and can keep talking; results arrive via clientContent.
+          const AUTO_BACKGROUND_TOOLS = new Set([
+            "search_emails", "read_email", "get_unread_count",
+            "web_search", "browse_url", "click_url",
+            "list_events", "get_event", "find_free_slots",
+            "list_drive_files", "get_drive_file", "read_drive_file",
+            "list_notes", "search_notes", "get_note",
+            "list_contacts", "get_contact",
+            "list_youtube_channels", "list_youtube_videos", "get_youtube_analytics", "search_youtube",
+            "get_linkedin_posts", "get_linkedin_profile",
+            "get_instagram_media", "get_instagram_profile", "get_instagram_comments",
+            "get_facebook_page_posts", "get_facebook_page_insights", "get_facebook_post_comments",
+            "list_google_tasks", "get_document",
+            "read_sheet", "list_spreadsheets",
+            "get_stripe_balance", "get_stripe_metrics", "list_stripe_charges",
+            "list_analytics_properties", "run_analytics_report", "get_realtime_analytics",
+            "get_form_responses", "list_business_accounts", "list_business_locations", "get_business_reviews",
+          ]);
+
           const fcalls = (msg.serverContent?.modelTurn?.parts || [])
             .filter((p: any) => p.functionCall)
             .map((p: any) => p.functionCall);
 
           if (fcalls.length > 0) {
             const TOOL_TIMEOUT_MS = 12_000;
-            const executeWithTimeout = async (call: any) => {
+
+            const executeCall = async (call: any) => {
               const { name, args, id } = call;
-              console.log(`[GeminiLive] Tool call: ${name}`);
+
+              // ── Auto-background slow read tools ──────────────────────────────
+              if (AUTO_BACKGROUND_TOOLS.has(name)) {
+                console.log(`[GeminiLive] Auto-backgrounding slow tool: ${name}`);
+                // Return instantly so Gemini can keep speaking
+                const friendlyName = name.replace(/_/g, " ");
+                const instant = { response: { output: { status: "fetching", message: `Fetching ${friendlyName} now, I'll let you know when it's ready.` } }, id };
+
+                // Execute the actual tool in the background
+                (async () => {
+                  try {
+                    const r = await authFetch("/api/tools/execute", {
+                      method: "POST",
+                      body: JSON.stringify({ name, arguments: args || {}, agentId: agentIdRef.current }),
+                      signal: AbortSignal.timeout(25_000),
+                    });
+                    const result = await r.json();
+                    // Inject result back into voice session
+                    const resultText = JSON.stringify(result).substring(0, 2000);
+                    const injection = `[${friendlyName} results are ready]\n${resultText}\nSummarize this result conversationally in 1-2 sentences for the user.`;
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                      wsRef.current.send(JSON.stringify({
+                        clientContent: { turns: [{ role: "user", parts: [{ text: injection }] }], turnComplete: true },
+                      }));
+                    }
+                  } catch (err: any) {
+                    console.warn(`[GeminiLive] Background tool ${name} failed:`, err.message);
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                      wsRef.current.send(JSON.stringify({
+                        clientContent: { turns: [{ role: "user", parts: [{ text: `[${friendlyName} failed: ${err.message}. Please let the user know briefly.]` }] }], turnComplete: true },
+                      }));
+                    }
+                  }
+                })();
+
+                return instant;
+              }
+
+              // ── Synchronous execution for write/action tools ─────────────────
+              console.log(`[GeminiLive] Tool call (sync): ${name}`);
               try {
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), TOOL_TIMEOUT_MS);
@@ -359,12 +419,12 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
               } catch (err: any) {
                 const isTimeout = err.name === "AbortError";
                 console.warn(`[GeminiLive] Tool ${name} ${isTimeout ? "timed out" : "failed"}:`, err.message);
-                return { response: { error: isTimeout ? `Tool '${name}' timed out after ${TOOL_TIMEOUT_MS/1000}s — please try again` : err.message }, id };
+                return { response: { error: isTimeout ? `'${name}' is taking too long — please try again` : err.message }, id };
               }
             };
 
-            // Run all tool calls in parallel
-            const responses = await Promise.all(fcalls.map(executeWithTimeout));
+            // Execute all tool calls (auto-background returns instantly, sync waits)
+            const responses = await Promise.all(fcalls.map(executeCall));
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
             }
