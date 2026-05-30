@@ -335,28 +335,42 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             return;
           }
 
-          // Handle tool calls
+          // Handle tool calls — run in parallel with a 12s timeout each
           const fcalls = (msg.serverContent?.modelTurn?.parts || [])
             .filter((p: any) => p.functionCall)
             .map((p: any) => p.functionCall);
 
           if (fcalls.length > 0) {
-            for (const call of fcalls) {
+            const TOOL_TIMEOUT_MS = 12_000;
+            const executeWithTimeout = async (call: any) => {
               const { name, args, id } = call;
               console.log(`[GeminiLive] Tool call: ${name}`);
               try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), TOOL_TIMEOUT_MS);
                 const r = await authFetch("/api/tools/execute", {
                   method: "POST",
                   body: JSON.stringify({ name, arguments: args || {}, agentId: agentIdRef.current }),
+                  signal: controller.signal,
                 });
+                clearTimeout(timer);
                 const output = await r.json();
-                ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ response: { output }, id }] } }));
+                return { response: { output }, id };
               } catch (err: any) {
-                ws.send(JSON.stringify({ toolResponse: { functionResponses: [{ response: { error: err.message }, id }] } }));
+                const isTimeout = err.name === "AbortError";
+                console.warn(`[GeminiLive] Tool ${name} ${isTimeout ? "timed out" : "failed"}:`, err.message);
+                return { response: { error: isTimeout ? `Tool '${name}' timed out after ${TOOL_TIMEOUT_MS/1000}s — please try again` : err.message }, id };
               }
+            };
+
+            // Run all tool calls in parallel
+            const responses = await Promise.all(fcalls.map(executeWithTimeout));
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
             }
             return;
           }
+
 
           // Play audio + accumulate AI text
           const parts = msg.serverContent?.modelTurn?.parts || [];
