@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
 import { loadUserSOUL } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
+import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
+
+// Combine all tools. You might want to filter this list if ElevenLabs has a maximum tool limit.
+const allAgentTools = [
+  ...BROWSER_TOOLS, ...GMAIL_TOOLS, ...CALENDAR_TOOLS, ...DRIVE_TOOLS, 
+  ...SHEETS_TOOLS, ...YOUTUBE_TOOLS, ...STRIPE_TOOLS, ...LINKEDIN_TOOLS, 
+  ...TWITTER_TOOLS, ...INSTAGRAM_TOOLS, ...FACEBOOK_TOOLS, ...TIKTOK_TOOLS, 
+  ...CONTACTS_TOOLS, ...TASKS_TOOLS, ...DOCS_TOOLS, ...BUSINESS_PROFILE_TOOLS, 
+  ...ANALYTICS_TOOLS, ...FORMS_TOOLS, ...SLIDES_TOOLS, ...NOTES_TOOLS, 
+  ...WORKFLOW_TOOLS
+];
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +26,36 @@ export async function POST(req: Request) {
     }
 
     const soul = await loadUserSOUL(auth.userId!);
-    const compiledPrompt = buildSOULPrompt(soul) + "\n\nYou have access to the user's personal memory database. You can search these memories at any time to answer questions about the user or their past interactions.";
+    const compiledPrompt = buildSOULPrompt(soul) + "\n\nYou have access to the user's personal memory database and all their connected external services via your tools. If asked about your memory, reference your tools. If asked about connections, use the appropriate tool.";
+
+    const hostUrl = process.env.NEXT_PUBLIC_APP_URL || "https://employeezero.app";
+
+    const webhookTools = allAgentTools.map(tool => ({
+      type: "webhook",
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+      api_schema: {
+        url: `${hostUrl}/api/elevenlabs/webhook?userId=${auth.userId}`,
+        method: "POST"
+      }
+    }));
+
+    const tools = [
+      {
+        type: "client",
+        name: "search_memories",
+        description: "Searches the user's personal memory database for relevant facts, notes, and past conversations.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "The search query" }
+          },
+          required: ["query"]
+        }
+      },
+      ...webhookTools
+    ];
 
     const response = await fetch("https://api.elevenlabs.io/v1/convai/agents/create", {
       method: "POST",
@@ -31,20 +71,7 @@ export async function POST(req: Request) {
               prompt: compiledPrompt,
             },
             first_message: "Hello, I am Employee Zero. How can I help you?",
-            tools: [
-              {
-                type: "client",
-                name: "search_memories",
-                description: "Searches the user's personal memory database for relevant facts, notes, and past conversations.",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    query: { type: "string", description: "The search query" }
-                  },
-                  required: ["query"]
-                }
-              }
-            ]
+            tools: tools
           },
           tts: {
             voice_id: "21m00Tcm4TlvDq8ikWAM", // Rachel
