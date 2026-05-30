@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/admin";
 import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
 import { GoogleGenAI, Type } from "@google/genai";
+import { FieldValue } from "firebase-admin/firestore";
 import {
   listEmails,
   getEmail,
@@ -525,6 +526,21 @@ export async function executeTool(
     case "insert_slide_text":
       return await insertSlideText(userId, args.presentation_id, args.slide_id, args.text);
 
+    case "run_in_background": {
+      // Queue a tool to run asynchronously — returns immediately so voice conversation continues
+      const innerToolName = args.tool_name;
+      const innerArgs = (() => { try { return typeof args.tool_args === "string" ? JSON.parse(args.tool_args) : (args.tool_args || {}); } catch { return {}; } })();
+      const taskRef = await adminDb.collection(`users/${userId}/backgroundTasks`).add({
+        toolName: innerToolName,
+        args: innerArgs,
+        agentId: agentId || "primary",
+        description: args.description || innerToolName,
+        status: "pending",
+        notified: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      return { taskId: taskRef.id, status: "queued", description: args.description };
+    }
     default:
       // Universal MCP Connector — route mcp_ prefixed tools to MCP servers
       if (toolName.startsWith("mcp_")) {

@@ -449,5 +449,19 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     };
   }, []);
 
-  return { status, startSession, endSession, prefetchSetup };
+  /** Inject text into the active voice session as a user turn (used to push background task results) */
+  const sendClientContent = (text: string): boolean => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        clientContent: {
+          turns: [{ role: "user", parts: [{ text }] }],
+          turnComplete: true,
+        },
+      }));
+      return true;
+    }
+    return false;
+  };
+
+  return { status, startSession, endSession, prefetchSetup, sendClientContent };
 }

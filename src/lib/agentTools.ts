@@ -1187,3 +1187,31 @@ export const SLIDES_TOOLS = [
 ];
 
 // ── Tool executor ───────────────────────────────────────────────
+
+/** Tool Atlas uses to offload slow tasks to a background queue */
+export const RUN_IN_BACKGROUND_TOOL = {
+  name: "run_in_background",
+  description: `Runs a tool in the background WITHOUT blocking the conversation.
+Use this for any task that might take more than 2 seconds (email scans, web searches, calendar lookups, etc.).
+The result will be automatically delivered back to you when ready.
+You MUST immediately say something conversational after calling this — do NOT wait silently.
+Example: After queueing "check my emails", say "Sure! Scanning your inbox now — tell me what else is on your mind?"`,
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      tool_name: {
+        type: Type.STRING,
+        description: "The exact tool name to run (e.g. 'search_emails', 'web_search', 'list_events')",
+      },
+      tool_args: {
+        type: Type.STRING,
+        description: "JSON string of arguments for the tool (e.g. '{\"query\":\"is:unread\",\"max_results\":5}')",
+      },
+      description: {
+        type: Type.STRING,
+        description: "Short description to tell the user what's running (e.g. 'email scan', 'calendar check')",
+      },
+    },
+    required: ["tool_name", "description"],
+  },
+};

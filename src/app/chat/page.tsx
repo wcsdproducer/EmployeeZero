@@ -16,7 +16,7 @@ import { db } from "@/lib/firebase";
 import { authFetch } from "@/lib/authFetch";
 import packageJson from "../../../package.json";
 import { getIntegrationKey } from "@/lib/keys";
-import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc, arrayUnion } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import { signOut } from "@/lib/firebase";
 import ReactMarkdown from "react-markdown";
 import { AgentChart } from "@/components/AgentChart";
@@ -385,6 +385,67 @@ function ChatPageInner() {
     const agentId = selectedAgentId || "primary";
     conversation.prefetchSetup(agentId);
   }, [user, selectedAgentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Background Task Worker ──────────────────────────────────────────────────
+  // Executes queued background tasks and injects results into the voice session
+  const executingTasksRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Watch for pending tasks and execute them
+    const unsubPending = onSnapshot(
+      query(collection(db, "users", user.uid, "backgroundTasks"), where("status", "==", "pending"), limit(5)),
+      async (snap) => {
+        for (const taskSnap of snap.docs) {
+          if (executingTasksRef.current.has(taskSnap.id)) continue;
+          executingTasksRef.current.add(taskSnap.id);
+          const task = taskSnap.data();
+          try {
+            await updateDoc(taskSnap.ref, { status: "running" });
+            const res = await authFetch("/api/tools/execute", {
+              method: "POST",
+              body: JSON.stringify({ name: task.toolName, arguments: task.args || {}, agentId: task.agentId }),
+            });
+            const result = await res.json();
+            await updateDoc(taskSnap.ref, { status: "completed", result, completedAt: Timestamp.now() });
+          } catch (err: any) {
+            await updateDoc(taskSnap.ref, { status: "failed", error: err.message, completedAt: Timestamp.now() });
+          } finally {
+            executingTasksRef.current.delete(taskSnap.id);
+          }
+        }
+      }
+    );
+
+    // Watch for completed tasks and deliver results
+    const unsubCompleted = onSnapshot(
+      query(collection(db, "users", user.uid, "backgroundTasks"), where("status", "==", "completed"), where("notified", "==", false), limit(5)),
+      async (snap) => {
+        for (const taskSnap of snap.docs) {
+          const task = taskSnap.data();
+          await updateDoc(taskSnap.ref, { notified: true }).catch(() => {});
+
+          const resultText = JSON.stringify(task.result || {}).substring(0, 2000);
+          const injectionText = `[Background task '${task.description}' is now complete. Results: ${resultText}]\nPlease summarize this result conversationally for the user.`;
+
+          // Try to inject into active voice session first
+          const injected = conversation.sendClientContent(injectionText);
+
+          // If not in voice mode, save as a chat message
+          if (!injected && activeConvIdRef.current && user) {
+            try {
+              const summary = `✅ Background task complete: **${task.description}**\n\n${JSON.stringify(task.result, null, 2).substring(0, 1500)}`;
+              await updateDoc(doc(db, "conversations", activeConvIdRef.current), {
+                messages: arrayUnion({ role: "model", content: summary, timestamp: new Date().toISOString() }),
+              });
+            } catch { /* non-critical */ }
+          }
+        }
+      }
+    );
+
+    return () => { unsubPending(); unsubCompleted(); };
+  }, [user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedAgentDoc = purchasedAgents.find(a => a.id === selectedAgentId);
   const activeVoiceAgentId = selectedAgentId;
