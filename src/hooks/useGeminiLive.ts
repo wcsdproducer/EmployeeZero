@@ -119,19 +119,16 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        setStatus("connected");
-        callbacksRef.current.onConnect?.();
-
         // Send setup payload
         const setupMsg = {
           setup: {
-            model: "models/gemini-2.0-flash-exp",
+            model: "models/gemini-2.0-flash",
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: {
                 voiceConfig: {
                   prebuiltVoiceConfig: {
-                    voiceName: voice || "aoede",
+                    voiceName: voice || "Aoede",
                   },
                 },
               },
@@ -143,14 +140,22 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           },
         };
         ws.send(JSON.stringify(setupMsg));
-
-        // Start capturing audio once connected
-        startRecording(stream);
       };
 
       ws.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
+
+          // Handle Setup Complete before sending any user content
+          if (data.setupComplete) {
+            console.log("[Gemini Live] Setup complete. Active session established.");
+            setStatus("connected");
+            callbacksRef.current.onConnect?.();
+            if (mediaStreamRef.current) {
+              startRecording(mediaStreamRef.current);
+            }
+            return;
+          }
           
           // Handle Interruption
           if (data.serverContent?.interrupted) {

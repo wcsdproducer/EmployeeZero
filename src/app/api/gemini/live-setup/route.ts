@@ -164,15 +164,15 @@ Avoid markdown bold, bullet points, or lists, which sound awkward when read alou
     }
 
     // Voice selection map to Gemini Live voice presets
-    // Available Google voices: "aoede" | "charon" | "fenrir" | "kore" | "puck"
+    // Available Google voices: "Aoede" | "Charon" | "Fenrir" | "Kore" | "Puck"
     const voicePresetMap: Record<string, string> = {
-      "Rachel": "aoede",
-      "Drew": "charon",
-      "Clyde": "fenrir",
-      "Nicole": "kore",
-      "Adam": "puck"
+      "Rachel": "Aoede",
+      "Drew": "Charon",
+      "Clyde": "Fenrir",
+      "Nicole": "Kore",
+      "Adam": "Puck"
     };
-    const selectedVoice = voicePresetMap[soul.voice || "Rachel"] || "aoede";
+    const selectedVoice = voicePresetMap[soul.voice || "Rachel"] || "Aoede";
 
     return NextResponse.json({
       apiKey,
