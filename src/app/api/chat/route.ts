@@ -860,6 +860,17 @@ The memory_extract section will be automatically processed and NOT shown to the 
           const { name: toolName, args } = fnCall.functionCall;
           console.log(`[Chat] Tool call: ${toolName}(${JSON.stringify(args)})`);
 
+          if (conversationId && userId) {
+            let actionLabel = `Running ${toolName}...`;
+            if (toolName === "web_search") actionLabel = "Searching the web...";
+            if (toolName === "read_url") actionLabel = "Reading website...";
+            if (toolName.includes("mail")) actionLabel = "Checking email...";
+            if (toolName.includes("calendar")) actionLabel = "Checking calendar...";
+            try {
+              await adminDb.doc(`conversations/${conversationId}`).update({ currentAction: actionLabel });
+            } catch (err) {}
+          }
+
           let toolResult: any;
           try {
             toolResult = await executeTool(userId, toolName!, args as Record<string, any>);

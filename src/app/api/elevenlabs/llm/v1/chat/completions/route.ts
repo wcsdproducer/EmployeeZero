@@ -198,12 +198,6 @@ You have persistent memory. You remember everything the user has told you across
             const candidate = chunk.candidates?.[0];
             const parts = candidate?.content?.parts || [];
             
-            const partWithFn = parts.find((p: any) => p.functionCall);
-            if (partWithFn) {
-              fnCall = partWithFn.functionCall;
-              break; // Stop streaming text if it's a tool call
-            }
-
             const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text).join("");
             if (textParts) {
               finalResponseText += textParts;
@@ -212,11 +206,22 @@ You have persistent memory. You remember everything the user has told you across
               finalResponseText += chunk.text;
               sendChunk(chunk.text);
             }
+
+            const partWithFn = parts.find((p: any) => p.functionCall);
+            if (partWithFn) {
+              fnCall = partWithFn.functionCall;
+              break; // Stop streaming text if it's a tool call
+            }
           }
 
           if (!fnCall) {
             // No tool call, stream is fully consumed and sent
             break;
+          }
+
+          // If no text was sent before the tool call, inject a filler to keep ElevenLabs alive
+          if (finalResponseText.trim().length === 0) {
+            sendChunk(" Hmm, let me check on that... ");
           }
 
           // Execute tool

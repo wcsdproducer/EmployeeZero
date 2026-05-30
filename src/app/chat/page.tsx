@@ -42,6 +42,7 @@ interface Conversation {
   title: string;
   messages: ChatMessage[];
   status: string; // "idle" | "running" | "error"
+  currentAction?: string;
   createdAt: any;
   userId: string;
   lastError?: string;
@@ -1110,7 +1111,7 @@ function ChatPageInner() {
                       <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-3 text-neutral-500 italic text-sm">
                           <Loader2 size={14} className="animate-spin" />
-                          Thinking...
+                          {activeConv.currentAction || "Thinking..."}
                         </div>
                         <div className="space-y-2">
                           <div className="h-3 bg-white/5 rounded-full w-3/4 animate-pulse" />
