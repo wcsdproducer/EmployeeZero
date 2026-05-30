@@ -15,7 +15,7 @@ export async function loadUserSOUL(userId: string, agentId?: string): Promise<SO
       }
     } catch (e) {}
 
-    if (!agentId) return globalSoul;
+    if (!agentId || agentId === "primary") return globalSoul;
 
     const agentSnap = await adminDb.doc(AGENT_PATH(userId, agentId)).get();
     if (!agentSnap.exists) return globalSoul;
@@ -37,7 +37,7 @@ export async function saveUserSOUL(
   config: Partial<SOULConfig>,
   agentId?: string
 ): Promise<void> {
-  if (agentId) {
+  if (agentId && agentId !== "primary") {
     await adminDb.doc(AGENT_PATH(userId, agentId)).set(
       { soul: config, updatedAt: new Date().toISOString() },
       { merge: true }
@@ -68,6 +68,25 @@ export async function loadTeamContext(userId: string, activeAgentId?: string): P
         });
       }
     });
+
+    // Load primary agent if not active agent
+    if (activeAgentId && activeAgentId !== "primary") {
+      try {
+        const primarySnap = await adminDb.doc(GLOBAL_SOUL_PATH(userId)).get();
+        const primarySoul = primarySnap.exists
+          ? { ...DEFAULT_SOUL, ...(primarySnap.data() as SOULConfig) }
+          : DEFAULT_SOUL;
+
+        otherAgents.push({
+          name: primarySoul.agentName,
+          jobTitle: primarySoul.jobTitle || "Executive Assistant",
+          personality: primarySoul.personality,
+          enabledTools: primarySoul.enabledTools || [],
+        });
+      } catch (e) {
+        console.warn("Failed to load primary agent for team context:", e);
+      }
+    }
 
     if (otherAgents.length === 0) return "";
 

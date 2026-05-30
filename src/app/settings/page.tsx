@@ -323,7 +323,7 @@ export default function Settings() {
                   <ChevronRight size={16} className="text-neutral-500 group-hover:text-blue-400 transition-colors" />
                 </Link>
                 <Link
-                  href="/settings/soul"
+                  href="/agent/primary/settings"
                   className="bg-white/5 rounded-3xl border border-white/10 p-5 flex items-center gap-4 hover:bg-white/10 hover:border-purple-500/30 transition-all group"
                 >
                   <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
