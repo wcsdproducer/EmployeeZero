@@ -43,3 +43,33 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const apiKey = searchParams.get("apiKey");
+    const agentId = searchParams.get("agentId");
+
+    if (!apiKey || !agentId) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+      method: "GET",
+      headers: {
+        "xi-api-key": apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return NextResponse.json({ error: "Failed to fetch agent: " + errText }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error("Get agent error", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

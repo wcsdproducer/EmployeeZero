@@ -20,6 +20,7 @@ export function ElevenLabsVoiceSelector({ apiKey, agentId }: { apiKey: string, a
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
+    // Fetch available voices
     fetch("/api/elevenlabs/voices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -33,6 +34,16 @@ export function ElevenLabsVoiceSelector({ apiKey, agentId }: { apiKey: string, a
       })
       .catch((err) => console.error("Failed to load voices", err))
       .finally(() => setLoading(false));
+
+    // Fetch current agent config to get the active voice ID
+    fetch(`/api/elevenlabs/agent?apiKey=${apiKey}&agentId=${agentId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.conversation_config?.tts?.voice_id) {
+          setSelectedVoice(data.conversation_config.tts.voice_id);
+        }
+      })
+      .catch(err => console.error("Failed to fetch agent config", err));
 
     // Also silently patch the agent to ensure the search_memories tool is attached
     fetch("/api/elevenlabs/agent", {
