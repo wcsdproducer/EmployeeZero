@@ -69,9 +69,13 @@ export async function POST(req: Request) {
           agent: {
             prompt: {
               prompt: compiledPrompt,
+              llm: "custom_llm",
+              custom_llm: {
+                url: `${hostUrl}/api/elevenlabs/llm/v1/chat/completions?userId=${auth.userId}`
+              }
             },
-            first_message: "Hello, I am Employee Zero. How can I help you?",
-            tools: tools
+            first_message: `Hello, I am ${soul.agentName || "Employee Zero"}. How can I help you?`,
+            // tools: tools // We are handling tools via the Custom LLM
           },
           tts: {
             voice_id: "21m00Tcm4TlvDq8ikWAM", // Rachel
