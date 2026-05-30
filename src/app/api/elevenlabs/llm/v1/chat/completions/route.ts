@@ -185,36 +185,46 @@ You have persistent memory. You remember everything the user has told you across
         let finalResponseText = "";
 
         while (rounds < 10) {
-          // If we have executed tools, we can't stream the tool loop easily, so we just await generateContent
-          // Actually, let's use generateContent for the tool loop, and when we decide we have final text, we can emit it.
-          // Wait! `generateContentStream` returns a stream, but if it's a tool call, the first chunk will have the tool call.
-          // Let's just use `generateContent` for the entire loop until there's NO tool call, then IF there was no tool call initially, we could have streamed.
-          // Since it's complex, let's just use `generateContent` and then send the whole text as one SSE chunk. It's fully compatible with ElevenLabs.
-          const response = await ai.models.generateContent({
+          const streamResult = await ai.models.generateContentStream({
             model: "gemini-2.5-flash",
             contents,
             config,
           });
 
-          const candidate = response.candidates?.[0];
-          const parts = candidate?.content?.parts || [];
-          const fnCall = parts.find((p: any) => p.functionCall);
+          let fnCall: any = null;
 
-          if (!fnCall?.functionCall) {
-            // No tool call, extract text and send
+          for await (const chunk of streamResult) {
+            const candidate = chunk.candidates?.[0];
+            const parts = candidate?.content?.parts || [];
+            
+            const partWithFn = parts.find((p: any) => p.functionCall);
+            if (partWithFn) {
+              fnCall = partWithFn.functionCall;
+              break; // Stop streaming text if it's a tool call
+            }
+
             const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text).join("");
-            finalResponseText = textParts || response.text || "I'm having trouble responding.";
-            sendChunk(finalResponseText);
+            if (textParts) {
+              finalResponseText += textParts;
+              sendChunk(textParts);
+            } else if (chunk.text) {
+              finalResponseText += chunk.text;
+              sendChunk(chunk.text);
+            }
+          }
+
+          if (!fnCall) {
+            // No tool call, stream is fully consumed and sent
             break;
           }
 
           // Execute tool
-          const { name: toolName, args } = fnCall.functionCall;
+          const { name: toolName, args } = fnCall;
           console.log(`[ElevenLabs LLM] Executing tool: ${toolName}`);
           
           let toolResult: any;
           try {
-            toolResult = await executeTool(userId, toolName!, args as Record<string, any>);
+            toolResult = await executeTool(userId, toolName, args as Record<string, any>);
           } catch (err: any) {
             toolResult = { error: err.message };
           }
@@ -223,11 +233,11 @@ You have persistent memory. You remember everything the user has told you across
           
           contents.push({
             role: "model" as const,
-            parts: [{ functionCall: { name: toolName!, args: args as Record<string, any> } } as any],
+            parts: [{ functionCall: { name: toolName, args: args as Record<string, any> } } as any],
           });
           contents.push({
             role: "user" as const,
-            parts: [{ functionResponse: { name: toolName!, response: safeResult } } as any],
+            parts: [{ functionResponse: { name: toolName, response: safeResult } } as any],
           });
 
           rounds++;
