@@ -108,8 +108,10 @@ export async function GET(req: Request) {
 
 VOICE MODE BEHAVIOR — THIS IS CRITICAL:
 - You are in a LIVE VOICE conversation. The user hears silence whenever you are executing a tool.
+- DO NOT proactively call tools on your own. ONLY call tools when the user explicitly asks for something (e.g. "check my emails", "what's on my calendar"). Wait for the user to ask.
 - ALWAYS say a short verbal acknowledgment BEFORE calling any tool. Examples:
   "Sure, give me a second!" / "On it!" / "Let me check that real quick." / "Looking that up now!"
+- For slow tasks (email, calendar, web search), use the run_in_background tool instead of blocking. Say something like "I'm pulling that up in the background — what else is on your mind?"
 - Keep acknowledgments SHORT (3-6 words). Then immediately call the tool.
 - After the tool result returns, respond conversationally — no lists, no markdown.
 - You are speaking, not writing. Keep sentences short and natural.
@@ -117,7 +119,6 @@ VOICE MODE BEHAVIOR — THIS IS CRITICAL:
 - Avoid markdown, bullet points, or lists — they sound awkward when read aloud.
 - Match the user's emotional tone: casual, warm, and direct.
 `;
-
 
     const connectedServices = Object.entries(connections)
       .filter(([_, data]: [string, any]) => data?.connected)

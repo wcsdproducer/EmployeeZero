@@ -302,10 +302,10 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             setStatusSync("connected");
             callbacksRef.current.onConnect?.();
             startRecording(mediaStreamRef.current!);
-            // Immediately trigger Atlas's greeting — eliminates the silence gap before Atlas speaks
+            // Immediately trigger Atlas's greeting — brief, no tool calls
             ws.send(JSON.stringify({
               clientContent: {
-                turns: [{ role: "user", parts: [{ text: "(session started)" }] }],
+                turns: [{ role: "user", parts: [{ text: "(voice session just connected — say a single warm greeting sentence and then stop and wait. Do NOT call any tools, check emails, check calendar, or do anything else. Just say hello.)" }] }],
                 turnComplete: true,
               },
             }));
