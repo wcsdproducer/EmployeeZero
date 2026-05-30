@@ -104,35 +104,38 @@ export async function listEmails(
   const res = await client.users.messages.list({
     userId: "me",
     q: query || "in:inbox",
-    maxResults: Math.min(maxResults, 20),
+    maxResults: Math.min(maxResults, 15),
   });
 
   if (!res.data.messages?.length) return [];
 
-  // Fetch headers for each message (batch)
-  const results = await Promise.all(
-    res.data.messages.map(async (msg) => {
-      const detail = await client.users.messages.get({
+  // Fetch metadata for all messages concurrently (not sequentially) for speed
+  const settled = await Promise.allSettled(
+    res.data.messages.map((msg) =>
+      client.users.messages.get({
         userId: "me",
         id: msg.id!,
         format: "metadata",
         metadataHeaders: ["From", "Subject", "Date"],
-      });
+      })
+    )
+  );
 
+  return settled
+    .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
+    .map((r) => {
+      const detail = r.value;
       const headers = detail.data.payload?.headers || [];
       return {
-        id: msg.id!,
-        threadId: msg.threadId!,
+        id: detail.data.id!,
+        threadId: detail.data.threadId!,
         snippet: detail.data.snippet || "",
         from: getHeader(headers, "From"),
         subject: getHeader(headers, "Subject"),
         date: getHeader(headers, "Date"),
         unread: detail.data.labelIds?.includes("UNREAD") || false,
       };
-    })
-  );
-
-  return results;
+    });
 }
 
 export async function getEmail(

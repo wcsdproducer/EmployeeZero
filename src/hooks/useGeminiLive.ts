@@ -388,7 +388,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
                     const r = await authFetch("/api/tools/execute", {
                       method: "POST",
                       body: JSON.stringify({ name, arguments: args || {}, agentId: agentIdRef.current }),
-                      signal: AbortSignal.timeout(10_000),
+                      signal: AbortSignal.timeout(45_000),
                     });
                     const result = await r.json();
                     // Inject result back into voice session as a concise summary request
