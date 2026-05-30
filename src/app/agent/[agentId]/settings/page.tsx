@@ -11,7 +11,6 @@ import {
   Loader2, Sparkles, Check, ArrowLeft, Shield, Plug, Mic, Play, Square, Settings2 
 } from "lucide-react";
 import Link from "next/link";
-import { ElevenLabsVoiceSelector } from "@/components/ElevenLabsVoiceSelector";
 
 const FOCUS_OPTIONS = [
   "Email Management", "Scheduling", "Research", "Sales", "Marketing",
@@ -84,10 +83,8 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
   const [focusInput, setFocusInput] = useState("");
   const [activeTab, setActiveTab] = useState<"identity" | "permissions" | "voice">("identity");
 
-  // ElevenLabs Voice setup state
+  // Voice setup state
   const [connections, setConnections] = useState<Record<string, any>>({});
-  const [agentDoc, setAgentDoc] = useState<any>(null);
-  const [provisioning, setProvisioning] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -111,14 +108,6 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
         const connSnap = await getDoc(doc(db, "users", user.uid, "settings", "connections"));
         if (connSnap.exists()) {
           setConnections(connSnap.data());
-        }
-
-        // Load agent document to get custom voice agent ID
-        if (agentId !== "primary") {
-          const agentSnap = await getDoc(doc(db, "users", user.uid, "agents", agentId));
-          if (agentSnap.exists()) {
-            setAgentDoc(agentSnap.data());
-          }
         }
       } catch (err) {
         console.error("Failed to load settings data:", err);
@@ -204,54 +193,6 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
     });
   };
 
-  // ElevenLabs provisioning helper
-  const handleProvisionVoice = async () => {
-    if (!user || provisioning) return;
-    const elevenlabsKey = connections.elevenlabs?.apiKey;
-    if (!elevenlabsKey) {
-      alert("Please connect ElevenLabs API Key in Connections first.");
-      return;
-    }
-
-    setProvisioning(true);
-    try {
-      const res = await fetch("/api/elevenlabs/provision", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: elevenlabsKey, agentId })
-      });
-      const data = await res.json();
-      if (res.ok && data.agent_id) {
-        // Save to Firestore
-        if (agentId === "primary") {
-          // Store globally
-          const updatedConnections = {
-            ...connections,
-            elevenlabs: {
-              ...connections.elevenlabs,
-              apiSecret: data.agent_id
-            }
-          };
-          await updateDoc(doc(db, "users", user.uid, "settings", "connections"), updatedConnections);
-          setConnections(updatedConnections);
-        } else {
-          // Store on agent doc
-          await updateDoc(doc(db, "users", user.uid, "agents", agentId), {
-            elevenLabsAgentId: data.agent_id
-          });
-          setAgentDoc(prev => ({ ...prev, elevenLabsAgentId: data.agent_id }));
-        }
-      } else {
-        throw new Error(data.error || "Failed to provision agent");
-      }
-    } catch (err: any) {
-      console.error(err);
-      alert("Failed to provision voice: " + err.message);
-    } finally {
-      setProvisioning(false);
-    }
-  };
-
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -259,10 +200,6 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
       </div>
     );
   }
-
-  const voiceAgentId = agentId === "primary"
-    ? connections.elevenlabs?.apiSecret
-    : agentDoc?.elevenLabsAgentId;
 
   return (
     <div className="min-h-screen bg-[#070707] text-white font-sans selection:bg-white selection:text-black">
@@ -573,56 +510,43 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
                   <div className="flex items-start gap-4 mb-6">
                     <Mic size={24} className="text-purple-400 flex-shrink-0 mt-1" />
                     <div>
-                      <h2 className="text-lg font-bold">ElevenLabs Voice Connection</h2>
+                      <h2 className="text-lg font-bold">Voice Settings</h2>
                       <p className="text-xs text-neutral-400 mt-1 leading-normal">
-                        Give your agent a voice! This binds the agent to an ElevenLabs Conversational Voice agent using your global API Key.
+                        Select a voice preset for your agent. Real-time voice calls use high-fidelity, end-to-end multimodal synthesis.
                       </p>
                     </div>
                   </div>
 
-                  {connections.elevenlabs?.apiKey ? (
-                    <div className="space-y-4">
-                      {voiceAgentId ? (
-                        <div>
-                          <div className="flex items-center gap-2 text-xs text-emerald-400 mb-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-4 py-2 w-fit">
-                            <Check size={14} />
-                            Voice Agent Provisioned (ID: {voiceAgentId})
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { id: "Rachel", name: "Rachel (Aoede - Female)", desc: "Warm, professional, and clear" },
+                      { id: "Drew", name: "Drew (Charon - Male)", desc: "Deep, professional, and confident" },
+                      { id: "Clyde", name: "Clyde (Fenrir - Male)", desc: "Casual, friendly, and natural" },
+                      { id: "Nicole", name: "Nicole (Kore - Female)", desc: "Direct, energetic, and articulate" },
+                      { id: "Adam", name: "Adam (Puck - Male)", desc: "Energetic, playful, and expressive" }
+                    ].map((v) => {
+                      const isSelected = (config.voice || "Rachel") === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          onClick={() => setConfig((p) => ({ ...p, voice: v.id }))}
+                          className={`flex flex-col items-start gap-1 p-4 rounded-xl border text-left transition-all ${
+                            isSelected
+                              ? "bg-purple-500/10 border-purple-500/30 text-white"
+                              : "bg-[#111]/40 border-white/5 text-neutral-400 hover:bg-[#111] hover:border-white/10"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? "border-purple-500" : "border-neutral-700"}`}>
+                              {isSelected && <div className="w-2 h-2 rounded-full bg-purple-500" />}
+                            </div>
+                            <span className="text-sm font-semibold">{v.name}</span>
                           </div>
-                          <ElevenLabsVoiceSelector apiKey={connections.elevenlabs.apiKey} agentId={voiceAgentId} />
-                        </div>
-                      ) : (
-                        <div className="space-y-4 bg-black/40 border border-white/5 rounded-2xl p-6 text-center">
-                          <p className="text-xs text-neutral-400">
-                            Voice Agent has not been provisioned for {config.agentName || "this agent"} yet.
-                          </p>
-                          <button
-                            onClick={handleProvisionVoice}
-                            disabled={provisioning}
-                            className="h-10 px-6 bg-purple-600 text-white font-bold text-xs rounded-xl hover:bg-purple-500 transition-all disabled:opacity-40 flex items-center justify-center gap-2 mx-auto"
-                          >
-                            {provisioning ? (
-                              <><Loader2 size={14} className="animate-spin" /> Provisioning...</>
-                            ) : (
-                              "Provision Voice Agent"
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-3 bg-black/40 border border-white/5 rounded-2xl p-8 text-center">
-                      <Plug size={24} className="text-neutral-600" />
-                      <p className="text-xs text-neutral-400 max-w-sm">
-                        ElevenLabs is not connected. Please go to the Connections page to set up your ElevenLabs API Key first.
-                      </p>
-                      <Link 
-                        href="/connections" 
-                        className="text-xs text-purple-400 hover:text-purple-300 font-semibold mt-1"
-                      >
-                        Go to Connections →
-                      </Link>
-                    </div>
-                  )}
+                          <p className="text-xs text-neutral-500 mt-1 pl-6">{v.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </motion.div>
             )}

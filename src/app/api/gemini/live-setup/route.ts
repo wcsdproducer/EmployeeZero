@@ -1,0 +1,182 @@
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/admin";
+import { verifyAuth } from "@/lib/auth";
+import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
+import { buildSOULPrompt } from "@/lib/soul";
+import { loadPreferences } from "@/lib/selfImprove";
+import { getMcpToolDeclarations } from "@/lib/mcpClient";
+import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
+
+async function loadMemories(userId: string, agentId?: string): Promise<string[]> {
+  try {
+    const snap = await adminDb.collection(`users/${userId}/memories`).limit(100).get();
+    return snap.docs
+      .map((d: any) => d.data())
+      .filter((data: any) => {
+        const docAgentId = data.agentId;
+        if (!agentId) return true;
+        return (
+          docAgentId === agentId ||
+          docAgentId === "company" ||
+          docAgentId === "global" ||
+          !docAgentId ||
+          docAgentId === "primary"
+        );
+      })
+      .slice(0, 50)
+      .map((data: any) => data.content as string);
+  } catch (err) {
+    return [];
+  }
+}
+
+async function loadConnections(userId: string): Promise<Record<string, any>> {
+  try {
+    const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
+    return snap.exists ? (snap.data() as Record<string, any>) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function loadUserTimezone(userId: string): Promise<string> {
+  try {
+    const snap = await adminDb.doc(`users/${userId}/settings/preferences`).get();
+    return snap.exists ? (snap.data()?.timezone || "UTC") : "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const auth = await verifyAuth(req as any);
+    if (auth.error || !auth.userId) return auth.error || NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const agentId = searchParams.get("agentId") || undefined;
+
+    // Load configurations
+    const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext] = await Promise.all([
+      loadMemories(auth.userId, agentId),
+      loadConnections(auth.userId),
+      loadUserTimezone(auth.userId),
+      loadPreferences(auth.userId),
+      loadUserSOUL(auth.userId, agentId),
+      getMcpToolDeclarations(auth.userId).catch(() => ({ declarations: [] })),
+      loadTeamContext(auth.userId, agentId)
+    ]);
+    const mcpDecls = mcpData.declarations || [];
+
+    // Get User's own Gemini API key
+    let apiKey: string | null = null;
+    const brainSnap = await adminDb.doc(`users/${auth.userId}/settings/brain`).get();
+    if (brainSnap.exists) {
+      const brain = brainSnap.data();
+      if (brain?.provider === "gemini" && brain?.apiKey) {
+        const trimmedKey = brain.apiKey.trim();
+        if (
+          trimmedKey.length > 20 &&
+          !trimmedKey.includes("dummy") &&
+          !trimmedKey.includes("placeholder")
+        ) {
+          apiKey = trimmedKey;
+        }
+      }
+    }
+
+    if (!apiKey) {
+      return NextResponse.json({ error: "Gemini API key not configured. Please add your key in the Connections tab." }, { status: 400 });
+    }
+
+    // Build the system prompt
+    let systemPrompt = buildSOULPrompt(soul) + "\n\n";
+    if (teamContext) {
+      systemPrompt += teamContext + "\n\n";
+    }
+    systemPrompt += `CRITICAL CAPABILITY RULES:
+1. YOU DO HAVE ACCESS to a web browser and live internet via your tools. NEVER say you do not have internet or browser access.
+2. YOU DO HAVE persistent RAG memory. If asked about your memory, reference your tools.
+3. YOU DO HAVE access to workflows and integrations. If asked about connections, reference your connected services.
+4. Always attempt to use your tools to fulfill requests before claiming you cannot do something.
+5. NO CONVERSATIONAL FILLER OR FAKE BACKGROUND TASKS. You are running in voice-to-voice Live Mode. If you need to execute a tool, DO IT IMMEDIATELY using your function calls. The user will wait.
+
+You are speaking, not writing. Keep sentences short and conversational.
+Use punctuation to dictate pacing: use commas for short pauses, ellipsis (...) for thoughtful pauses, and exclamation marks for rising excitement.
+Match the user's emotional tone: speak with empathy and appropriate pacing.
+Avoid markdown bold, bullet points, or lists, which sound awkward when read aloud. Spell out acronyms or numbers if necessary.
+`;
+
+    const connectedServices = Object.entries(connections)
+      .filter(([_, data]: [string, any]) => data?.connected)
+      .map(([svc]) => svc);
+    if (mcpDecls.length > 0) connectedServices.push(...mcpDecls.map(d => d.name));
+    if (connectedServices.length > 0) {
+      systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
+    }
+
+    if (memories && memories.length > 0) {
+      systemPrompt += `\n\n## Your Memories\nHere are relevant facts you know about the user:\n${memories.map((m: any) => `- ${m}`).join("\n")}\n`;
+    }
+
+    if (preferences && preferences.length > 0) {
+      systemPrompt += `\n\n## User Preferences\n${preferences.map((p: any) => `- ${p}`).join("\n")}\n`;
+    }
+
+    systemPrompt += `\n\n## Current Date & Time\nThe current time for the user is ${new Date().toLocaleString("en-US", { timeZone: userTimezone || "America/New_York" })}.\n`;
+
+    // Gather Tools
+    const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...NOTES_TOOLS];
+    const hasGmailTools = connections.gmail?.connected || (connections.google?.connected && connections.google?.scopes?.includes("https://mail.google.com/"));
+    if (hasGmailTools) allTools.push(...GMAIL_TOOLS);
+    if (connections.calendar?.connected) allTools.push(...CALENDAR_TOOLS);
+    if (connections.drive?.connected) allTools.push(...DRIVE_TOOLS);
+    if (connections.sheets?.connected) allTools.push(...SHEETS_TOOLS);
+    if (connections.youtube?.connected) allTools.push(...YOUTUBE_TOOLS);
+    if (connections.stripe?.connected) allTools.push(...STRIPE_TOOLS);
+    if (connections.linkedin?.connected) allTools.push(...LINKEDIN_TOOLS);
+    if (connections.twitter?.connected) allTools.push(...TWITTER_TOOLS);
+    if (connections.instagram?.connected) allTools.push(...INSTAGRAM_TOOLS);
+    if (connections.facebook?.connected) allTools.push(...FACEBOOK_TOOLS);
+    if (connections.tiktok?.connected) allTools.push(...TIKTOK_TOOLS);
+    if (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected) {
+      allTools.push(...CONTACTS_TOOLS);
+    }
+    if (connections.tasks?.connected) allTools.push(...TASKS_TOOLS);
+    if (connections.docs?.connected) allTools.push(...DOCS_TOOLS);
+    if (connections.business_profile?.connected) allTools.push(...BUSINESS_PROFILE_TOOLS);
+    if (connections.analytics?.connected) allTools.push(...ANALYTICS_TOOLS);
+    if (connections.forms?.connected) allTools.push(...FORMS_TOOLS);
+    if (connections.slides?.connected) allTools.push(...SLIDES_TOOLS);
+    if (mcpDecls.length > 0) allTools.push(...mcpDecls);
+
+    let filteredTools = allTools;
+    if (soul.enabledTools && soul.enabledTools.length > 0) {
+      filteredTools = allTools.filter(t => 
+        soul.enabledTools!.includes(t.name)
+      );
+    }
+
+    // Voice selection map to Gemini Live voice presets
+    // Available Google voices: "aoede" | "charon" | "fenrir" | "kore" | "puck"
+    const voicePresetMap: Record<string, string> = {
+      "Rachel": "aoede",
+      "Drew": "charon",
+      "Clyde": "fenrir",
+      "Nicole": "kore",
+      "Adam": "puck"
+    };
+    const selectedVoice = voicePresetMap[soul.voice || "Rachel"] || "aoede";
+
+    return NextResponse.json({
+      apiKey,
+      systemPrompt,
+      tools: filteredTools,
+      voice: selectedVoice,
+      agentName: soul.agentName || "Employee Zero"
+    });
+  } catch (error: any) {
+    console.error("Live setup error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

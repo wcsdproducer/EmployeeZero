@@ -1,6 +1,6 @@
 {
   "name": "employee-zero",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3003",
@@ -10,7 +10,6 @@
     "bot": "tsx bot/index.ts"
   },
   "dependencies": {
-    "@elevenlabs/react": "^1.6.4",
     "@google/genai": "^1.46.0",
     "@modelcontextprotocol/sdk": "^1.28.0",
     "@radix-ui/react-dialog": "^1.1.15",

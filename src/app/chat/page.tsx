@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { useConversation, ConversationProvider } from "@elevenlabs/react";
+import { useGeminiLive } from "@/hooks/useGeminiLive";
 import { SERVICE_ICONS } from "@/components/ServiceIcons";
 import { ConversationSearchModal } from "@/components/ConversationSearch";
 import { Send, Plus, History, Brain, Loader2, User, Bot, CheckCircle2, Circle, PanelLeftOpen, PanelLeftClose, Search, Settings, MoreHorizontal, ArrowUp, Zap, Eye, Shield, Sparkles, X, Check, Users, Plug, Mail, Calendar, Target, Star, FileSpreadsheet, BarChart3, Clock, Globe, TrendingUp, Briefcase, ChevronRight, Copy, Share2, LogOut, Trash2, HelpCircle, MessageSquare, Menu, MessageCircle, CalendarDays, FileText, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
@@ -16,7 +16,6 @@ import { db } from "@/lib/firebase";
 import { authFetch } from "@/lib/authFetch";
 import packageJson from "../../../package.json";
 import { getIntegrationKey } from "@/lib/keys";
-import { playElevenLabsAudio } from "@/lib/elevenlabs";
 import { collection, query, where, orderBy, onSnapshot, addDoc, Timestamp, doc, getDoc, updateDoc, setDoc, deleteDoc, arrayUnion } from "firebase/firestore";
 import { signOut } from "@/lib/firebase";
 import ReactMarkdown from "react-markdown";
@@ -30,7 +29,6 @@ interface AgentDoc {
   status: string;
   plan: string;
   soul?: Record<string, any>;
-  elevenLabsAgentId?: string;
 }
 
 interface ChatMessage {
@@ -104,9 +102,7 @@ export default function ChatPage() {
         Loading...
       </div>
     }>
-      <ConversationProvider>
-        <ChatPageInner />
-      </ConversationProvider>
+      <ChatPageInner />
     </Suspense>
   );
 }
@@ -124,12 +120,11 @@ function ChatPageInner() {
 
   // Voice Mode State
   const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [agentId, setAgentId] = useState<string | null>(null);
 
   const activeConvIdRef = useRef(activeConvId);
   useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
 
-  const conversation = useConversation({
+  const conversation = useGeminiLive({
     onConnect: async () => {
       setIsVoiceMode(true);
       if (!activeConvIdRef.current && user) {
@@ -160,59 +155,23 @@ function ChatPageInner() {
         console.error("Failed to append voice message:", err);
       }
     },
-    clientTools: {
-      search_memories: async ({ query }: { query: string }) => {
-        if (!user) return "User not logged in.";
-        try {
-          const res = await authFetch("/api/memories", {
-            method: "POST",
-            body: JSON.stringify({
-              action: "search",
-              tenantId: user.uid,
-              agentId: selectedAgentIdRef.current,
-              query,
-            })
-          });
-          const data = await res.json();
-          if (data.results && data.results.length > 0) {
-            return JSON.stringify(data.results);
-          }
-          return "No relevant memories found.";
-        } catch (err) {
-          console.error("Client tool error:", err);
-          return "Failed to fetch memories.";
-        }
-      }
-    },
-    onError: (error: any) => console.error("ElevenLabs error:", error)
+    onError: (error: any) => {
+      console.error("Gemini Live error:", error);
+      alert(error.message || "Failed to establish real-time voice connection. Make sure your Gemini API key is configured in the Connections tab.");
+    }
   });
-
-  // Fetch ElevenLabs agent_id from connections
-  useEffect(() => {
-    if (!user?.uid) return;
-    import('firebase/firestore').then(({ doc, getDoc }) => {
-      getDoc(doc(db, "users", user.uid, "settings", "connections")).then(snap => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.elevenlabs?.apiSecret) {
-            setAgentId(data.elevenlabs.apiSecret);
-          }
-        }
-      });
-    });
-  }, [user?.uid]);
 
   const toggleListening = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    if (!activeVoiceAgentId) {
-      alert("Please connect ElevenLabs and configure a voice for this agent in its settings to use Voice Mode");
-      return;
-    }
     if (conversation.status === 'connected') {
       await conversation.endSession();
     } else {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      await conversation.startSession({ agentId: activeVoiceAgentId });
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        await conversation.startSession({ agentId: selectedAgentId });
+      } catch (err: any) {
+        alert("Microphone access is required for Voice Mode.");
+      }
     }
   };
 
@@ -262,6 +221,29 @@ function ChatPageInner() {
         }
       },
       () => {}
+    );
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Load brain settings to verify if Gemini API key is configured
+  const [hasGeminiKey, setHasGeminiKey] = useState<boolean>(false);
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(
+      doc(db, "users", user.uid, "settings", "brain"),
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          const isGemini = data?.provider === "gemini";
+          const hasKey = typeof data?.apiKey === "string" && data.apiKey.trim().length > 20;
+          setHasGeminiKey(isGemini && hasKey);
+        } else {
+          setHasGeminiKey(false);
+        }
+      },
+      () => {
+        setHasGeminiKey(false);
+      }
     );
     return () => unsub();
   }, [user?.uid]);
@@ -370,9 +352,7 @@ function ChatPageInner() {
   useEffect(() => { selectedAgentIdRef.current = selectedAgentId; }, [selectedAgentId]);
 
   const selectedAgentDoc = purchasedAgents.find(a => a.id === selectedAgentId);
-  const activeVoiceAgentId = selectedAgentId === "primary"
-    ? (selectedAgentDoc?.elevenLabsAgentId || agentId)
-    : selectedAgentDoc?.elevenLabsAgentId;
+  const activeVoiceAgentId = selectedAgentId;
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // default CLOSED on mobile
@@ -533,15 +513,7 @@ function ChatPageInner() {
     }
   }, [activeConvId, activeConv?.id]);
 
-  // Voice Auto-Play on Message Complete
-  const previousStatusRef = useRef<string>("complete");
-  useEffect(() => {
-    if (!activeConv) return;
-    
-    // Note: Auto-play is handled automatically by ElevenLabs Conversational UI WebRTC session
-    
-    previousStatusRef.current = activeConv.status;
-  }, [activeConv?.status, activeConv?.messages, isVoiceMode]);
+
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -1270,12 +1242,12 @@ function ChatPageInner() {
                   variant="ghost"
                   size="icon"
                   onClick={toggleListening}
-                  disabled={!activeVoiceAgentId}
+                  disabled={!activeVoiceAgentId || !hasGeminiKey}
                   className={cn(
                     "h-8 w-8 rounded-xl transition-all",
                     conversation.status === 'connected' ? "bg-red-500/20 text-red-500 animate-pulse hover:bg-red-500/30" : "bg-white/5 text-neutral-400 hover:text-white"
                   )}
-                  title={activeVoiceAgentId ? "Call Agent" : "Configure ElevenLabs Voice in settings first"}
+                  title={hasGeminiKey ? "Call Agent" : "Configure Gemini API Key in connections first"}
                 >
                   {conversation.status === 'connected' ? <MicOff size={16} /> : <Mic size={16} />}
                 </Button>

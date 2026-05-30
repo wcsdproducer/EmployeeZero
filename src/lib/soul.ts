@@ -14,6 +14,7 @@ export interface SOULConfig {
   communicationStyle: string;  // e.g. "Brief and bullet-pointed"
   signaturePhrase?: string;    // Optional catchphrase the AI uses
   enabledTools?: string[];     // Array of allowed tools
+  voice?: string;              // Selected voice preset
   updatedAt?: string;
 }
 
@@ -26,6 +27,7 @@ export const DEFAULT_SOUL: SOULConfig = {
   focusAreas: ["Email Management", "Scheduling", "Research"],
   communicationStyle: "Clear, concise, and action-oriented. Always lead with what was done.",
   signaturePhrase: "",
+  voice: "Rachel",
   updatedAt: new Date().toISOString(),
 };
 
