@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CreditCard, Shield, Key, Bell, Check, ExternalLink, ChevronRight, User, X, Zap, Gift, ArrowRight, Brain, Sparkles } from "lucide-react";
+import { CreditCard, Shield, Key, Bell, Check, ExternalLink, ChevronRight, User, X, Zap, Gift, ArrowRight, Brain, Sparkles, ArrowLeft, Settings as SettingsIcon } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
@@ -252,37 +252,51 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex flex-col">
-      <Navbar />
-      <div className="max-w-4xl mx-auto space-y-12 p-12 flex-1">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-8">
+    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-20 bg-[#0d0d0d]/80 backdrop-blur-xl border-b border-white/5">
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-4">
+          <Link
+            href="/chat"
+            className="p-2 -ml-2 rounded-xl hover:bg-white/5 transition-colors text-neutral-500 hover:text-white"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+              <SettingsIcon size={18} className="text-zinc-400" />
+            </div>
             <div>
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Settings</h1>
-            <p className="text-gray-500 mt-2">Manage your office workspace and billing preferences.</p>
+              <h1 className="text-lg font-bold tracking-tight">Settings</h1>
+              <p className="text-xs text-neutral-500">Manage your office workspace and billing preferences</p>
             </div>
-            <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border border-blue-100">
+          </div>
+          <div className="bg-blue-500/10 text-blue-400 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-blue-500/20">
             Admin Access
-            </div>
+          </div>
         </div>
+      </header>
 
-        <div className="space-y-10">
+      <div className="max-w-4xl mx-auto space-y-8 p-6 lg:p-10 w-full flex-1">
+
+        <div className="space-y-8">
             {/* Profile Section */}
-            <section className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex items-center justify-between group">
+            <section className="bg-white/5 rounded-3xl p-6 md:p-8 border border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between group gap-6">
             <div className="flex items-center gap-6">
-                <div className="w-20 h-20 rounded-2xl bg-slate-900 flex items-center justify-center text-white relative shadow-lg shadow-slate-200">
-                <User size={32} />
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-black flex items-center justify-center text-white relative shadow-lg shadow-black/50 border border-white/10">
+                <User size={32} className="text-neutral-400" />
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 md:w-6 md:h-6 bg-emerald-500 border-4 border-black rounded-full"></div>
                 </div>
                 <div>
-                <h3 className="text-xl font-bold text-gray-900">Founder Account</h3>
-                <p className="text-gray-400 text-sm">founder@employeezero.ai</p>
-                <div className="mt-2 flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase bg-gray-100 px-2 py-0.5 rounded text-gray-500 tracking-wider">Early Access</span>
-                    <span className="text-[10px] font-bold uppercase bg-blue-100 px-2 py-0.5 rounded text-blue-600 tracking-wider">Verified</span>
+                <h3 className="text-lg md:text-xl font-bold text-white">Founder Account</h3>
+                <p className="text-neutral-400 text-sm">{user?.email || "founder@employeezero.ai"}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase bg-white/10 px-2 py-0.5 rounded text-neutral-300 tracking-wider">Early Access</span>
+                    <span className="text-[10px] font-bold uppercase bg-blue-500/20 px-2 py-0.5 rounded text-blue-400 border border-blue-500/20 tracking-wider">Verified</span>
                 </div>
                 </div>
             </div>
-            <button className="text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+            <button className="text-sm font-bold text-neutral-400 hover:text-white transition-colors flex items-center gap-1 group-hover:translate-x-1">
                 Edit Profile
                 <ChevronRight size={16} />
             </button>
@@ -291,35 +305,35 @@ export default function Settings() {
             {/* AI Configuration */}
             <section className="space-y-4">
               <div className="flex items-center gap-2 px-2">
-                <Brain size={18} className="text-blue-600" />
-                <h2 className="text-lg font-bold text-gray-900">AI Configuration</h2>
+                <Brain size={18} className="text-blue-400" />
+                <h2 className="text-lg font-bold text-white">AI Configuration</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Link
                   href="/settings/brain"
-                  className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-5 hover:border-blue-200 hover:shadow-md transition-all group"
+                  className="bg-white/5 rounded-3xl border border-white/10 p-5 flex items-center gap-4 hover:bg-white/10 hover:border-blue-500/30 transition-all group"
                 >
-                  <div className="w-12 h-12 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <Brain size={20} className="text-blue-600" />
+                  <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Brain size={20} className="text-blue-400" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-bold text-gray-900">Your AI Brain</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Connect your OpenRouter account</p>
+                    <p className="font-bold text-white">Your AI Brain</p>
+                    <p className="text-xs text-neutral-400 mt-0.5">Connect your OpenRouter account</p>
                   </div>
-                  <ChevronRight size={16} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                  <ChevronRight size={16} className="text-neutral-500 group-hover:text-blue-400 transition-colors" />
                 </Link>
                 <Link
                   href="/settings/soul"
-                  className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-5 hover:border-purple-200 hover:shadow-md transition-all group"
+                  className="bg-white/5 rounded-3xl border border-white/10 p-5 flex items-center gap-4 hover:bg-white/10 hover:border-purple-500/30 transition-all group"
                 >
-                  <div className="w-12 h-12 bg-purple-50 border border-purple-100 rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <Sparkles size={20} className="text-purple-600" />
+                  <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Sparkles size={20} className="text-purple-400" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-bold text-gray-900">Agent SOUL</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Personality, tone & focus areas</p>
+                    <p className="font-bold text-white">Agent SOUL</p>
+                    <p className="text-xs text-neutral-400 mt-0.5">Personality, tone & focus areas</p>
                   </div>
-                  <ChevronRight size={16} className="text-gray-300 group-hover:text-purple-500 transition-colors" />
+                  <ChevronRight size={16} className="text-neutral-500 group-hover:text-purple-400 transition-colors" />
                 </Link>
               </div>
             </section>
@@ -327,42 +341,42 @@ export default function Settings() {
             {/* Billing & Subscription */}
             <section className="space-y-4">
             <div className="flex items-center gap-2 px-2">
-                <CreditCard size={18} className="text-blue-600" />
-                <h2 className="text-lg font-bold text-gray-900">Billing &amp; Subscription</h2>
+                <CreditCard size={18} className="text-blue-400" />
+                <h2 className="text-lg font-bold text-white">Billing &amp; Subscription</h2>
             </div>
             
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-8 border-b border-gray-50 flex items-center justify-between">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-gray-900">{currentPlan}</span>
-                    <span className="bg-green-100 text-green-600 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border border-green-200">Active</span>
+            <div className="bg-white/5 rounded-3xl border border-white/10 overflow-hidden">
+                <div className="p-6 md:p-8 border-b border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-xl md:text-2xl font-bold text-white">{currentPlan}</span>
+                    <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border border-emerald-500/20">Active</span>
                     </div>
-                    <p className="text-gray-400 text-sm italic leading-relaxed max-w-sm">Special early access plan. No base monthly fee for founding members.</p>
+                    <p className="text-neutral-400 text-sm italic leading-relaxed max-w-sm">Special early access plan. No base monthly fee for founding members.</p>
                 </div>
                 <button
                   id="manage-subscription-btn"
                   onClick={handleManageSubscription}
                   disabled={portalLoading}
-                  className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center gap-2 disabled:opacity-60"
+                  className="w-full md:w-auto bg-white text-black px-6 py-3 rounded-2xl font-bold text-sm hover:bg-neutral-200 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {portalLoading ? "Loading..." : "Manage Subscription"}
                   <ExternalLink size={14} />
                 </button>
                 </div>
 
-                <div className="grid grid-cols-3 divide-x divide-gray-50 bg-gray-50/20">
+                <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/5 bg-black/20">
                 <div className="p-6">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Monthly Base</p>
-                    <p className="text-xl font-extrabold text-gray-900">{monthlyCost}</p>
+                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Monthly Base</p>
+                    <p className="text-xl font-extrabold text-white">{monthlyCost}</p>
                 </div>
                 <div className="p-6">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Specialists</p>
-                    <p className="text-xl font-extrabold text-gray-900">{specialistCost}</p>
+                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Specialists</p>
+                    <p className="text-xl font-extrabold text-white">{specialistCost}</p>
                 </div>
                 <div className="p-6">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Next Bill</p>
-                    <p className="text-xl font-extrabold text-gray-900">{nextBillingDate}</p>
+                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1">Next Bill</p>
+                    <p className="text-xl font-extrabold text-white">{nextBillingDate}</p>
                 </div>
                 </div>
             </div>
