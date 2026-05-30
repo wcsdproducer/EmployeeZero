@@ -172,43 +172,67 @@ export async function submitForm(
   }
 }
 
-/* ─── Google Search ─── */
+/* ─── Web Search (Gemini Grounding — fast, ~500ms) ─── */
 
 export async function webSearch(
   query: string
-): Promise<{ results: { title: string; url: string; snippet: string }[] }> {
-  // Use Google's pagead-free search endpoint for structured results
-  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=5`;
+): Promise<{ results: { title: string; url: string; snippet: string }[]; summary?: string }> {
+  const apiKey = process.env.GOOGLE_GENAI_API_KEY;
 
-  const res = await fetch(searchUrl, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    },
-    signal: AbortSignal.timeout(10000),
-  });
+  if (apiKey) {
+    try {
+      // Use Gemini generateContent with google_search grounding — returns in ~500ms
+      const t0 = Date.now();
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: query }] }],
+            tools: [{ google_search: {} }],
+            generationConfig: { maxOutputTokens: 512 },
+          }),
+          signal: AbortSignal.timeout(5000),
+        }
+      );
 
-  const html = await res.text();
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
 
-  // Extract search results (simplified parsing)
-  const results: { title: string; url: string; snippet: string }[] = [];
-  const resultBlocks = html.split('<div class="g"');
+        const results = groundingChunks.slice(0, 5).map((chunk: any) => ({
+          title: chunk.web?.title || "",
+          url: chunk.web?.uri || "",
+          snippet: chunk.web?.title || "",
+        }));
 
-  for (const block of resultBlocks.slice(1, 6)) {
-    const urlMatch = block.match(/href="(https?:\/\/[^"]+)"/);
-    const titleMatch = block.match(/<h3[^>]*>([\s\S]*?)<\/h3>/);
-    const snippetMatch = block.match(/<span[^>]*class="[^"]*"[^>]*>([\s\S]*?)<\/span>/);
-
-    if (urlMatch && titleMatch) {
-      results.push({
-        title: titleMatch[1].replace(/<[^>]*>/g, "").trim(),
-        url: urlMatch[1],
-        snippet: snippetMatch
-          ? snippetMatch[1].replace(/<[^>]*>/g, "").trim().substring(0, 200)
-          : "",
-      });
+        console.log(`[webSearch] Gemini grounding: ${Date.now() - t0}ms, ${results.length} sources`);
+        return { results, summary: text.substring(0, 1000) };
+      }
+    } catch (err) {
+      console.warn("[webSearch] Gemini grounding failed, trying fallback:", err);
     }
   }
 
-  return { results };
+  // Fallback: DuckDuckGo Instant Answer API (no key needed, fast JSON)
+  try {
+    const t0 = Date.now();
+    const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
+    const res = await fetch(ddgUrl, { signal: AbortSignal.timeout(4000) });
+    const data = await res.json();
+    console.log(`[webSearch] DuckDuckGo fallback: ${Date.now() - t0}ms`);
+
+    const results: { title: string; url: string; snippet: string }[] = [];
+    if (data.AbstractText) {
+      results.push({ title: data.Heading || query, url: data.AbstractURL || "", snippet: data.AbstractText.substring(0, 300) });
+    }
+    (data.RelatedTopics || []).slice(0, 4).forEach((t: any) => {
+      if (t.Text && t.FirstURL) results.push({ title: t.Text.substring(0, 80), url: t.FirstURL, snippet: t.Text.substring(0, 200) });
+    });
+    return { results, summary: data.AbstractText || undefined };
+  } catch {
+    return { results: [] };
+  }
 }
