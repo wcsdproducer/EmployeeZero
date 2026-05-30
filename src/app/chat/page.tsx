@@ -157,7 +157,16 @@ function ChatPageInner() {
     },
     onError: (error: any) => {
       console.error("Gemini Live error:", error);
-      alert(error.message || "Failed to establish real-time voice connection. Make sure your Gemini API key is configured in the Connections tab.");
+      const isMicError = 
+        error.name === "NotAllowedError" || 
+        error.name === "PermissionDeniedError" || 
+        error.message?.includes("Permission denied") || 
+        error.message?.includes("Allowed");
+      if (isMicError) {
+        alert("Microphone access is required for Voice Mode. Please enable microphone permissions in your browser settings.");
+      } else {
+        alert(error.message || "Failed to establish real-time voice connection. Make sure your Gemini API key is configured in the Connections tab.");
+      }
     }
   });
 
@@ -167,7 +176,8 @@ function ChatPageInner() {
       await conversation.endSession();
     } else {
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        // startSession must be invoked synchronously on the user gesture click stack
+        // to prevent browsers from blocking/suspending the AudioContext.
         await conversation.startSession({ agentId: selectedAgentId });
       } catch (err: any) {
         alert("Microphone access is required for Voice Mode.");

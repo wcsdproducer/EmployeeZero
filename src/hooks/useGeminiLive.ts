@@ -87,6 +87,18 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     setStatus("connecting");
     currentAgentIdRef.current = params.agentId || "primary";
 
+    // Initialize AudioContext synchronously to capture user gesture stack
+    try {
+      if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume().catch((err) => console.warn("Failed to resume AudioContext:", err));
+      }
+    } catch (err) {
+      console.warn("Failed to initialize AudioContext on user gesture:", err);
+    }
+
     try {
       // 1. Fetch Session Configurations securely from the backend
       const res = await authFetch(`/api/gemini/live-setup?agentId=${params.agentId}`);
@@ -259,8 +271,10 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
   const startRecording = async (stream: MediaStream) => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioContextRef.current = audioCtx;
+      const audioCtx = audioContextRef.current;
+      if (!audioCtx) {
+        throw new Error("AudioContext is not initialized");
+      }
 
       // Register the AudioWorklet processor script
       await audioCtx.audioWorklet.addModule("/pcm-processor.worklet.js");
@@ -307,10 +321,15 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   };
 
   const playAudioChunk = (float32Array: Float32Array) => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
     const audioCtx = audioContextRef.current;
+    if (!audioCtx) {
+      console.warn("[Gemini Live] Cannot play audio chunk: AudioContext not initialized");
+      return;
+    }
+
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch((err) => console.warn("[Gemini Live] Failed to resume AudioContext during playback:", err));
+    }
 
     const playoutBuffer = audioCtx.createBuffer(1, float32Array.length, 24000);
     playoutBuffer.getChannelData(0).set(float32Array);
