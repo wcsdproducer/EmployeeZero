@@ -28,6 +28,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const callbacksRef = useRef(options);
   const chunksSentRef = useRef<number>(0);
   const chunksReceivedRef = useRef<number>(0);
+  // Pre-fetched setup config cache — loaded on page mount so mic click is instant
+  const setupCacheRef = useRef<{ agentId: string; config: any; fetchedAt: number } | null>(null);
 
   useEffect(() => { callbacksRef.current = options; }, [options]);
 
@@ -204,6 +206,21 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     callbacksRef.current.onDisconnect?.();
   };
 
+  /** Call this on page mount to pre-warm the setup config so mic click is instant */
+  const prefetchSetup = async (agentId: string) => {
+    try {
+      const t0 = Date.now();
+      const res = await authFetch(`/api/gemini/live-setup?agentId=${agentId}`);
+      if (res.ok) {
+        const config = await res.json();
+        setupCacheRef.current = { agentId, config, fetchedAt: Date.now() };
+        console.log(`[GeminiLive] Setup pre-fetched in ${Date.now() - t0}ms`);
+      }
+    } catch (err) {
+      console.warn("[GeminiLive] Prefetch failed (non-critical):", err);
+    }
+  };
+
   const startSession = async (params: { agentId: string }) => {
     if (statusRef.current !== "disconnected") return;
     setStatusSync("connecting");
@@ -223,11 +240,23 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     }
 
     try {
-      // 1. Get setup config from server
-      const res = await authFetch(`/api/gemini/live-setup?agentId=${params.agentId}`);
-      if (!res.ok) throw new Error(`live-setup failed: ${await res.text()}`);
-      const { apiKey, systemPrompt, tools, voice } = await res.json();
-      console.log(`[GeminiLive] Setup loaded: voice=${voice}, tools=${tools?.length || 0}`);
+      // 1. Get setup config — use cached version if available and fresh (<5 min)
+      const cache = setupCacheRef.current;
+      const isCacheFresh = cache && cache.agentId === params.agentId && (Date.now() - cache.fetchedAt) < 300_000;
+      let setupConfig: any;
+      if (isCacheFresh) {
+        setupConfig = cache.config;
+        console.log(`[GeminiLive] Using pre-fetched setup config (age: ${Math.round((Date.now() - cache.fetchedAt)/1000)}s)`);
+        setupCacheRef.current = null; // consume cache
+      } else {
+        const t0 = Date.now();
+        const res = await authFetch(`/api/gemini/live-setup?agentId=${params.agentId}`);
+        if (!res.ok) throw new Error(`live-setup failed: ${await res.text()}`);
+        setupConfig = await res.json();
+        console.log(`[GeminiLive] Setup fetched in ${Date.now() - t0}ms`);
+      }
+      const { apiKey, systemPrompt, tools, voice } = setupConfig;
+      console.log(`[GeminiLive] Config: voice=${voice}, tools=${tools?.length || 0}`);
 
       // 2. Grab mic
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 } });
@@ -269,10 +298,17 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           const keys = Object.keys(msg).join(",");
 
           if (msg.setupComplete) {
-            console.log("[GeminiLive] setupComplete ✅ — starting mic");
+            console.log("[GeminiLive] setupComplete ✅ — starting mic + sending greeting trigger");
             setStatusSync("connected");
             callbacksRef.current.onConnect?.();
             startRecording(mediaStreamRef.current!);
+            // Immediately trigger Atlas's greeting — eliminates the silence gap before Atlas speaks
+            ws.send(JSON.stringify({
+              clientContent: {
+                turns: [{ role: "user", parts: [{ text: "(session started)" }] }],
+                turnComplete: true,
+              },
+            }));
             return;
           }
 
@@ -399,5 +435,5 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     };
   }, []);
 
-  return { status, startSession, endSession };
+  return { status, startSession, endSession, prefetchSetup };
 }

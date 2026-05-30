@@ -379,6 +379,13 @@ function ChatPageInner() {
   const selectedAgentIdRef = useRef(selectedAgentId);
   useEffect(() => { selectedAgentIdRef.current = selectedAgentId; }, [selectedAgentId]);
 
+  // Pre-fetch live-setup config in background so mic click is instant
+  useEffect(() => {
+    if (!user) return;
+    const agentId = selectedAgentId || "primary";
+    conversation.prefetchSetup(agentId);
+  }, [user, selectedAgentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedAgentDoc = purchasedAgents.find(a => a.id === selectedAgentId);
   const activeVoiceAgentId = selectedAgentId;
   const [submitting, setSubmitting] = useState(false);

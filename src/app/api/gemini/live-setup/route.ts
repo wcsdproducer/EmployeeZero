@@ -56,21 +56,21 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const agentId = searchParams.get("agentId") || undefined;
 
-    // Load configurations
-    const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext] = await Promise.all([
+    // Load all configuration in parallel (including brain/API key)
+    const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext, brainSnap] = await Promise.all([
       loadMemories(auth.userId, agentId),
       loadConnections(auth.userId),
       loadUserTimezone(auth.userId),
       loadPreferences(auth.userId),
       loadUserSOUL(auth.userId, agentId),
       getMcpToolDeclarations(auth.userId).catch(() => ({ declarations: [] })),
-      loadTeamContext(auth.userId, agentId)
+      loadTeamContext(auth.userId, agentId),
+      adminDb.doc(`users/${auth.userId}/settings/brain`).get(),
     ]);
     const mcpDecls = mcpData.declarations || [];
 
     // Get User's own Gemini API key
     let apiKey: string | null = null;
-    const brainSnap = await adminDb.doc(`users/${auth.userId}/settings/brain`).get();
     if (brainSnap.exists) {
       const brain = brainSnap.data();
       if (brain?.provider === "gemini" && brain?.apiKey) {
