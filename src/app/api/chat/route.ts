@@ -635,6 +635,21 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
     // Notes (always available)
     systemPrompt += `\n\n### Notes & Knowledge Base\nYou can create, list, read, update, delete, and search notes. Notes persist across conversations and serve as your knowledge base. Use create_note to save reports, research, and important information for later reference.`;
 
+    // Charts (always available)
+    systemPrompt += `\n\n### Interactive Charts
+You can generate interactive charts (Bar, Line, Area) in the UI by outputting a JSON code block with the language "chart". If the user asks for a chart or graph, ALWAYS use this capability instead of saying you can't.
+Format the output EXACTLY like this (do not write any JSON outside this block):
+\`\`\`chart
+{
+  "type": "bar",
+  "title": "Top 10 Crypto Prices",
+  "data": [
+    { "name": "BTC", "value": 65000 },
+    { "name": "ETH", "value": 3500 }
+  ]
+}
+\`\`\``;
+
     systemPrompt += `\n\n### Custom Workflows\nYou have workflow management tools: create_workflow, list_my_workflows, delete_workflow.\n\n**IMPORTANT:** When the user asks to "create a workflow", "set up an automation", or "build a routine", use the **create_workflow** tool to SAVE a workflow definition. Do NOT actually execute the workflow steps — just save the definition so the user can run it later from their Workflows page.\n\nThe "goal" field should contain detailed, step-by-step instructions for another AI agent to follow when the workflow is eventually executed. Include specific tool names (like search_emails, list_events, web_search) and formatting requirements.\n\nExample: If the user says "create a workflow that checks my email every morning", save it with create_workflow — don't start scanning emails.`;
 
     // ── Dynamically built workflow awareness ──
