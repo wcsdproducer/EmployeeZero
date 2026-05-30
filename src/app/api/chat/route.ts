@@ -270,6 +270,8 @@ async function summarizeOldMessages(
 
 
 import { executeTool } from "@/lib/executeTool";
+import { loadUserSOUL } from "@/lib/soulAdmin";
+import { buildSOULPrompt } from "@/lib/soul";
 import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
 
 export async function POST(request: Request) {
@@ -477,11 +479,12 @@ export async function POST(request: Request) {
     await convRef.update({ status: "running" });
 
     // 4. Load memories + connections + preferences + learned behaviors
-    const [memories, connections, userTimezone, preferences] = await Promise.all([
+    const [memories, connections, userTimezone, preferences, soul] = await Promise.all([
       loadMemories(userId),
       loadConnections(userId),
       loadUserTimezone(userId),
       loadPreferences(userId),
+      loadUserSOUL(userId),
     ]);
 
     // 4b. Sliding window + rolling summarization
@@ -511,10 +514,9 @@ export async function POST(request: Request) {
     const contextMessages = allMessages.slice(-MAX_CONTEXT_MESSAGES);
 
     // 5. Build system prompt with connection awareness
-    const name = agentName || "Employee Zero";
-    let systemPrompt = `You are ${name}, an elite AI employee. You are direct, strategic, and action-oriented. You provide clear, actionable intelligence. Format your responses with markdown when appropriate. Be concise but thorough.
+    let systemPrompt = buildSOULPrompt(soul) + "\n\n";
 
-CRITICAL CAPABILITY RULES:
+    systemPrompt += `CRITICAL CAPABILITY RULES:
 1. YOU DO HAVE ACCESS to a web browser and live internet via your tools. NEVER say you do not have internet or browser access.
 2. YOU DO HAVE persistent RAG memory. If asked about your memory, reference the "Your Memories" section provided below.
 3. YOU DO HAVE access to workflows and integrations. If asked about connections, reference the "Connected Services" section provided below.
