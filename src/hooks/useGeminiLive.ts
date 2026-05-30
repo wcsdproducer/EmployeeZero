@@ -290,7 +290,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       }
 
       // Register the AudioWorklet processor script
-      await audioCtx.audioWorklet.addModule("/pcm-processor.worklet.js");
+      await audioCtx.audioWorklet.addModule("/api/worklet/pcm-processor");
 
       if (audioCtx.state === "suspended") {
         await audioCtx.resume();
