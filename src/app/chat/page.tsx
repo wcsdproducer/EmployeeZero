@@ -162,9 +162,14 @@ function ChatPageInner() {
         error.name === "PermissionDeniedError" || 
         error.message?.includes("Permission denied") || 
         error.message?.includes("Allowed");
+      // Don't alert on GoAway/session-limit disconnections — they are expected
+      const isExpectedDisconnect =
+        error.message?.includes("GoAway") ||
+        error.message?.includes("session durat") ||
+        error.message?.includes("Going Away");
       if (isMicError) {
         alert("Microphone access is required for Voice Mode. Please enable microphone permissions in your browser settings.");
-      } else {
+      } else if (!isExpectedDisconnect) {
         alert(error.message || "Failed to establish real-time voice connection. Make sure your Gemini API key is configured in the Connections tab.");
       }
     }
