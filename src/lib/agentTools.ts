@@ -1188,7 +1188,33 @@ export const SLIDES_TOOLS = [
 
 // ── Tool executor ───────────────────────────────────────────────
 
-/** Tool Atlas uses to offload slow tasks to a background queue */
+/** Tool Atlas uses to render an interactive chart in the chat UI */
+export const CREATE_CHART_TOOL = {
+  name: "create_chart",
+  description: `Renders a visual chart or graph directly in the chat UI.
+Use this whenever the user asks for a chart, graph, visualization, or wants to see data plotted.
+You CAN create charts — use this tool. Do not say you cannot create charts.
+Supports line charts (trends over time), bar charts (comparisons), and area charts (cumulative trends).`,
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      type: {
+        type: Type.STRING,
+        description: "Chart type: 'line', 'bar', or 'area'",
+      },
+      title: {
+        type: Type.STRING,
+        description: "Chart title displayed above the chart",
+      },
+      data: {
+        type: Type.STRING,
+        description: `JSON array of data points. Each item must have a 'name' (x-axis label) and one numeric value key.\nExamples:\n- Bar: [{"name":"Jan","revenue":4000},{"name":"Feb","revenue":5200}]\n- Line: [{"name":"Week 1","users":120},{"name":"Week 2","users":180}]\n- Area: [{"name":"Mon","sessions":300},{"name":"Tue","sessions":420}]`,
+      },
+    },
+    required: ["type", "data"],
+  },
+};
+
 export const RUN_IN_BACKGROUND_TOOL = {
   name: "run_in_background",
   description: `Runs a tool in the background WITHOUT blocking the conversation.

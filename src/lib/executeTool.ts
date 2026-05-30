@@ -526,6 +526,16 @@ export async function executeTool(
     case "insert_slide_text":
       return await insertSlideText(userId, args.presentation_id, args.slide_id, args.text);
 
+    case "create_chart": {
+      try {
+        const chartData = typeof args.data === "string" ? JSON.parse(args.data) : args.data;
+        const spec = { type: args.type || "bar", title: args.title, data: chartData };
+        return { __chart: spec, message: `Chart created: ${args.title || args.type}` };
+      } catch (e: any) {
+        return { error: `Invalid chart data: ${e.message}` };
+      }
+    }
+
     case "run_in_background": {
       // Queue a tool to run asynchronously — returns immediately so voice conversation continues
       const innerToolName = args.tool_name;

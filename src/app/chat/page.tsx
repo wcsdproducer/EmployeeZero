@@ -1030,6 +1030,15 @@ function ChatPageInner() {
                       <div className={cn("text-[16px] leading-relaxed", msg.role === "user" ? "text-neutral-200 whitespace-pre-wrap" : "text-neutral-100 prose prose-invert max-w-none prose-a:text-blue-400 prose-a:underline prose-a:hover:text-blue-300")}>
                         {msg.role === "user" ? (
                           msg.content
+                        ) : msg.content.startsWith("__chart::") ? (
+                          (() => {
+                            try {
+                              const spec = JSON.parse(msg.content.slice("__chart::".length));
+                              return <AgentChart spec={spec} />;
+                            } catch {
+                              return <p className="text-red-400 text-sm">Chart render error</p>;
+                            }
+                          })()
                         ) : (
                           <ReactMarkdown
                             components={{

@@ -415,6 +415,10 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
                 });
                 clearTimeout(timer);
                 const output = await r.json();
+                // If the tool returned chart data, emit it as a special message
+                if (output.__chart) {
+                  callbacksRef.current.onMessage?.({ source: "ai", message: `__chart::${JSON.stringify(output.__chart)}` });
+                }
                 return { response: { output }, id };
               } catch (err: any) {
                 const isTimeout = err.name === "AbortError";
