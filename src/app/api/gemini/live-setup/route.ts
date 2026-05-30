@@ -78,11 +78,17 @@ export async function GET(req: Request) {
         if (
           trimmedKey.length > 20 &&
           !trimmedKey.includes("dummy") &&
-          !trimmedKey.includes("placeholder")
+          !trimmedKey.includes("placeholder") &&
+          !trimmedKey.includes("your-api-key")
         ) {
           apiKey = trimmedKey;
         }
       }
+    }
+
+    // Fallback to platform API key if user has not configured their own
+    if (!apiKey) {
+      apiKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
     }
 
     if (!apiKey) {
