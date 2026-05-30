@@ -179,10 +179,14 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       }));
     };
 
-    // Connect: mic source → processor → destination (required to keep graph alive)
+    // Connect: mic source → processor → silent gain → destination
+    // The gain=0 keeps the audio graph alive without feeding the mic back to speakers
+    const silentGain = ctx.createGain();
+    silentGain.gain.value = 0;
     source.connect(processor);
-    processor.connect(ctx.destination);
-    console.log("[GeminiLive] Mic pipeline: source → ScriptProcessor → destination");
+    processor.connect(silentGain);
+    silentGain.connect(ctx.destination);
+    console.log("[GeminiLive] Mic pipeline: source → ScriptProcessor → silent gain (0) → destination (no feedback)");
   };
 
   // ── Session Control ───────────────────────────────────────────────
@@ -245,6 +249,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
               responseModalities: ["AUDIO"],
               speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || "Aoede" } } },
             },
+            // Enable bidirectional audio transcription (at top-level setup, not inside generationConfig)
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
             systemInstruction: { parts: [{ text: systemPrompt }] },
             tools: tools?.length > 0 ? [{ functionDeclarations: tools }] : undefined,
           },
@@ -315,7 +322,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             return;
           }
 
-          // Play audio + accumulate text
+          // Play audio + accumulate AI text
           const parts = msg.serverContent?.modelTurn?.parts || [];
           for (const part of parts) {
             if (part.inlineData?.mimeType?.startsWith("audio/pcm")) {
@@ -326,10 +333,24 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             if (part.text) modelTextRef.current += part.text;
           }
 
-          // STT output
-          const userText = (msg.serverContent?.userTurn?.parts || [])
+          // Handle AI speech transcription (outputAudioTranscription)
+          const aiTranscript = msg.serverContent?.outputTranscription?.text;
+          if (aiTranscript) {
+            modelTextRef.current += aiTranscript;
+          }
+
+          // Handle user speech transcription (inputAudioTranscription / STT)
+          const userTranscript = msg.serverContent?.inputTranscription?.text;
+          if (userTranscript) {
+            callbacksRef.current.onMessage?.({ source: "user", message: userTranscript });
+          }
+
+          // Legacy: userTurn parts (fallback)
+          const userParts = (msg.serverContent?.userTurn?.parts || [])
             .map((p: any) => p.text).filter(Boolean).join("");
-          if (userText) callbacksRef.current.onMessage?.({ source: "user", message: userText });
+          if (userParts && !userTranscript) {
+            callbacksRef.current.onMessage?.({ source: "user", message: userParts });
+          }
 
           // Turn complete
           if (msg.serverContent?.turnComplete) {
