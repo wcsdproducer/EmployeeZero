@@ -124,6 +124,9 @@ function ChatPageInner() {
   const activeConvIdRef = useRef(activeConvId);
   useEffect(() => { activeConvIdRef.current = activeConvId; }, [activeConvId]);
 
+  // Separate ref just for voice conversations so we can clean them up on disconnect
+  const voiceConvIdRef = useRef<string | null>(null);
+
   const conversation = useGeminiLive({
     onConnect: async () => {
       setIsVoiceMode(true);
@@ -136,13 +139,35 @@ function ChatPageInner() {
             status: "running",
             createdAt: Timestamp.now(),
           });
+          voiceConvIdRef.current = docRef.id;
           setActiveConvId(docRef.id);
         } catch (err) {
           console.error("Failed to create conversation for voice:", err);
         }
       }
     },
-    onDisconnect: () => setIsVoiceMode(false),
+    onDisconnect: async () => {
+      setIsVoiceMode(false);
+      const vcId = voiceConvIdRef.current;
+      if (vcId) {
+        try {
+          const snap = await getDoc(doc(db, "conversations", vcId));
+          const data = snap.data();
+          if (!data) return;
+          if (!data.messages || data.messages.length === 0) {
+            // Empty voice session — delete it to keep the sidebar clean
+            await deleteDoc(doc(db, "conversations", vcId));
+            if (activeConvIdRef.current === vcId) setActiveConvId(null);
+          } else {
+            // Has messages — mark completed
+            await updateDoc(doc(db, "conversations", vcId), { status: "completed" });
+          }
+        } catch (err) {
+          console.error("Failed to clean up voice conversation:", err);
+        }
+        voiceConvIdRef.current = null;
+      }
+    },
     onMessage: async (msg: any) => {
       const currentConvId = activeConvIdRef.current;
       if (!currentConvId) return;
