@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { authFetch } from "@/lib/authFetch";
 import { ElevenLabsVoiceSelector } from "@/components/ElevenLabsVoiceSelector";
 import {
   ArrowLeft,
@@ -350,7 +351,7 @@ function ConnectionsPageInner() {
       if (hasSecret) entry.apiSecret = editSecret.trim();
 
       if (id === "elevenlabs" && editValue.trim()) {
-        const res = await fetch("/api/elevenlabs/provision", {
+        const res = await authFetch("/api/elevenlabs/provision", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey: editValue.trim() })

@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
+import { verifyAuth } from "@/lib/auth";
+import { loadUserSOUL } from "@/lib/soulAdmin";
+import { buildSOULPrompt } from "@/lib/soul";
 
 export async function POST(req: Request) {
   try {
+    const auth = await verifyAuth(req as any);
+    if (auth.error) return auth.error;
+
     const { apiKey } = await req.json();
 
     if (!apiKey) {
       return NextResponse.json({ error: "Missing API Key" }, { status: 400 });
     }
+
+    const soul = await loadUserSOUL(auth.userId!);
+    const compiledPrompt = buildSOULPrompt(soul) + "\n\nYou have access to the user's personal memory database. You can search these memories at any time to answer questions about the user or their past interactions.";
 
     const response = await fetch("https://api.elevenlabs.io/v1/convai/agents/create", {
       method: "POST",
@@ -15,11 +24,11 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: "Employee Zero",
+        name: soul.agentName || "Employee Zero",
         conversation_config: {
           agent: {
             prompt: {
-              prompt: "You are Employee Zero, an advanced autonomous AI assistant. You are helpful, highly intelligent, and concise. Your goal is to serve the user efficiently. Keep your answers brief and natural. You have access to the user's personal memory database. You can search these memories at any time to answer questions about the user or their past interactions.",
+              prompt: compiledPrompt,
             },
             first_message: "Hello, I am Employee Zero. How can I help you?",
             tools: [
