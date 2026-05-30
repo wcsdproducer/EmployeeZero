@@ -1252,12 +1252,12 @@ function ChatPageInner() {
                   variant="ghost"
                   size="icon"
                   onClick={toggleListening}
-                  disabled={!activeVoiceAgentId || !hasGeminiKey}
+                  disabled={!activeVoiceAgentId}
                   className={cn(
                     "h-8 w-8 rounded-xl transition-all",
                     conversation.status === 'connected' ? "bg-red-500/20 text-red-500 animate-pulse hover:bg-red-500/30" : "bg-white/5 text-neutral-400 hover:text-white"
                   )}
-                  title={hasGeminiKey ? "Call Agent" : "Configure Gemini API Key in connections first"}
+                  title={activeVoiceAgentId ? "Call Agent" : "Please select an agent first"}
                 >
                   {conversation.status === 'connected' ? <MicOff size={16} /> : <Mic size={16} />}
                 </Button>
