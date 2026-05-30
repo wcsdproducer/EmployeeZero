@@ -68,12 +68,13 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   };
 
   const endSession = async () => {
-    if (status === "disconnected") return;
+    if (status === "disconnected" || status === "disconnecting") return;
     setStatus("disconnecting");
 
     cleanUpAudio();
 
     if (wsRef.current) {
+      wsRef.current.onclose = null; // prevent onclose from double-firing cleanup
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -267,12 +268,22 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       };
 
       ws.onerror = (error) => {
+        console.error("[Gemini Live] WebSocket error:", error);
         callbacksRef.current.onError?.(error);
-        endSession();
       };
 
-      ws.onclose = () => {
-        endSession();
+      ws.onclose = (event) => {
+        console.log(`[Gemini Live] WebSocket closed: code=${event.code} reason="${event.reason}"`);
+        if (event.code === 1007 || event.code === 1008 || event.code === 1003) {
+          const msg = `Voice connection rejected by server: ${event.reason || 'Unknown protocol error (code ' + event.code + ')'}. Check API key and model availability.`;
+          console.error('[Gemini Live]', msg);
+          callbacksRef.current.onError?.(new Error(msg));
+        }
+        // Avoid calling endSession if already disconnecting/disconnected
+        cleanUpAudio();
+        wsRef.current = null;
+        setStatus("disconnected");
+        callbacksRef.current.onDisconnect?.();
       };
 
     } catch (err: any) {
@@ -312,15 +323,15 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         const int16Array = float32ToInt16(resampledFloat32);
         const base64Audio = arrayBufferToBase64(int16Array.buffer);
 
+        // Use the new realtimeInput.audio format (mediaChunks is deprecated and
+        // causes the server to close the connection with code 1007)
         wsRef.current.send(
           JSON.stringify({
             realtimeInput: {
-              mediaChunks: [
-                {
-                  mimeType: "audio/pcm;rate=16000",
-                  data: base64Audio,
-                },
-              ],
+              audio: {
+                mimeType: "audio/pcm;rate=16000",
+                data: base64Audio,
+              },
             },
           })
         );
