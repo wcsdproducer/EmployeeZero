@@ -69,7 +69,7 @@ export async function POST(req: Request) {
           agent: {
             prompt: {
               prompt: compiledPrompt,
-              llm: "custom",
+              llm: "custom-llm",
               custom_llm: {
                 url: `${hostUrl}/api/elevenlabs/llm/v1/chat/completions?userId=${auth.userId}`,
                 model_id: "gemini-1.5-pro"

@@ -24,7 +24,7 @@ export async function PATCH(req: Request) {
         payload.conversation_config.agent.prompt = {};
         if (prompt) payload.conversation_config.agent.prompt.prompt = prompt;
         if (customLlmUrl) {
-          payload.conversation_config.agent.prompt.llm = "custom";
+          payload.conversation_config.agent.prompt.llm = "custom-llm";
           payload.conversation_config.agent.prompt.custom_llm = { 
             url: customLlmUrl,
             model_id: "gemini-1.5-pro"

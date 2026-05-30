@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     const mcpDecls = mcpData.declarations || [];
 
     // Build API Key
-    let apiKey = process.env.GEMINI_API_KEY;
+    let apiKey = process.env.GOOGLE_GENAI_API_KEY;
     if (connections.gemini?.apiSecret) {
       apiKey = connections.gemini.apiSecret;
     }
