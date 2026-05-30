@@ -3,17 +3,31 @@ import { adminDb } from "@/lib/admin";
 import { verifyAuth } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { executeTool } from "@/lib/executeTool";
-import { loadUserSOUL } from "@/lib/soulAdmin";
+import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
 import { loadPreferences } from "@/lib/selfImprove";
 import { getMcpToolDeclarations } from "@/lib/mcpClient";
 
 
-async function loadMemories(userId: string): Promise<string[]> {
+async function loadMemories(userId: string, agentId?: string): Promise<string[]> {
   try {
-    const snap = await adminDb.collection(`users/${userId}/memories`).limit(50).get();
-    return snap.docs.map((d: any) => d.data().content as string);
+    const snap = await adminDb.collection(`users/${userId}/memories`).limit(100).get();
+    return snap.docs
+      .map((d: any) => d.data())
+      .filter((data: any) => {
+        const docAgentId = data.agentId;
+        if (!agentId) return true;
+        return (
+          docAgentId === agentId ||
+          docAgentId === "company" ||
+          docAgentId === "global" ||
+          !docAgentId ||
+          docAgentId === "primary"
+        );
+      })
+      .slice(0, 50)
+      .map((data: any) => data.content as string);
   } catch (err) {
     return [];
   }
@@ -54,19 +68,21 @@ export async function POST(req: Request) {
     const { messages } = body; // OpenAI format
     const url = new URL(req.url);
     const userId = url.searchParams.get("userId");
+    const agentId = url.searchParams.get("agentId");
 
     if (!userId) {
       return new Response("Missing userId", { status: 400 });
     }
 
     // Load user configuration
-    const [memories, connections, userTimezone, preferences, soul, mcpData] = await Promise.all([
-      loadMemories(userId),
+    const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext] = await Promise.all([
+      loadMemories(userId, agentId || undefined),
       loadConnections(userId),
       loadUserTimezone(userId),
       loadPreferences(userId),
-      loadUserSOUL(userId),
-      getMcpToolDeclarations(userId).catch(() => ({ declarations: [] }))
+      loadUserSOUL(userId, agentId || undefined),
+      getMcpToolDeclarations(userId).catch(() => ({ declarations: [] })),
+      loadTeamContext(userId, agentId || undefined)
     ]);
     const mcpDecls = mcpData.declarations || [];
 
@@ -81,6 +97,9 @@ export async function POST(req: Request) {
 
     // Build the system prompt (same as text chat)
     let systemPrompt = buildSOULPrompt(soul) + "\n\n";
+    if (teamContext) {
+      systemPrompt += teamContext + "\n\n";
+    }
     systemPrompt += `CRITICAL CAPABILITY RULES:
 1. YOU DO HAVE ACCESS to a web browser and live internet via your tools. NEVER say you do not have internet or browser access.
 2. YOU DO HAVE persistent RAG memory. If asked about your memory, reference the "Your Memories" section provided below.
@@ -140,13 +159,20 @@ You have persistent memory. You remember everything the user has told you across
     if (connections.slides?.connected) allTools.push(...SLIDES_TOOLS);
     if (mcpDecls.length > 0) allTools.push(...mcpDecls);
 
+    let filteredTools = allTools;
+    if (soul.enabledTools && soul.enabledTools.length > 0) {
+      filteredTools = allTools.filter(t => 
+        soul.enabledTools!.includes(t.name)
+      );
+    }
+
     const ai = new GoogleGenAI({ apiKey });
     const config: any = {
       systemInstruction: systemPrompt,
       temperature: 0.2,
     };
-    if (allTools.length > 0) {
-      config.tools = [{ functionDeclarations: allTools }];
+    if (filteredTools.length > 0) {
+      config.tools = [{ functionDeclarations: filteredTools }];
     }
 
     // Format messages for Gemini
@@ -230,7 +256,7 @@ You have persistent memory. You remember everything the user has told you across
           
           let toolResult: any;
           try {
-            toolResult = await executeTool(userId, toolName, args as Record<string, any>);
+            toolResult = await executeTool(userId, toolName, args as Record<string, any>, agentId || undefined);
           } catch (err: any) {
             toolResult = { error: err.message };
           }
@@ -253,7 +279,7 @@ You have persistent memory. You remember everything the user has told you across
         const memoryMatch = finalResponseText.match(/<memory_extract>([\s\S]*?)<\/memory_extract>/);
         if (memoryMatch) {
           const facts = memoryMatch[1].split("\n").map(l => l.replace(/^-\s*/, "").trim()).filter(l => l.length > 0);
-          if (facts.length > 0) await storeMemories(userId, "primary", facts);
+          if (facts.length > 0) await storeMemories(userId, "company", facts);
         }
 
         sendFinish();

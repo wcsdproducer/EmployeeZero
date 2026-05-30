@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
-import { loadUserSOUL } from "@/lib/soulAdmin";
+import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
 
@@ -19,14 +19,17 @@ export async function POST(req: Request) {
     const auth = await verifyAuth(req as any);
     if (auth.error) return auth.error;
 
-    const { apiKey } = await req.json();
+    const { apiKey, agentId } = await req.json();
 
     if (!apiKey) {
       return NextResponse.json({ error: "Missing API Key" }, { status: 400 });
     }
 
-    const soul = await loadUserSOUL(auth.userId!);
-    const compiledPrompt = buildSOULPrompt(soul) + "\n\nYou have access to the user's personal memory database and all their connected external services via your tools. If asked about your memory, reference your tools. If asked about connections, use the appropriate tool.";
+    const [soul, teamContext] = await Promise.all([
+      loadUserSOUL(auth.userId!, agentId || undefined),
+      loadTeamContext(auth.userId!, agentId || undefined)
+    ]);
+    const compiledPrompt = buildSOULPrompt(soul) + "\n\n" + (teamContext ? teamContext + "\n\n" : "") + "You have access to the user's personal memory database and all their connected external services via your tools. If asked about your memory, reference your tools. If asked about connections, use the appropriate tool.";
 
     const hostUrl = process.env.NEXT_PUBLIC_APP_URL || "https://employeezero.app";
 
@@ -36,7 +39,7 @@ export async function POST(req: Request) {
       description: tool.description,
       parameters: tool.parameters,
       api_schema: {
-        url: `${hostUrl}/api/elevenlabs/webhook?userId=${auth.userId}`,
+        url: `${hostUrl}/api/elevenlabs/webhook?userId=${auth.userId}${agentId ? `&agentId=${agentId}` : ""}`,
         method: "POST"
       }
     }));
@@ -71,7 +74,7 @@ export async function POST(req: Request) {
               prompt: compiledPrompt,
               llm: "custom-llm",
               custom_llm: {
-                url: `${hostUrl}/api/elevenlabs/llm/v1/chat/completions?userId=${auth.userId}`,
+                url: `${hostUrl}/api/elevenlabs/llm/v1/chat/completions?userId=${auth.userId}${agentId ? `&agentId=${agentId}` : ""}`,
                 model_id: "gemini-1.5-pro"
               }
             },

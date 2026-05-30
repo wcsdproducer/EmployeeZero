@@ -5,7 +5,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
 import { loadUserLLMConfig } from "@/lib/llmProviderAdmin";
 import { createOpenRouterClient, convertToolsToOpenAIFormat } from "@/lib/llmProvider";
-import { loadUserSOUL } from "@/lib/soulAdmin";
+import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import {
   listEmails, getEmail, sendEmail, replyToEmail,
@@ -166,6 +166,7 @@ export interface Task {
   id: string;
   userId: string;
   conversationId?: string;
+  agentId?: string;
   goal: string;
   status: "planning" | "running" | "completed" | "failed" | "waiting_input";
   plan?: string;
@@ -549,7 +550,8 @@ const SLIDES_TOOLS = [
 async function executeTool(
   userId: string,
   toolName: string,
-  args: Record<string, any>
+  args: Record<string, any>,
+  agentId?: string
 ): Promise<any> {
   switch (toolName) {
     // Gmail
@@ -946,13 +948,27 @@ async function getApiKey(userId: string): Promise<string> {
 
 /* ─── User Context Helpers ─── */
 
-async function loadMemories(userId: string): Promise<string[]> {
+async function loadMemories(userId: string, agentId?: string): Promise<string[]> {
   try {
     const snap = await adminDb
       .collection(`users/${userId}/memories`)
-      .limit(50)
+      .limit(100)
       .get();
-    return snap.docs.map((d) => d.data().content as string);
+    return snap.docs
+      .map((d) => d.data())
+      .filter((data) => {
+        const docAgentId = data.agentId;
+        if (!agentId) return true;
+        return (
+          docAgentId === agentId ||
+          docAgentId === "company" ||
+          docAgentId === "global" ||
+          !docAgentId ||
+          docAgentId === "primary"
+        );
+      })
+      .slice(0, 50)
+      .map((data) => data.content as string);
   } catch {
     return [];
   }
@@ -969,12 +985,12 @@ async function loadUserTimezone(userId: string): Promise<string> {
 
 /* ─── Connections Helper ─── */
 
-async function getAvailableTools(userId: string) {
+async function getAvailableTools(userId: string, enabledTools?: string[]) {
   try {
     const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
     const connections = snap.exists ? (snap.data() as Record<string, any>) : {};
-    const tools: any[] = [];
-    const services: string[] = [];
+    let tools: any[] = [];
+    let services: string[] = [];
 
     // Gmail
     if (connections.gmail?.connected) {
@@ -1084,6 +1100,13 @@ async function getAvailableTools(userId: string) {
       console.warn("[TaskEngine] MCP tool loading failed:", err.message);
     }
 
+    if (enabledTools && enabledTools.length > 0) {
+      tools = tools.filter(t => 
+        META_TOOLS.some(m => m.name === t.name) || 
+        enabledTools.includes(t.name)
+      );
+    }
+
     return { tools, services, connections };
   } catch {
     return {
@@ -1100,13 +1123,15 @@ export async function createTask(
   userId: string,
   goal: string,
   conversationId?: string,
-  apiKey?: string
+  apiKey?: string,
+  agentId?: string
 ): Promise<string> {
   const now = new Date().toISOString();
   const taskRef = adminDb.collection("tasks").doc();
   const task: Omit<Task, "id"> & { apiKey?: string } = {
     userId,
     conversationId,
+    agentId,
     goal,
     status: "planning",
     steps: [],
@@ -1126,7 +1151,7 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
 
   const taskData = taskSnap.data() as any;
   const task = { id: taskId, ...taskData } as Task;
-  const { userId, goal } = task;
+  const { userId, goal, agentId } = task;
 
   // Use override key, then task-stored key, then resolve from user/platform
   let apiKey = overrideApiKey || taskData._apiKey || "";
@@ -1141,7 +1166,15 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
     return "No API key configured.";
   }
 
-  const { tools, services } = await getAvailableTools(userId);
+  // Load user context for personalized execution
+  const [memories, userTimezone, userSOUL, teamContext] = await Promise.all([
+    loadMemories(userId, agentId),
+    loadUserTimezone(userId),
+    loadUserSOUL(userId, agentId),
+    loadTeamContext(userId, agentId)
+  ]);
+
+  const { tools, services } = await getAvailableTools(userId, userSOUL.enabledTools);
 
   // ── Brain Selection: User's OpenRouter account OR platform Gemini fallback ──
   // When user has connected OpenRouter, ALL API costs go to their account.
@@ -1160,17 +1193,10 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
     console.log(`[TaskEngine] Using platform Gemini fallback (user: ${userId})`);
   }
 
-  // Load user context for personalized execution
-  const [memories, userTimezone, userSOUL] = await Promise.all([
-    loadMemories(userId),
-    loadUserTimezone(userId),
-    loadUserSOUL(userId),
-  ]);
-
   const soulPrefix = buildSOULPrompt(userSOUL);
 
   // Build system prompt with SOUL persona prefix
-  let systemPrompt = `${soulPrefix}
+  let systemPrompt = `${soulPrefix}${teamContext ? "\n\n" + teamContext : ""}
 
 ## Task Mode
 You are now executing an autonomous workflow task. Use your tools to complete the given goal step by step.
@@ -1442,7 +1468,7 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
     while (retries <= MAX_RETRIES_PER_STEP) {
       try {
         toolResult = await withTimeout(
-          executeTool(userId, toolName!, args as Record<string, any>),
+          executeTool(userId, toolName!, args as Record<string, any>, agentId),
           TOOL_TIMEOUT_MS,
           `Tool ${toolName}`
         );
@@ -1553,7 +1579,7 @@ export async function resumeTask(taskId: string, userInput: string, overrideApiK
   }
 
   const task = { id: taskId, ...taskData } as Task;
-  const { userId, goal } = task;
+  const { userId, goal, agentId } = task;
 
   let apiKey = overrideApiKey || "";
   if (!apiKey) apiKey = await getApiKey(userId);
@@ -1562,7 +1588,15 @@ export async function resumeTask(taskId: string, userInput: string, overrideApiK
     return "No API key configured.";
   }
 
-  const { tools, services } = await getAvailableTools(userId);
+  // Load user context for personalized execution
+  const [memories, userTimezone, userSOUL, teamContext] = await Promise.all([
+    loadMemories(userId, agentId),
+    loadUserTimezone(userId),
+    loadUserSOUL(userId, agentId),
+    loadTeamContext(userId, agentId)
+  ]);
+
+  const { tools, services } = await getAvailableTools(userId, userSOUL.enabledTools);
 
   // ── Brain Selection (same logic as executeTask) ───────────────────────────
   const llmConfig = await loadUserLLMConfig(userId);
@@ -1575,13 +1609,13 @@ export async function resumeTask(taskId: string, userInput: string, overrideApiK
     ai = new GoogleGenAI({ apiKey });
   }
 
-  const [memories, userTimezone] = await Promise.all([
-    loadMemories(userId),
-    loadUserTimezone(userId),
-  ]);
+  const soulPrefix = buildSOULPrompt(userSOUL);
 
   // Rebuild system prompt (same as executeTask)
-  let systemPrompt = `You are an autonomous AI employee executing a workflow task. You have access to tools and must complete the given goal step by step.
+  let systemPrompt = `${soulPrefix}${teamContext ? "\n\n" + teamContext : ""}
+
+## Task Mode
+You are now executing an autonomous workflow task. Use your tools to complete the given goal step by step.
 
 ## Available Services: ${services.length > 0 ? services.join(", ") : "None"}
 
@@ -1779,7 +1813,7 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
     while (retries <= MAX_RETRIES_PER_STEP) {
       try {
         toolResult = await withTimeout(
-          executeTool(userId, toolName!, args as Record<string, any>),
+          executeTool(userId, toolName!, args as Record<string, any>, agentId),
           TOOL_TIMEOUT_MS,
           `Tool ${toolName}`
         );

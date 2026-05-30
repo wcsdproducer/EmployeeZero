@@ -29,6 +29,8 @@ interface AgentDoc {
   avatar: string;
   status: string;
   plan: string;
+  soul?: Record<string, any>;
+  elevenLabsAgentId?: string;
 }
 
 interface ChatMessage {
@@ -167,7 +169,7 @@ function ChatPageInner() {
             body: JSON.stringify({
               action: "search",
               tenantId: user.uid,
-              agentId: "employee-zero",
+              agentId: selectedAgentIdRef.current,
               query,
             })
           });
@@ -202,15 +204,15 @@ function ChatPageInner() {
 
   const toggleListening = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    if (!agentId) {
-      alert("Please connect ElevenLabs in Connections to use Voice Mode");
+    if (!activeVoiceAgentId) {
+      alert("Please connect ElevenLabs and configure a voice for this agent in its settings to use Voice Mode");
       return;
     }
     if (conversation.status === 'connected') {
       await conversation.endSession();
     } else {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      await conversation.startSession({ agentId });
+      await conversation.startSession({ agentId: activeVoiceAgentId });
     }
   };
 
@@ -360,8 +362,17 @@ function ChatPageInner() {
       }
     })();
   }, [searchParams, user]);
+  const [purchasedAgents, setPurchasedAgents] = useState<AgentDoc[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("primary");
   const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
+  
+  const selectedAgentIdRef = useRef(selectedAgentId);
+  useEffect(() => { selectedAgentIdRef.current = selectedAgentId; }, [selectedAgentId]);
+
+  const selectedAgentDoc = purchasedAgents.find(a => a.id === selectedAgentId);
+  const activeVoiceAgentId = selectedAgentId === "primary"
+    ? (selectedAgentDoc?.elevenLabsAgentId || agentId)
+    : selectedAgentDoc?.elevenLabsAgentId;
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // default CLOSED on mobile
@@ -369,7 +380,6 @@ function ChatPageInner() {
   const [showHireModal, setShowHireModal] = useState(false);
   const [previewWorkflow, setPreviewWorkflow] = useState<WorkflowSuggestion | null>(null);
   const [foundingCount, setFoundingCount] = useState<number | null>(null);
-  const [purchasedAgents, setPurchasedAgents] = useState<AgentDoc[]>([]);
   const [setupAgent, setSetupAgent] = useState<AgentDoc | null>(null);
   const [setupName, setSetupName] = useState("");
   const [setupAvatar, setSetupAvatar] = useState("robot");
@@ -516,6 +526,13 @@ function ChatPageInner() {
     }
   }, [activeConv?.messages?.length, activeConv?.status]);
 
+  // Synchronize selectedAgentId with active conversation's agentId
+  useEffect(() => {
+    if (activeConv && (activeConv as any).agentId && (activeConv as any).agentId !== selectedAgentId) {
+      setSelectedAgentId((activeConv as any).agentId);
+    }
+  }, [activeConvId, activeConv?.id]);
+
   // Voice Auto-Play on Message Complete
   const previousStatusRef = useRef<string>("complete");
   useEffect(() => {
@@ -541,6 +558,7 @@ function ChatPageInner() {
       if (!convId) {
         const docRef = await addDoc(collection(db, "conversations"), {
           userId: user.uid,
+          agentId: selectedAgent.id,
           title: message.slice(0, 80),
           messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
           status: "running",
@@ -560,6 +578,7 @@ function ChatPageInner() {
           conversationId: convId,
           message,
           agentName: selectedAgent.name,
+          agentId: selectedAgent.id,
         }),
       }).catch((err) => console.error("Chat API error:", err));
     } catch (err) {
@@ -630,22 +649,35 @@ function ChatPageInner() {
               <div className="space-y-1">
                 <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Active Workforce</p>
                 {allAgents.map((agent) => (
-                    <button
+                    <div 
                         key={agent.id}
-                        onClick={() => setSelectedAgentId(agent.id)}
                         className={cn(
-                            "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group",
+                            "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group/item relative",
                             selectedAgent.id === agent.id ? "bg-white/10 text-white" : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
                         )}
                     >
-                        <div className={cn("p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors", agent.color)}>
-                            {agent.icon}
-                        </div>
-                        <span className="font-medium">{agent.name}</span>
-                        {selectedAgent.id === agent.id && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
-                        )}
-                    </button>
+                        <button
+                            onClick={() => setSelectedAgentId(agent.id)}
+                            className="flex-1 flex items-center gap-3 text-left overflow-hidden"
+                        >
+                            <div className={cn("p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors", agent.color)}>
+                                {agent.icon}
+                            </div>
+                            <span className="font-medium truncate">{agent.name}</span>
+                            {selectedAgent.id === agent.id && (
+                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] flex-shrink-0 mr-1" />
+                            )}
+                        </button>
+                        
+                        <Link
+                            href={`/agent/${agent.id}/settings`}
+                            className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-white/10 rounded-md transition-all text-neutral-400 hover:text-white flex-shrink-0"
+                            title="Agent Settings"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <Settings size={14} />
+                        </Link>
+                    </div>
                 ))}
                 <button
                   onClick={() => setShowHireModal(true)}
@@ -1238,12 +1270,12 @@ function ChatPageInner() {
                   variant="ghost"
                   size="icon"
                   onClick={toggleListening}
-                  disabled={!agentId}
+                  disabled={!activeVoiceAgentId}
                   className={cn(
                     "h-8 w-8 rounded-xl transition-all",
                     conversation.status === 'connected' ? "bg-red-500/20 text-red-500 animate-pulse hover:bg-red-500/30" : "bg-white/5 text-neutral-400 hover:text-white"
                   )}
-                  title={agentId ? "Call Agent" : "Connect ElevenLabs API Key in Settings"}
+                  title={activeVoiceAgentId ? "Call Agent" : "Configure ElevenLabs Voice in settings first"}
                 >
                   {conversation.status === 'connected' ? <MicOff size={16} /> : <Mic size={16} />}
                 </Button>

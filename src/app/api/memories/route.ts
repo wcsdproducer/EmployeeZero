@@ -19,8 +19,27 @@ export async function POST(req: Request) {
       if (!tenantId || !agentId || !query) {
         return NextResponse.json({ error: "Missing fields" }, { status: 400 });
       }
-      const results = await searchMemories(tenantId, agentId, query);
-      return NextResponse.json({ results });
+      
+      // Parallel fetch for agent-specific, company-wide, and legacy memories
+      const [agentResults, companyResults, primaryResults] = await Promise.all([
+        searchMemories(tenantId, agentId, query).catch(() => []),
+        searchMemories(tenantId, "company", query).catch(() => []),
+        searchMemories(tenantId, "primary", query).catch(() => [])
+      ]);
+
+      // Merge and deduplicate by content or ID
+      const seen = new Set<string>();
+      const combinedResults: any[] = [];
+      
+      for (const item of [...agentResults, ...companyResults, ...primaryResults]) {
+        const uniqueKey = item.id || item.content;
+        if (uniqueKey && !seen.has(uniqueKey)) {
+          seen.add(uniqueKey);
+          combinedResults.push(item);
+        }
+      }
+
+      return NextResponse.json({ results: combinedResults.slice(0, 15) });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });

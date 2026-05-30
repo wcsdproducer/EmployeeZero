@@ -192,13 +192,27 @@ interface ChatMessage {
 
 // ── Memory helpers ──────────────────────────────────────────────
 
-async function loadMemories(userId: string): Promise<string[]> {
+async function loadMemories(userId: string, agentId?: string): Promise<string[]> {
   try {
     const snap = await adminDb
       .collection(`users/${userId}/memories`)
-      .limit(50)
+      .limit(100)
       .get();
-    return snap.docs.map((d) => d.data().content as string);
+    return snap.docs
+      .map((d) => d.data())
+      .filter((data) => {
+        const docAgentId = data.agentId;
+        if (!agentId) return true;
+        return (
+          docAgentId === agentId ||
+          docAgentId === "company" ||
+          docAgentId === "global" ||
+          !docAgentId ||
+          docAgentId === "primary"
+        );
+      })
+      .slice(0, 50)
+      .map((data) => data.content as string);
   } catch (err) {
     console.warn("Failed to load memories:", err);
     return [];
@@ -270,7 +284,7 @@ async function summarizeOldMessages(
 
 
 import { executeTool } from "@/lib/executeTool";
-import { loadUserSOUL } from "@/lib/soulAdmin";
+import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
 
@@ -288,11 +302,12 @@ export async function POST(request: Request) {
     conversationId?: string;
     message?: string;
     agentName?: string;
+    agentId?: string;
   } = {};
 
   try {
     parsedBody = await request.json();
-    const { conversationId, message, agentName } = parsedBody;
+    const { conversationId, message, agentName, agentId } = parsedBody;
     // Use verified userId from token — never trust client body
     const userId = verifiedUserId;
 
@@ -421,7 +436,7 @@ export async function POST(request: Request) {
       }
 
       // Create a task and execute it — pass the already-resolved apiKey
-      const taskId = await createTask(userId, taskGoal, conversationId, apiKey);
+      const taskId = await createTask(userId, taskGoal, conversationId, apiKey, agentId);
 
       // Start execution in background
       const executionPromise = executeTask(taskId, apiKey).then(async (result) => {
@@ -479,13 +494,14 @@ export async function POST(request: Request) {
     await convRef.update({ status: "running" });
 
     // 4. Load memories + connections + preferences + learned behaviors
-    const [memories, connections, userTimezone, preferences, soul, mcpData] = await Promise.all([
-      loadMemories(userId),
+    const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext] = await Promise.all([
+      loadMemories(userId, agentId),
       loadConnections(userId),
       loadUserTimezone(userId),
       loadPreferences(userId),
-      loadUserSOUL(userId),
-      getMcpToolDeclarations(userId).catch(() => ({ declarations: [] }))
+      loadUserSOUL(userId, agentId),
+      getMcpToolDeclarations(userId).catch(() => ({ declarations: [] })),
+      loadTeamContext(userId, agentId)
     ]);
     const mcpDecls = mcpData.declarations || [];
 
@@ -517,6 +533,9 @@ export async function POST(request: Request) {
 
     // 5. Build system prompt with connection awareness
     let systemPrompt = buildSOULPrompt(soul) + "\n\n";
+    if (teamContext) {
+      systemPrompt += teamContext + "\n\n";
+    }
 
     systemPrompt += `CRITICAL CAPABILITY RULES:
 1. YOU DO HAVE ACCESS to a web browser and live internet via your tools. NEVER say you do not have internet or browser access.
@@ -839,7 +858,14 @@ The memory_extract section will be automatically processed and NOT shown to the 
         // Image generation & notes — always available (no connection needed)
         allTools.push(...NOTES_TOOLS);
 
-        config.tools = [{ functionDeclarations: allTools }];
+        let filteredTools = allTools;
+        if (soul.enabledTools && soul.enabledTools.length > 0) {
+          filteredTools = allTools.filter(t => 
+            soul.enabledTools!.includes(t.name)
+          );
+        }
+
+        config.tools = [{ functionDeclarations: filteredTools }];
 
         let response = await ai.models.generateContent({
           model: "gemini-2.5-flash",
@@ -873,7 +899,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
 
           let toolResult: any;
           try {
-            toolResult = await executeTool(userId, toolName!, args as Record<string, any>);
+            toolResult = await executeTool(userId, toolName!, args as Record<string, any>, agentId);
           } catch (err: any) {
             toolResult = { error: err.message };
             console.error(`[Chat] Tool error:`, err.message);
@@ -964,7 +990,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
         .split("\n")
         .map((line) => line.replace(/^-\s*/, "").trim())
         .filter((line) => line.length > 0);
-      if (facts.length > 0) await storeMemories(userId, "primary", facts);
+      if (facts.length > 0) await storeMemories(userId, "company", facts);
       result = result.replace(/<memory_extract>[\s\S]*?<\/memory_extract>/, "").trim();
     }
 

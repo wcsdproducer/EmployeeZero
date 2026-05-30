@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, description, goal, requiredConnections, schedule } = body;
+    const { name, description, goal, requiredConnections, schedule, agentId } = body;
 
     if (!name || !goal) {
       return NextResponse.json(
@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       goal,
       requiredConnections: requiredConnections || [],
       schedule: schedule || null,
+      agentId: agentId || "company",
     });
 
     return NextResponse.json({ workflow }, { status: 201 });

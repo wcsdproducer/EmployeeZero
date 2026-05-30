@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { authFetch } from "@/lib/authFetch";
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot, collection } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -391,6 +391,80 @@ export default function WorkflowsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const router = useRouter();
 
+  const [purchasedAgents, setPurchasedAgents] = useState<any[]>([]);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newGoal, setNewGoal] = useState("");
+  const [newSchedule, setNewSchedule] = useState("");
+  const [selectedConnections, setSelectedConnections] = useState<string[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState("company");
+  const [creatingWorkflow, setCreatingWorkflow] = useState(false);
+
+  // Listen for purchased agents in subcollection
+  useEffect(() => {
+    if (!user?.uid) return;
+    const agentsRef = collection(db, "users", user.uid, "agents");
+    const unsubscribe = onSnapshot(
+      agentsRef,
+      (snapshot) => {
+        const agentList = snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setPurchasedAgents(agentList);
+      },
+      (err) => {
+        console.warn("Agents listener error:", err.message);
+      }
+    );
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  const toggleConnection = (conn: string) => {
+    setSelectedConnections(prev =>
+      prev.includes(conn) ? prev.filter(c => c !== conn) : [...prev, conn]
+    );
+  };
+
+  const handleCreateWorkflow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName || !newGoal) {
+      setToast({ message: "Name and Goal are required.", type: "error" });
+      return;
+    }
+    setCreatingWorkflow(true);
+    try {
+      const res = await authFetch("/api/workflows", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newName,
+          description: newDesc,
+          goal: newGoal,
+          requiredConnections: selectedConnections,
+          schedule: newSchedule || null,
+          agentId: selectedAgentId,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create workflow");
+      const data = await res.json();
+      setCustomWorkflows(prev => [data.workflow, ...prev]);
+      setToast({ message: `Workflow "${newName}" created!`, type: "success" });
+      // Reset form
+      setNewName("");
+      setNewDesc("");
+      setNewGoal("");
+      setNewSchedule("");
+      setSelectedConnections([]);
+      setSelectedAgentId("company");
+      setIsCreateOpen(false);
+    } catch (err) {
+      setToast({ message: "Failed to create workflow.", type: "error" });
+    } finally {
+      setCreatingWorkflow(false);
+    }
+  };
+
   // Load installed workflows
   useEffect(() => {
     if (!user?.uid) return;
@@ -550,19 +624,35 @@ export default function WorkflowsPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         {/* ─── My Custom Workflows ─── */}
-        {(customWorkflows.length > 0 || customLoading) && (
-          <div className="mb-10">
-            <h2 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
+        <div className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
               <Sparkles size={18} className="text-purple-400" />
-              My Workflows
+              My Custom Workflows
             </h2>
-            {customLoading ? (
-              <div className="flex items-center gap-2 text-neutral-500 text-sm">
-                <Loader2 size={14} className="animate-spin" /> Loading...
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {customWorkflows.map((cw) => (
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="text-xs font-semibold px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-600 text-white transition-all shadow-md flex items-center gap-1.5"
+            >
+              + Create Custom Workflow
+            </button>
+          </div>
+
+          {customLoading ? (
+            <div className="flex items-center gap-2 text-neutral-500 text-sm py-4">
+              <Loader2 size={14} className="animate-spin" /> Loading...
+            </div>
+          ) : customWorkflows.length === 0 ? (
+            <div className="rounded-2xl border border-white/5 bg-white/[0.01] p-6 text-center text-neutral-500 text-sm">
+              No custom workflows created yet. Click "+ Create Custom Workflow" or talk to your agent in Chat to build one.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {customWorkflows.map((cw) => {
+                const assignedAgent = cw.agentId === "company" || !cw.agentId
+                  ? null
+                  : purchasedAgents.find((a) => a.id === cw.agentId);
+                return (
                   <div
                     key={cw.id}
                     className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-center gap-4"
@@ -573,11 +663,22 @@ export default function WorkflowsPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm">{cw.name}</p>
                       <p className="text-xs text-neutral-500 truncate">{cw.description}</p>
-                      {cw.lastRunAt && (
-                        <p className="text-[10px] text-neutral-600 mt-1">
-                          Last run: {new Date(cw.lastRunAt).toLocaleDateString()}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {assignedAgent ? (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center gap-1">
+                            👤 {assignedAgent.soul?.agentName || assignedAgent.name || assignedAgent.id}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-neutral-500/10 border border-neutral-500/20 text-neutral-400 flex items-center gap-1">
+                            🏢 Company-Wide
+                          </span>
+                        )}
+                        {cw.lastRunAt && (
+                          <span className="text-[10px] text-neutral-600">
+                            Last run: {new Date(cw.lastRunAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
@@ -613,11 +714,11 @@ export default function WorkflowsPage() {
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Filters */}
         <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
@@ -874,6 +975,176 @@ export default function WorkflowsPage() {
           </p>
         </div>
       </div>
+
+      {/* Create Custom Workflow Modal */}
+      <AnimatePresence>
+        {isCreateOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCreateOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            {/* Dialog Content */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#121212]/90 backdrop-blur-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] z-10 text-white"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                    <Zap size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold">New Custom Workflow</h3>
+                    <p className="text-xs text-neutral-500">Define a custom task for your agents</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCreateOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-neutral-400 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateWorkflow} className="space-y-4">
+                {/* Workflow Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">
+                    Workflow Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="e.g. Daily Leads Scraping & Enrichment"
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none transition-colors text-white"
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                    placeholder="Brief summary of what this workflow accomplishes"
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none transition-colors text-white"
+                  />
+                </div>
+
+                {/* Scope Selection */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">
+                    Assigned Agent (Scope)
+                  </label>
+                  <select
+                    value={selectedAgentId}
+                    onChange={(e) => setSelectedAgentId(e.target.value)}
+                    className="w-full rounded-xl bg-[#1a1a1a] border border-white/10 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none transition-colors text-white"
+                  >
+                    <option value="company">🏢 Company-Wide (Shared across all agents)</option>
+                    {purchasedAgents.map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        👤 {agent.soul?.agentName || agent.name || agent.id} ({agent.soul?.jobTitle || "Hired Agent"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Goal (Prompt) */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">
+                    What should the agent do? (Goal Prompt)
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={newGoal}
+                    onChange={(e) => setNewGoal(e.target.value)}
+                    placeholder="Describe the step-by-step instructions. e.g. 'Read the latest spreadsheet of leads, enrich them with web search research, and write drafts to the new leads in Gmail.'"
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none transition-colors resize-none text-white"
+                  />
+                </div>
+
+                {/* Cron Schedule */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    Cron Schedule (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newSchedule}
+                    onChange={(e) => setNewSchedule(e.target.value)}
+                    placeholder="e.g. '*/30 * * * *' (Every 30m) or leave empty for manual execution"
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none transition-colors text-white"
+                  />
+                </div>
+
+                {/* Connections Required */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+                    Required Connections
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.keys(CONNECTION_ICONS).map((conn) => {
+                      const isSelected = selectedConnections.includes(conn);
+                      return (
+                        <button
+                          key={conn}
+                          type="button"
+                          onClick={() => toggleConnection(conn)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-lg border text-xs font-medium transition-all flex items-center gap-1",
+                            isSelected
+                              ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
+                              : "bg-white/5 border-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <span>{CONNECTION_ICONS[conn] || "🔗"}</span>
+                          {conn}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Submit button */}
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateOpen(false)}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold border border-white/10 hover:bg-white/5 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingWorkflow}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold bg-purple-500 hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    {creatingWorkflow ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      "Create Workflow"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

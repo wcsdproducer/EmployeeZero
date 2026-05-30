@@ -176,7 +176,8 @@ import { executeMcpTool, getMcpToolDeclarations } from "@/lib/mcpClient";
 export async function executeTool(
   userId: string,
   toolName: string,
-  args: Record<string, any>
+  args: Record<string, any>,
+  agentId?: string
 ): Promise<any> {
   switch (toolName) {
     case "search_emails":
@@ -279,10 +280,13 @@ export async function executeTool(
         description: args.description,
         goal: args.goal,
         requiredConnections: wfConnections,
+        agentId: agentId || "company",
       });
     }
-    case "list_my_workflows":
-      return await listCustomWorkflows(userId);
+    case "list_my_workflows": {
+      const allWfs = await listCustomWorkflows(userId);
+      return allWfs.filter(wf => !agentId || wf.agentId === agentId || wf.agentId === "company" || !wf.agentId);
+    }
     case "delete_workflow":
       return await deleteCustomWorkflow(userId, args.workflow_id);
     // LinkedIn tools

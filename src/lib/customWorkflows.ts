@@ -19,6 +19,8 @@ export interface CustomWorkflow {
   updatedAt: string;
   lastRunAt: string | null;
   runCount: number;
+  /** Scopes workflow to a specific agent (e.g. "atlas", "sam") or "company" (shared) */
+  agentId?: string;
 }
 
 /* ─── CRUD Operations ─── */
@@ -34,6 +36,7 @@ export async function createCustomWorkflow(
     goal: string;
     requiredConnections?: string[];
     schedule?: string | null;
+    agentId?: string;
   }
 ): Promise<CustomWorkflow> {
   const ref = adminDb.collection(`users/${userId}/workflows`).doc();
@@ -51,6 +54,7 @@ export async function createCustomWorkflow(
     updatedAt: now,
     lastRunAt: null,
     runCount: 0,
+    agentId: data.agentId || "company",
   };
 
   await ref.set(workflow);
@@ -90,7 +94,7 @@ export async function getCustomWorkflow(
 export async function updateCustomWorkflow(
   userId: string,
   workflowId: string,
-  updates: Partial<Pick<CustomWorkflow, "name" | "description" | "goal" | "schedule" | "enabled" | "requiredConnections">>
+  updates: Partial<Pick<CustomWorkflow, "name" | "description" | "goal" | "schedule" | "enabled" | "requiredConnections" | "agentId">>
 ): Promise<boolean> {
   const ref = adminDb.doc(`users/${userId}/workflows/${workflowId}`);
   const doc = await ref.get();

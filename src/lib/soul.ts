@@ -7,16 +7,19 @@
 
 export interface SOULConfig {
   agentName: string;           // What the AI calls itself
+  jobTitle?: string;           // The agent's specific role
   tone: "professional" | "friendly" | "direct" | "warm" | "playful";
   personality: string;         // 2-3 sentence freeform description
   focusAreas: string[];        // e.g. ["Sales", "Operations", "Marketing"]
   communicationStyle: string;  // e.g. "Brief and bullet-pointed"
   signaturePhrase?: string;    // Optional catchphrase the AI uses
+  enabledTools?: string[];     // Array of allowed tools
   updatedAt?: string;
 }
 
 export const DEFAULT_SOUL: SOULConfig = {
   agentName: "Employee Zero",
+  jobTitle: "Executive Assistant",
   tone: "professional",
   personality:
     "You are a highly capable AI executive assistant. You work autonomously, get things done without being asked twice, and treat every task with the urgency and precision of a seasoned professional.",
@@ -36,6 +39,7 @@ export const TONE_DESCRIPTIONS: Record<SOULConfig["tone"], string> = {
 
 export function buildSOULPrompt(soul: SOULConfig): string {
   const toneDesc = TONE_DESCRIPTIONS[soul.tone] || "";
+  const roleStr = soul.jobTitle ? `Role/Job Title: ${soul.jobTitle}.` : "";
   const focusStr = soul.focusAreas.length
     ? `Your key areas of focus are: ${soul.focusAreas.join(", ")}.`
     : "";
@@ -47,6 +51,7 @@ export function buildSOULPrompt(soul: SOULConfig): string {
     : "";
 
   return `You are ${soul.agentName}, an autonomous AI agent.
+${roleStr}
 Tone: ${toneDesc}.
 ${soul.personality}
 ${focusStr}
