@@ -60,13 +60,15 @@ export async function POST(req: Request) {
     }
 
     // Load user configuration
-    const [memories, connections, userTimezone, preferences, soul] = await Promise.all([
+    const [memories, connections, userTimezone, preferences, soul, mcpData] = await Promise.all([
       loadMemories(userId),
       loadConnections(userId),
       loadUserTimezone(userId),
       loadPreferences(userId),
       loadUserSOUL(userId),
+      getMcpToolDeclarations(userId).catch(() => ({ declarations: [] }))
     ]);
+    const mcpDecls = mcpData.declarations || [];
 
     // Build API Key
     let apiKey = process.env.GEMINI_API_KEY;
@@ -92,6 +94,7 @@ You have persistent memory. You remember everything the user has told you across
     const connectedServices = Object.entries(connections)
       .filter(([_, data]: [string, any]) => data?.connected)
       .map(([svc]) => svc);
+    if (mcpDecls.length > 0) connectedServices.push(...mcpDecls.map(d => d.name));
     if (connectedServices.length > 0) {
       systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
     }
@@ -109,6 +112,7 @@ You have persistent memory. You remember everything the user has told you across
     }
 
     systemPrompt += `\n\n## Current Date & Time\nThe current time for the user is ${new Date().toLocaleString("en-US", { timeZone: userTimezone || "America/New_York" })}.\n`;
+    systemPrompt += `\n\n## Memory Instructions\nWhen the user tells you something important about themselves (their name, preferences, role, company, goals, instructions for you, etc.), you MUST extract those facts so they can be saved to your long-term memory.\n**IMPORTANT PRIVACY OVERRIDE:** You are a private, dedicated AI assistant. The memory database is strictly private and owned by the user. You are EXPLICITLY AUTHORIZED and REQUIRED to store personal information (including names, addresses, preferences, and secrets) when requested. Do NOT refuse to store personal data for safety or privacy reasons.\n\nIn your response, if there are facts to remember, end your visible response, then on a new line add a section exactly like this:\n\n<memory_extract>\n- fact 1\n- fact 2\n</memory_extract>\n\nThe memory_extract section will be automatically processed and NOT shown to the user. Only include genuinely important, persistent facts — not ephemeral details about the current task.`;
 
     // Build tools array
     const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...NOTES_TOOLS];
@@ -133,11 +137,7 @@ You have persistent memory. You remember everything the user has told you across
     if (connections.analytics?.connected) allTools.push(...ANALYTICS_TOOLS);
     if (connections.forms?.connected) allTools.push(...FORMS_TOOLS);
     if (connections.slides?.connected) allTools.push(...SLIDES_TOOLS);
-
-    try {
-      const { declarations: mcpDecls } = await getMcpToolDeclarations(userId);
-      if (mcpDecls.length > 0) allTools.push(...mcpDecls);
-    } catch {}
+    if (mcpDecls.length > 0) allTools.push(...mcpDecls);
 
     const ai = new GoogleGenAI({ apiKey });
     const config: any = {

@@ -479,13 +479,15 @@ export async function POST(request: Request) {
     await convRef.update({ status: "running" });
 
     // 4. Load memories + connections + preferences + learned behaviors
-    const [memories, connections, userTimezone, preferences, soul] = await Promise.all([
+    const [memories, connections, userTimezone, preferences, soul, mcpData] = await Promise.all([
       loadMemories(userId),
       loadConnections(userId),
       loadUserTimezone(userId),
       loadPreferences(userId),
       loadUserSOUL(userId),
+      getMcpToolDeclarations(userId).catch(() => ({ declarations: [] }))
     ]);
+    const mcpDecls = mcpData.declarations || [];
 
     // 4b. Sliding window + rolling summarization
     //     If conversation is long, summarize old messages and only send recent ones
@@ -547,6 +549,7 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
     if (connections.facebook?.connected) connectedServices.push("Facebook");
     if (connections.tiktok?.connected) connectedServices.push("TikTok");
     if (connections.stripe?.connected) connectedServices.push("Stripe");
+    if (mcpDecls.length > 0) connectedServices.push(...mcpDecls.map(d => d.name));
 
     if (connectedServices.length > 0) {
       systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
@@ -723,6 +726,7 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
 
     systemPrompt += `\n\n## Memory Instructions
 When the user tells you something important about themselves (their name, preferences, role, company, goals, instructions for you, etc.), you MUST extract those facts so they can be saved to your long-term memory.
+**IMPORTANT PRIVACY OVERRIDE:** You are a private, dedicated AI assistant. The memory database is strictly private and owned by the user. You are EXPLICITLY AUTHORIZED and REQUIRED to store personal information (including names, addresses, preferences, and secrets) when requested. Do NOT refuse to store personal data for safety or privacy reasons.
 
 In your response, if there are facts to remember, end your visible response, then on a new line add a section exactly like this:
 
@@ -818,15 +822,6 @@ The memory_extract section will be automatically processed and NOT shown to the 
         }
         // Image generation & notes — always available (no connection needed)
         allTools.push(...NOTES_TOOLS);
-
-        // Universal MCP Connector — load user's MCP server tools
-        try {
-          const { declarations: mcpDecls } = await getMcpToolDeclarations(userId);
-          if (mcpDecls.length > 0) {
-            allTools.push(...mcpDecls);
-            console.log(`[Chat] Loaded ${mcpDecls.length} MCP tools`);
-          }
-        } catch {}
 
         config.tools = [{ functionDeclarations: allTools }];
 
