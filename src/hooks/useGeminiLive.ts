@@ -122,7 +122,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         // Send setup payload
         const setupMsg = {
           setup: {
-            model: "models/gemini-2.0-flash",
+            model: "models/gemini-3.1-flash-live-preview",
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: {
@@ -144,7 +144,15 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
       ws.onmessage = async (event) => {
         try {
-          const data = JSON.parse(event.data);
+          let rawData: string;
+          if (event.data instanceof Blob) {
+            rawData = await event.data.text();
+          } else if (typeof event.data === "string") {
+            rawData = event.data;
+          } else {
+            rawData = event.data.toString();
+          }
+          const data = JSON.parse(rawData);
 
           // Handle Setup Complete before sending any user content
           if (data.setupComplete) {
