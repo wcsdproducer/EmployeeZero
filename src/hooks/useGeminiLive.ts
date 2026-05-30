@@ -369,22 +369,33 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
               // ── Auto-background slow read tools ──────────────────────────────
               if (AUTO_BACKGROUND_TOOLS.has(name)) {
                 console.log(`[GeminiLive] Auto-backgrounding slow tool: ${name}`);
-                // Return instantly so Gemini can keep speaking
                 const friendlyName = name.replace(/_/g, " ");
-                const instant = { response: { output: { status: "fetching", message: `Fetching ${friendlyName} now, I'll let you know when it's ready.` } }, id };
 
-                // Execute the actual tool in the background
+                // Return instantly — explicitly tell Gemini NOT to call any more tools
+                const instant = {
+                  response: {
+                    output: {
+                      status: "fetching_in_background",
+                      instruction: `IMPORTANT: Results for '${friendlyName}' are being fetched in the background. Do NOT call any other tools. Just tell the user you are fetching it and will report back in a moment. Say something like: "I'm looking that up now — give me just a second."`,
+                    }
+                  },
+                  id
+                };
+
+                // Execute the actual tool in the background (10s timeout)
                 (async () => {
                   try {
                     const r = await authFetch("/api/tools/execute", {
                       method: "POST",
                       body: JSON.stringify({ name, arguments: args || {}, agentId: agentIdRef.current }),
-                      signal: AbortSignal.timeout(25_000),
+                      signal: AbortSignal.timeout(10_000),
                     });
                     const result = await r.json();
-                    // Inject result back into voice session
-                    const resultText = JSON.stringify(result).substring(0, 2000);
-                    const injection = `[${friendlyName} results are ready]\n${resultText}\nSummarize this result conversationally in 1-2 sentences for the user.`;
+                    // Inject result back into voice session as a concise summary request
+                    const resultText = JSON.stringify(result).substring(0, 1500);
+                    const injection = `[RESULT for ${friendlyName}]: ${resultText}
+
+Please tell the user the answer in one or two conversational sentences. Be direct and specific.`;
                     if (wsRef.current?.readyState === WebSocket.OPEN) {
                       wsRef.current.send(JSON.stringify({
                         clientContent: { turns: [{ role: "user", parts: [{ text: injection }] }], turnComplete: true },
@@ -394,7 +405,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
                     console.warn(`[GeminiLive] Background tool ${name} failed:`, err.message);
                     if (wsRef.current?.readyState === WebSocket.OPEN) {
                       wsRef.current.send(JSON.stringify({
-                        clientContent: { turns: [{ role: "user", parts: [{ text: `[${friendlyName} failed: ${err.message}. Please let the user know briefly.]` }] }], turnComplete: true },
+                        clientContent: { turns: [{ role: "user", parts: [{ text: `[${friendlyName} could not be fetched: ${err.message}]. Tell the user briefly that it didn't work and they can try again.` }] }], turnComplete: true },
                       }));
                     }
                   }
