@@ -27,15 +27,18 @@ export async function POST(req: NextRequest) {
       
       if (apiKey && agentId) {
         const { buildSOULPrompt } = await import("@/lib/soul");
-        const prompt = buildSOULPrompt(body) + "\n\nYou have access to the user's personal memory database. You can search these memories at any time to answer questions about the user or their past interactions.";
+        const prompt = buildSOULPrompt(body); // Do NOT append memory notes since Custom LLM handles it!
+        const hostUrl = process.env.NEXT_PUBLIC_APP_URL || "https://employeezero.app";
+        const customLlmUrl = `${hostUrl}/api/elevenlabs/llm/v1/chat/completions?userId=${auth.userId}`;
         
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/elevenlabs/agent`, {
+        await fetch(`${hostUrl}/api/elevenlabs/agent`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             apiKey,
             agentId,
-            prompt
+            prompt,
+            customLlmUrl
           }),
         });
       }
