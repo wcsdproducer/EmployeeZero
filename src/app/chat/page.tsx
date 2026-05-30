@@ -602,13 +602,24 @@ function ChatPageInner() {
     }
   }, [activeConv?.messages?.length, activeConv?.status]);
 
-  // Synchronize selectedAgentId with active conversation's agentId
+  // Synchronize selectedAgentId on initial load only — read agentId from the first conversation
+  // We intentionally do NOT sync on every activeConvId change, as that would revert manual agent switches
+  const hasAgentSynced = useRef(false);
   useEffect(() => {
-    if (activeConv && (activeConv as any).agentId && (activeConv as any).agentId !== selectedAgentId) {
+    if (!hasAgentSynced.current && activeConv && (activeConv as any).agentId) {
+      hasAgentSynced.current = true;
       setSelectedAgentId((activeConv as any).agentId);
     }
-  }, [activeConvId, activeConv?.id]);
+  }, [activeConv?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Switch to a different agent — clears active conversation to start fresh
+  const handleAgentSwitch = (agentId: string) => {
+    if (agentId === selectedAgentId) return; // already selected
+    setSelectedAgentId(agentId);
+    setActiveConvId(null); // clear current conversation → shows blank chat for new agent
+    // Prefetch setup for the new agent so first message is instant
+    conversation.prefetchSetup(agentId);
+  };
 
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -725,7 +736,7 @@ function ChatPageInner() {
                         )}
                     >
                         <button
-                            onClick={() => setSelectedAgentId(agent.id)}
+                            onClick={() => handleAgentSwitch(agent.id)}
                             className="flex-1 flex items-center gap-3 text-left overflow-hidden"
                         >
                             <div className={cn("p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors", agent.color)}>
@@ -762,10 +773,24 @@ function ChatPageInner() {
             <div className="flex-1 overflow-y-auto p-3 pt-0">
               <div className="space-y-1 mt-4">
                 <p className="px-3 text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Conversations</p>
-                {conversations.slice(0, 20).map((c) => (
+                {conversations
+                  .filter(c => {
+                    // Show conversations for the selected agent
+                    // Legacy conversations (no agentId) are shown when the primary/first agent is selected
+                    const convAgentId = (c as any).agentId;
+                    if (!convAgentId) return selectedAgentId === "primary" || selectedAgentId === allAgents[0]?.id;
+                    return convAgentId === selectedAgentId;
+                  })
+                  .slice(0, 20)
+                  .map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => setActiveConvId(c.id)}
+                    onClick={() => {
+                      setActiveConvId(c.id);
+                      // Sync agent to match the conversation
+                      const convAgentId = (c as any).agentId;
+                      if (convAgentId && convAgentId !== selectedAgentId) setSelectedAgentId(convAgentId);
+                    }}
                     className={cn(
                       "w-full text-left px-3 py-2.5 rounded-lg text-[13px] truncate transition-all",
                       activeConvId === c.id ? "bg-white/5 text-white" : "text-neutral-500 hover:text-neutral-300"
