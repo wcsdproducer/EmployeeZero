@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { adminDb } from "@/lib/admin";
 import { createTask, executeTask } from "@/lib/taskEngine";
 
@@ -13,21 +13,17 @@ export async function POST(request: Request) {
 
     const taskId = await createTask(userId, goal, conversationId);
 
-    // Run async — return taskId immediately
-    // The task executes in the background
-    const executionPromise = executeTask(taskId).catch((err) => {
-      console.error(`[Tasks] Execution failed for ${taskId}:`, err);
-      adminDb.doc(`tasks/${taskId}`).update({
-        status: "failed",
-        result: err.message || "Unknown error",
-        updatedAt: new Date().toISOString(),
+    // Run async — return taskId immediately (using after to keep the serverless instance alive)
+    after(() => {
+      executeTask(taskId).catch((err) => {
+        console.error(`[Tasks] Execution failed for ${taskId}:`, err);
+        adminDb.doc(`tasks/${taskId}`).update({
+          status: "failed",
+          result: err.message || "Unknown error",
+          updatedAt: new Date().toISOString(),
+        });
       });
     });
-
-    // Use waitUntil if available (Next.js edge), otherwise fire-and-forget
-    if (typeof globalThis !== "undefined" && "waitUntil" in globalThis) {
-      (globalThis as any).waitUntil(executionPromise);
-    }
 
     return NextResponse.json({ taskId, status: "started" });
   } catch (err: any) {

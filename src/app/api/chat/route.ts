@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+export const maxDuration = 60; // 60 seconds
 import { adminDb } from "@/lib/admin";
 import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -438,36 +439,38 @@ export async function POST(request: Request) {
       // Create a task and execute it — pass the already-resolved apiKey
       const taskId = await createTask(userId, taskGoal, conversationId, apiKey, agentId);
 
-      // Start execution in background
-      const executionPromise = executeTask(taskId, apiKey).then(async (result) => {
-        // If waiting for input, the task engine already wrote to the conversation
-        if (result === "__WAITING_INPUT__") return;
+      // Start execution in background (using after to keep the serverless instance alive)
+      after(() => {
+        executeTask(taskId, apiKey).then(async (result) => {
+          // If waiting for input, the task engine already wrote to the conversation
+          if (result === "__WAITING_INPUT__") return;
 
-        // Write result back to conversation (user message already exists from client)
-        const convRef = adminDb.doc(`conversations/${conversationId}`);
-        const convSnap = await convRef.get();
-        const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
-        const now = new Date().toISOString();
-        await convRef.update({
-          messages: [
-            ...existingMsgs,
-            { role: "model", content: `🔄 **Task Completed**\n\n${result}\n\n_Task ID: ${taskId}_`, timestamp: now },
-          ],
-          status: "idle",
-          updatedAt: now,
-        });
-      }).catch(async (err) => {
-        const convRef = adminDb.doc(`conversations/${conversationId}`);
-        const convSnap = await convRef.get();
-        const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
-        const now = new Date().toISOString();
-        await convRef.update({
-          messages: [
-            ...existingMsgs,
-            { role: "model", content: `⚠️ Task failed: ${err.message}`, timestamp: now },
-          ],
-          status: "error",
-          updatedAt: now,
+          // Write result back to conversation (user message already exists from client)
+          const convRef = adminDb.doc(`conversations/${conversationId}`);
+          const convSnap = await convRef.get();
+          const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
+          const now = new Date().toISOString();
+          await convRef.update({
+            messages: [
+              ...existingMsgs,
+              { role: "model", content: `🔄 **Task Completed**\n\n${result}\n\n_Task ID: ${taskId}_`, timestamp: now },
+            ],
+            status: "idle",
+            updatedAt: now,
+          });
+        }).catch(async (err) => {
+          const convRef = adminDb.doc(`conversations/${conversationId}`);
+          const convSnap = await convRef.get();
+          const existingMsgs = convSnap.exists ? (convSnap.data()?.messages || []) : [];
+          const now = new Date().toISOString();
+          await convRef.update({
+            messages: [
+              ...existingMsgs,
+              { role: "model", content: `⚠️ Task failed: ${err.message}`, timestamp: now },
+            ],
+            status: "error",
+            updatedAt: now,
+          });
         });
       });
 
