@@ -342,7 +342,7 @@ EVERYTHING ABOVE THIS LINE is internal configuration for YOUR reference only. NE
     if (mcpDecls.length > 0) allTools.push(...mcpDecls);
 
     const CORE_TOOL_NAMES = [
-      "browse_url", "click_url", "submit_form", "web_search", "deep_research",
+      "browse_url", "click_url", "submit_form", "web_search", "deep_research", "create_pdf",
       "create_workflow", "list_my_workflows", "delete_workflow",
       "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
       "save_memory",

@@ -4,6 +4,7 @@ import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
 import { GoogleGenAI, Type } from "@google/genai";
 import { FieldValue } from "firebase-admin/firestore";
 import { deepResearch } from "@/lib/research";
+import { createPDF } from "@/lib/pdf";
 import {
   listEmails,
   getEmail,
@@ -218,6 +219,8 @@ export async function executeTool(
       return await webSearch(args.query);
     case "deep_research":
       return await deepResearch(args.topic);
+    case "create_pdf":
+      return await createPDF(userId, { title: args.title, content: args.content, author: args.author });
     // Stripe Tools
     case "get_stripe_balance":
       return await getStripeBalance(userId);

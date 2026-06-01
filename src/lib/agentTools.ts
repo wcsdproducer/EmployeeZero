@@ -254,6 +254,19 @@ export const BROWSER_TOOLS = [
       required: ["topic"],
     },
   },
+  {
+    name: "create_pdf",
+    description: "Generate a formatted PDF document and upload it to Google Drive. Supports markdown-like formatting: # headers, ## subheaders, **bold**, bullet lists (- item), numbered lists (1. item), tables (| col | col |), and horizontal rules (---). The content should be well-structured with headers and sections. Returns a Google Drive link to the PDF.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING, description: "PDF document title (appears on the cover)" },
+        content: { type: Type.STRING, description: "Document body content using markdown-like formatting. Use # for title, ## for sections, ### for subsections, **bold**, - for bullets, 1. for numbered lists, | col1 | col2 | for tables, --- for horizontal rules." },
+        author: { type: Type.STRING, description: "Author name (optional, shown on cover)" },
+      },
+      required: ["title", "content"],
+    },
+  },
 ];
 
 export const STRIPE_TOOLS = [

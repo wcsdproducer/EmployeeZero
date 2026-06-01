@@ -881,7 +881,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
             allTools.push(...NOTES_TOOLS, ...MEMORY_TOOLS);
 
             const CORE_TOOL_NAMES = [
-              "browse_url", "click_url", "submit_form", "web_search", "deep_research",
+              "browse_url", "click_url", "submit_form", "web_search", "deep_research", "create_pdf",
               "create_workflow", "list_my_workflows", "delete_workflow",
               "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
               "save_memory",

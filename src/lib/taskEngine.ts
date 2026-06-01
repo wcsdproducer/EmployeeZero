@@ -4,6 +4,7 @@ import { getMcpToolDeclarations, executeMcpTool } from "@/lib/mcpClient";
 import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
 import { deepResearch } from "@/lib/research";
+import { createPDF } from "@/lib/pdf";
 import { loadUserLLMConfig } from "@/lib/llmProviderAdmin";
 import { createOpenRouterClient, convertToolsToOpenAIFormat } from "@/lib/llmProvider";
 import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
@@ -598,6 +599,8 @@ async function executeTool(
       return await webSearch(args.query);
     case "deep_research":
       return await deepResearch(args.topic);
+    case "create_pdf":
+      return await createPDF(userId, { title: args.title, content: args.content, author: args.author });
     case "get_crypto_prices": {
       try {
         const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${args.coin_ids}&vs_currencies=usd`);
