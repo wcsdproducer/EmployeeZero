@@ -457,6 +457,24 @@ export async function executeTool(
     case "search_notes":
       return await searchNotes(userId, args.query, args.max_results || 10);
 
+    // Memory tool
+    case "save_memory": {
+      const facts: string[] = args.facts || [];
+      if (facts.length === 0) return { status: "no_facts", message: "No facts provided to save." };
+      const batch = adminDb.batch();
+      for (const fact of facts) {
+        const ref = adminDb.collection(`users/${userId}/memories`).doc();
+        batch.set(ref, {
+          content: fact,
+          agentId: "company",
+          source: "voice",
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+      return { status: "saved", count: facts.length, facts };
+    }
+
     // Google Tasks tools
     case "list_task_lists":
       return await listTaskLists(userId);

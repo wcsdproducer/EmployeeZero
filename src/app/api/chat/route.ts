@@ -297,7 +297,7 @@ async function summarizeOldMessages(
 import { executeTool } from "@/lib/executeTool";
 import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
-import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
+import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
 
 export async function POST(request: Request) {
   // ── Auth: Verify Firebase ID token ──
@@ -877,13 +877,14 @@ The memory_extract section will be automatically processed and NOT shown to the 
             if (connections.slides?.connected) {
               allTools.push(...SLIDES_TOOLS);
             }
-            // Image generation & notes — always available (no connection needed)
-            allTools.push(...NOTES_TOOLS);
+            // Image generation & notes & memory — always available (no connection needed)
+            allTools.push(...NOTES_TOOLS, ...MEMORY_TOOLS);
 
             const CORE_TOOL_NAMES = [
               "browse_url", "click_url", "submit_form", "web_search",
               "create_workflow", "list_my_workflows", "delete_workflow",
               "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
+              "save_memory",
               "run_in_background", "create_chart"
             ];
 

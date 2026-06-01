@@ -1143,6 +1143,24 @@ export const NOTES_TOOLS = [
   },
 ];
 
+export const MEMORY_TOOLS = [
+  {
+    name: "save_memory",
+    description: "Save an important fact about the user to long-term memory. Use this when the user tells you personal info, preferences, corrections, or anything you should remember permanently. Examples: their name, company, goals, preferences, important dates, or corrections to previous knowledge.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        facts: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Array of facts to remember. Each fact should be a clear, standalone statement. e.g. [\"User's name is John\", \"User prefers dark mode\"]",
+        },
+      },
+      required: ["facts"],
+    },
+  },
+];
+
 export const TASKS_TOOLS = [
   { name: "list_task_lists", description: "List all Google Task lists", parameters: { type: Type.OBJECT, properties: {} } },
   { name: "list_google_tasks", description: "List tasks in a task list", parameters: { type: Type.OBJECT, properties: { task_list_id: { type: Type.STRING, description: "Task list ID (use list_task_lists to find)" }, show_completed: { type: Type.BOOLEAN, description: "Include completed tasks (default false)" } }, required: ["task_list_id"] } },

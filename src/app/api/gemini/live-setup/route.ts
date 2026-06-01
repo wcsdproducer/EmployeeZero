@@ -5,7 +5,7 @@ import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import { loadPreferences } from "@/lib/selfImprove";
 import { getMcpToolDeclarations } from "@/lib/mcpClient";
-import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, WORKFLOW_TOOLS, RUN_IN_BACKGROUND_TOOL, CREATE_CHART_TOOL } from "@/lib/agentTools";
+import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS, RUN_IN_BACKGROUND_TOOL, CREATE_CHART_TOOL } from "@/lib/agentTools";
 import { WORKFLOW_DEFINITIONS } from "@/lib/workflowDefinitions";
 import { listCustomWorkflows } from "@/lib/customWorkflows";
 
@@ -121,6 +121,13 @@ VOICE MODE BEHAVIOR — THIS IS CRITICAL:
 - Use commas for short pauses, ellipsis (...) for thoughtful pauses.
 - Avoid markdown, bullet points, or lists — they sound awkward when read aloud.
 - Match the user's emotional tone: casual, warm, and direct.
+
+MEMORY — THIS IS CRITICAL:
+- You have a save_memory tool. USE IT whenever the user tells you something important about themselves: their name, preferences, corrections, business details, goals, family, contacts, or any fact they want you to remember.
+- If the user corrects you ("No, my company is called X" or "Actually, I prefer Y"), IMMEDIATELY call save_memory with the corrected fact.
+- If the user shares personal info ("I'm moving to Brazil", "My wife's name is Sarah"), save it.
+- You do NOT need to ask permission to save memories — just save them silently and confirm briefly ("Got it, I'll remember that.").
+- Memories are shared across ALL your agents (text and voice) company-wide.
 `;
 
     const connectedKeys = new Set(
@@ -298,7 +305,7 @@ VOICE MODE BEHAVIOR — THIS IS CRITICAL:
     systemPrompt += `\n\n## Current Date & Time\nThe current time for the user is ${new Date().toLocaleString("en-US", { timeZone: userTimezone || "America/New_York" })}.\n`;
 
     // Gather Tools
-    const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...NOTES_TOOLS, RUN_IN_BACKGROUND_TOOL, CREATE_CHART_TOOL];
+    const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...NOTES_TOOLS, ...MEMORY_TOOLS, RUN_IN_BACKGROUND_TOOL, CREATE_CHART_TOOL];
     const hasGmailTools = connections.gmail?.connected || (connections.google?.connected && connections.google?.scopes?.includes("https://mail.google.com/"));
     if (hasGmailTools) allTools.push(...GMAIL_TOOLS);
     if (connections.calendar?.connected) allTools.push(...CALENDAR_TOOLS);
@@ -326,6 +333,7 @@ VOICE MODE BEHAVIOR — THIS IS CRITICAL:
       "browse_url", "click_url", "submit_form", "web_search",
       "create_workflow", "list_my_workflows", "delete_workflow",
       "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
+      "save_memory",
       "run_in_background", "create_chart"
     ];
 
