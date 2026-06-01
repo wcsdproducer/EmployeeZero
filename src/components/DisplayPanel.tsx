@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, BarChart3, Image as ImageIcon, Code, Box, MessageCircle, CalendarDays, FileText } from "lucide-react";
+import { X, BarChart3, Image as ImageIcon, Code, Box, MessageCircle, CalendarDays, FileText, ExternalLink, FileIcon, Download } from "lucide-react";
 import { Button } from "./ui/button";
 import { AgentChart } from "./AgentChart";
 import { SocialPostPreview } from "./SocialPostPreview";
@@ -28,6 +28,8 @@ export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
         return <BarChart3 size={18} className="text-blue-400" />;
       case "image":
         return <ImageIcon size={18} className="text-pink-400" />;
+      case "document_preview":
+        return <FileIcon size={18} className="text-cyan-400" />;
       case "social_post":
         return <MessageCircle size={18} className="text-blue-400" />;
       case "meeting_brief":
@@ -63,6 +65,45 @@ export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
             />
           </div>
         );
+      case "document_preview": {
+        const { url, fileType, downloadUrl } = content.props || {};
+        // Build embed URL based on file type
+        let embedUrl = url;
+        if (url?.includes("drive.google.com")) {
+          // Google Drive file — use preview embed
+          const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          if (fileIdMatch) {
+            const fileId = fileIdMatch[1];
+            embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+          }
+        } else if (url?.includes("docs.google.com/document")) {
+          embedUrl = url.replace(/\/edit.*$/, "/preview");
+        } else if (url?.includes("docs.google.com/spreadsheets")) {
+          embedUrl = url.replace(/\/edit.*$/, "/preview");
+        } else if (url?.includes("docs.google.com/presentation")) {
+          embedUrl = url.replace(/\/edit.*$/, "/embed?start=false&loop=false&delayms=3000");
+        } else if (fileType === "image" || /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(url || "")) {
+          return (
+            <div className="flex items-center justify-center h-full p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt={content.title} className="max-w-full max-h-full object-contain rounded-lg shadow-xl" />
+            </div>
+          );
+        }
+        // For PDFs and Google Drive embeds, use iframe
+        return (
+          <div className="flex flex-col h-full w-full -m-6">
+            <iframe
+              src={embedUrl}
+              className="flex-1 w-full border-0 bg-white rounded-b-lg"
+              style={{ minHeight: "calc(100vh - 120px)" }}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              title={content.title}
+            />
+          </div>
+        );
+      }
       case "social_post":
         return (
           <div className="flex items-start justify-center h-full p-4 w-full">
@@ -103,12 +144,14 @@ export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
     }
   };
 
+  const panelWidth = content?.type === "document_preview" ? "550px" : "450px";
+
   return (
     <AnimatePresence>
       {content && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: "450px", opacity: 1 }}
+          animate={{ width: panelWidth, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ type: "spring", damping: 30, stiffness: 300 }}
           className="h-full border-l border-white/10 bg-[#0a0a0a] flex flex-col shadow-2xl flex-shrink-0 z-20"
@@ -123,14 +166,38 @@ export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
                 {content.title}
               </h2>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white"
-              onClick={onClose}
-            >
-              <X size={16} />
-            </Button>
+            <div className="flex items-center gap-1">
+              {content.type === "document_preview" && content.props?.url && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white"
+                  onClick={() => window.open(content.props.url, "_blank")}
+                  title="Open in new tab"
+                >
+                  <ExternalLink size={14} />
+                </Button>
+              )}
+              {content.type === "document_preview" && content.props?.downloadUrl && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white"
+                  onClick={() => window.open(content.props.downloadUrl, "_blank")}
+                  title="Download"
+                >
+                  <Download size={14} />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white"
+                onClick={onClose}
+              >
+                <X size={16} />
+              </Button>
+            </div>
           </div>
 
           {/* Body */}

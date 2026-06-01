@@ -103,6 +103,36 @@ const linkifyUrls = (text: string): string =>
     (url) => `[${url}](${url})`
   );
 
+/** Detect if a URL is a previewable document (Google Drive, PDF, image) */
+function detectDocumentUrl(url: string): { isDocument: boolean; title: string; fileType: string } | null {
+  if (!url) return null;
+  // Google Drive file links
+  if (url.includes("drive.google.com/file") || url.includes("drive.google.com/open")) {
+    return { isDocument: true, title: "Google Drive File", fileType: "drive" };
+  }
+  // Google Docs
+  if (url.includes("docs.google.com/document")) {
+    return { isDocument: true, title: "Google Doc", fileType: "gdoc" };
+  }
+  // Google Sheets
+  if (url.includes("docs.google.com/spreadsheets")) {
+    return { isDocument: true, title: "Google Sheet", fileType: "gsheet" };
+  }
+  // Google Slides
+  if (url.includes("docs.google.com/presentation")) {
+    return { isDocument: true, title: "Google Slides", fileType: "gslides" };
+  }
+  // PDF links
+  if (/\.pdf(\?|$|#)/i.test(url)) {
+    return { isDocument: true, title: "PDF Document", fileType: "pdf" };
+  }
+  // Image links
+  if (/\.(png|jpg|jpeg|gif|webp|svg)(\?|$|#)/i.test(url)) {
+    return { isDocument: true, title: "Image", fileType: "image" };
+  }
+  return null;
+}
+
 export default function ChatPage() {
   return (
     <Suspense fallback={
@@ -1103,11 +1133,38 @@ function ChatPageInner() {
                         ) : (
                           <ReactMarkdown
                             components={{
-                              a: ({ href, children }) => (
-                                <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 break-all">
-                                  {children}
-                                </a>
-                              ),
+                              a: ({ href, children }) => {
+                                const docInfo = href ? detectDocumentUrl(href) : null;
+                                if (docInfo) {
+                                  // Extract display name from link text
+                                  const displayName = typeof children === "string" ? children : (docInfo.title || "Document");
+                                  const title = displayName === href ? docInfo.title : String(displayName);
+                                  return (
+                                    <button
+                                      onClick={() => setDisplayContent({
+                                        type: "document_preview",
+                                        title,
+                                        props: { url: href, fileType: docInfo.fileType }
+                                      })}
+                                      className="flex items-center gap-3 px-4 py-3 my-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group w-full max-w-sm text-left"
+                                    >
+                                      <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400 group-hover:scale-110 transition-transform">
+                                        <FileText size={20} />
+                                      </div>
+                                      <div className="flex-1 truncate">
+                                        <p className="text-sm font-medium text-white truncate">{title}</p>
+                                        <p className="text-xs text-neutral-400 mt-0.5">Click to preview document</p>
+                                      </div>
+                                      <ChevronRight size={16} className="text-neutral-500 group-hover:text-white transition-colors" />
+                                    </button>
+                                  );
+                                }
+                                return (
+                                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 break-all">
+                                    {children}
+                                  </a>
+                                );
+                              },
                               h1: ({ children }) => (
                                 <h1 className="text-xl font-bold text-white mt-6 mb-3 pb-2 border-b border-white/10">{children}</h1>
                               ),
@@ -1238,6 +1295,33 @@ function ChatPageInner() {
                                     );
                                   } catch (e) {
                                     return <pre className="text-red-500">Error rendering document summary</pre>;
+                                  }
+                                }
+                                if (className === "language-document_preview") {
+                                  try {
+                                    const json = JSON.parse(String(children));
+                                    const title = json.title || json.fileName || "Document Preview";
+                                    return (
+                                      <button
+                                        onClick={() => setDisplayContent({
+                                          type: "document_preview",
+                                          title,
+                                          props: { url: json.url, fileType: json.fileType || "drive", downloadUrl: json.downloadUrl }
+                                        })}
+                                        className="flex items-center gap-3 px-4 py-3 my-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all group w-full max-w-sm text-left"
+                                      >
+                                        <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400 group-hover:scale-110 transition-transform">
+                                          <FileText size={20} />
+                                        </div>
+                                        <div className="flex-1 truncate">
+                                          <p className="text-sm font-medium text-white truncate">{title}</p>
+                                          <p className="text-xs text-neutral-400 mt-0.5">Click to preview document</p>
+                                        </div>
+                                        <ChevronRight size={16} className="text-neutral-500 group-hover:text-white transition-colors" />
+                                      </button>
+                                    );
+                                  } catch (e) {
+                                    return <pre className="text-red-500">Error rendering document preview</pre>;
                                   }
                                 }
                                 return isInline ? (
