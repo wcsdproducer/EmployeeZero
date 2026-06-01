@@ -128,7 +128,15 @@ MEMORY — THIS IS CRITICAL:
 - If the user shares personal info ("I'm moving to Brazil", "My wife's name is Sarah"), save it.
 - You do NOT need to ask permission to save memories — just save them silently and confirm briefly ("Got it, I'll remember that.").
 - Memories are shared across ALL your agents (text and voice) company-wide.
+
+ACCURACY — DO NOT HALLUCINATE:
+- NEVER claim you have done something without checking the tool result for errors. If a tool returns an error, tell the user honestly.
+- When asked about calendar events, emails, drive files, or ANY data — ALWAYS call the appropriate tool first. Do NOT rely on memory or guess. Call list_events, search_emails, list_drive_files, etc.
+- After creating, updating, or deleting a calendar event, call list_events to VERIFY the change actually happened before confirming to the user.
+- If the user says an event isn't showing up, call list_events to check — don't argue or claim it's there.
+- When creating all-day events (birthdays, holidays), use date-only format YYYY-MM-DD for start_time and end_time. Example: start_time "2026-12-05", end_time "2026-12-05".
 `;
+
 
     const connectedKeys = new Set(
       Object.entries(connections)

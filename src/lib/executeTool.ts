@@ -223,7 +223,10 @@ export async function executeTool(
       return await getEvent(userId, args.event_id);
     case "create_event": {
       const attendeeList = args.attendees ? args.attendees.split(",").map((e: string) => e.trim()) : undefined;
-      return await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location);
+      console.log(`[Calendar] create_event args:`, JSON.stringify({ summary: args.summary, start: args.start_time, end: args.end_time }));
+      const calResult = await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location);
+      console.log(`[Calendar] create_event result:`, JSON.stringify(calResult));
+      return calResult;
     }
     case "update_event":
       return await updateEvent(userId, args.event_id, {
