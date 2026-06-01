@@ -345,20 +345,6 @@ function ConnectionsPageInner() {
       };
       if (hasSecret) entry.apiSecret = editSecret.trim();
 
-      if (id === "elevenlabs" && editValue.trim()) {
-        const res = await authFetch("/api/elevenlabs/provision", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey: editValue.trim() })
-        });
-        const data = await res.json();
-        if (res.ok && data.agent_id) {
-          entry.apiSecret = data.agent_id; // Store agent_id
-        } else {
-          throw new Error(data.error || "Failed to provision agent");
-        }
-      }
-
       const updatedConnections = { ...connections, [id]: entry };
       await setDoc(doc(db, "users", user.uid, "settings", "connections"), updatedConnections);
       setConnections(updatedConnections);
