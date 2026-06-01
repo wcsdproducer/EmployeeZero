@@ -356,9 +356,12 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             "get_form_responses", "list_business_accounts", "list_business_locations", "get_business_reviews",
           ]);
 
-          const fcalls = (msg.serverContent?.modelTurn?.parts || [])
-            .filter((p: any) => p.functionCall)
-            .map((p: any) => p.functionCall);
+          const fcalls = [
+            ...(msg.toolCall?.functionCalls || []),
+            ...(msg.serverContent?.modelTurn?.parts || [])
+              .filter((p: any) => p.functionCall)
+              .map((p: any) => p.functionCall)
+          ];
 
           if (fcalls.length > 0) {
             const TOOL_TIMEOUT_MS = 12_000;
@@ -459,13 +462,13 @@ Please tell the user the answer in one or two conversational sentences. Be direc
           }
 
           // Handle AI speech transcription (outputAudioTranscription)
-          const aiTranscript = msg.serverContent?.outputTranscription?.text;
+          const aiTranscript = msg.outputTranscription?.text || msg.serverContent?.outputTranscription?.text;
           if (aiTranscript) {
             modelTextRef.current += aiTranscript;
           }
 
           // Handle user speech transcription (inputAudioTranscription / STT)
-          const userTranscript = msg.serverContent?.inputTranscription?.text;
+          const userTranscript = msg.inputTranscription?.text || msg.serverContent?.inputTranscription?.text;
           if (userTranscript) {
             callbacksRef.current.onMessage?.({ source: "user", message: userTranscript });
           }
