@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, BarChart3, Image as ImageIcon, Code, Box, MessageCircle, CalendarDays, FileText, ExternalLink, FileIcon, Download } from "lucide-react";
+import { X, BarChart3, Image as ImageIcon, Code, Box, MessageCircle, CalendarDays, FileText, ExternalLink, FileIcon, Download, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { AgentChart } from "./AgentChart";
 import { SocialPostPreview } from "./SocialPostPreview";
@@ -18,9 +19,36 @@ export interface DisplayContent {
 interface DisplayPanelProps {
   content: DisplayContent | null;
   onClose: () => void;
+  /** When this value changes, document previews auto-refresh their iframe */
+  refreshTrigger?: number;
 }
 
-export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
+export function DisplayPanel({ content, onClose, refreshTrigger = 0 }: DisplayPanelProps) {
+  const [iframeKey, setIframeKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Auto-refresh iframe when refreshTrigger changes (e.g., new model message after an edit)
+  useEffect(() => {
+    if (refreshTrigger > 0 && content?.type === "document_preview") {
+      // Small delay to let the Google API propagate the edit
+      const timer = setTimeout(() => {
+        setIframeKey(k => k + 1);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [refreshTrigger, content?.type]);
+
+  // Reset iframe key when content changes
+  useEffect(() => {
+    setIframeKey(0);
+  }, [content?.props?.url]);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    setIframeKey(k => k + 1);
+    setTimeout(() => setIsRefreshing(false), 1000);
+  }, []);
+
   // Determine icon based on type
   const getIcon = () => {
     switch (content?.type) {
@@ -41,6 +69,28 @@ export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
       default:
         return <Box size={18} className="text-green-400" />;
     }
+  };
+
+  // Build embed URL for document previews
+  const buildEmbedUrl = (url: string, fileType?: string) => {
+    if (!url) return url;
+    let embedUrl = url;
+    if (url.includes("drive.google.com")) {
+      const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (fileIdMatch) {
+        const fileId = fileIdMatch[1];
+        embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+      }
+    } else if (url.includes("docs.google.com/document")) {
+      embedUrl = url.replace(/\/edit.*$/, "/preview");
+    } else if (url.includes("docs.google.com/spreadsheets")) {
+      embedUrl = url.replace(/\/edit.*$/, "/preview");
+    } else if (url.includes("docs.google.com/presentation")) {
+      embedUrl = url.replace(/\/edit.*$/, "/embed?start=false&loop=false&delayms=3000");
+    }
+    // Add cache-busting parameter to force fresh load
+    const separator = embedUrl.includes("?") ? "&" : "?";
+    return `${embedUrl}${separator}_t=${iframeKey}`;
   };
 
   // Render content based on type
@@ -66,23 +116,9 @@ export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
           </div>
         );
       case "document_preview": {
-        const { url, fileType, downloadUrl } = content.props || {};
-        // Build embed URL based on file type
-        let embedUrl = url;
-        if (url?.includes("drive.google.com")) {
-          // Google Drive file — use preview embed
-          const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-          if (fileIdMatch) {
-            const fileId = fileIdMatch[1];
-            embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-          }
-        } else if (url?.includes("docs.google.com/document")) {
-          embedUrl = url.replace(/\/edit.*$/, "/preview");
-        } else if (url?.includes("docs.google.com/spreadsheets")) {
-          embedUrl = url.replace(/\/edit.*$/, "/preview");
-        } else if (url?.includes("docs.google.com/presentation")) {
-          embedUrl = url.replace(/\/edit.*$/, "/embed?start=false&loop=false&delayms=3000");
-        } else if (fileType === "image" || /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(url || "")) {
+        const { url, fileType } = content.props || {};
+        // Images render directly
+        if (fileType === "image" || /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(url || "")) {
           return (
             <div className="flex items-center justify-center h-full p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -90,10 +126,11 @@ export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
             </div>
           );
         }
-        // For PDFs and Google Drive embeds, use iframe
+        const embedUrl = buildEmbedUrl(url, fileType);
         return (
           <div className="flex flex-col h-full w-full -m-6">
             <iframe
+              key={`doc-iframe-${iframeKey}`}
               src={embedUrl}
               className="flex-1 w-full border-0 bg-white rounded-b-lg"
               style={{ minHeight: "calc(100vh - 120px)" }}
@@ -167,6 +204,17 @@ export function DisplayPanel({ content, onClose }: DisplayPanelProps) {
               </h2>
             </div>
             <div className="flex items-center gap-1">
+              {content.type === "document_preview" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white"
+                  onClick={handleRefresh}
+                  title="Refresh document"
+                >
+                  <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+                </Button>
+              )}
               {content.type === "document_preview" && content.props?.url && (
                 <Button
                   variant="ghost"

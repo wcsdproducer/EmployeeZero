@@ -158,6 +158,8 @@ function ChatPageInner() {
   const [employeeName, setEmployeeName] = useState("Employee Zero");
   const [employeeAvatar, setEmployeeAvatar] = useState<string | null>(null);
   const [displayContent, setDisplayContent] = useState<DisplayContent | null>(null);
+  const [docRefreshTrigger, setDocRefreshTrigger] = useState(0);
+  const prevMessageCountRef = useRef(0);
   const agents = getAgents(employeeName, employeeAvatar);
 
   // Voice Mode State
@@ -643,6 +645,16 @@ function ChatPageInner() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [activeConv?.messages?.length, activeConv?.status]);
+
+  // Auto-refresh document panel when new model messages arrive
+  useEffect(() => {
+    const msgCount = activeConv?.messages?.length || 0;
+    const lastMsg = activeConv?.messages?.[msgCount - 1];
+    if (msgCount > prevMessageCountRef.current && lastMsg?.role === "model" && displayContent?.type === "document_preview") {
+      setDocRefreshTrigger(t => t + 1);
+    }
+    prevMessageCountRef.current = msgCount;
+  }, [activeConv?.messages?.length, displayContent?.type]);
 
   // Synchronize selectedAgentId on initial load only — read agentId from the first conversation
   // We intentionally do NOT sync on every activeConvId change, as that would revert manual agent switches
@@ -1528,7 +1540,8 @@ function ChatPageInner() {
         {/* Display Panel */}
         <DisplayPanel 
           content={displayContent} 
-          onClose={() => setDisplayContent(null)} 
+          onClose={() => setDisplayContent(null)}
+          refreshTrigger={docRefreshTrigger}
         />
       </div>
 
