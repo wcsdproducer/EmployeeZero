@@ -473,7 +473,14 @@ Please tell the user the answer in one or two conversational sentences. Be direc
                 if (output.__chart) {
                   callbacksRef.current.onMessage?.({ source: "ai", message: `__chart::${JSON.stringify(output.__chart)}` });
                 }
-                return { name, response: { output }, id };
+                // Extract real links and display them in chat; strip URLs from model response
+                const syncLinks = extractLinks(output);
+                if (syncLinks.length > 0) {
+                  const linkMsg = syncLinks.map(l => `[${l.name}](${l.url})`).join("\n");
+                  callbacksRef.current.onMessage?.({ source: "ai", message: linkMsg });
+                }
+                const cleanOutput = stripUrls(output);
+                return { name, response: { output: cleanOutput }, id };
               } catch (err: any) {
                 const isTimeout = err.name === "AbortError";
                 console.warn(`[GeminiLive] Tool ${name} ${isTimeout ? "timed out" : "failed"}:`, err.message);
