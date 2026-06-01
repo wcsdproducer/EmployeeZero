@@ -237,7 +237,7 @@ export async function executeTool(
       const attendeeList = args.attendees ? args.attendees.split(",").map((e: string) => e.trim()) : undefined;
       const recurrence = args.recurrence ? (Array.isArray(args.recurrence) ? args.recurrence : [args.recurrence]) : undefined;
       console.log(`[Calendar] create_event args:`, JSON.stringify({ summary: args.summary, start: args.start_time, end: args.end_time, recurrence }));
-      const calResult = await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location, recurrence);
+      const calResult = await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location, recurrence, args.reminder_minutes);
       console.log(`[Calendar] create_event result:`, JSON.stringify(calResult));
       return calResult;
     }
@@ -245,6 +245,7 @@ export async function executeTool(
       return await updateEvent(userId, args.event_id, {
         summary: args.summary, description: args.description,
         startTime: args.start_time, endTime: args.end_time, location: args.location,
+        reminderMinutes: args.reminder_minutes,
       });
     case "delete_event":
       return await deleteEvent(userId, args.event_id);

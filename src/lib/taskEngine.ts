@@ -617,12 +617,13 @@ async function executeTool(
       return await getEvent(userId, args.event_id);
     case "create_event": {
       const attendeeList = args.attendees ? args.attendees.split(",").map((e: string) => e.trim()) : undefined;
-      return await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location);
+      return await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location, undefined, args.reminder_minutes);
     }
     case "update_event":
       return await updateEvent(userId, args.event_id, {
         summary: args.summary, description: args.description,
         startTime: args.start_time, endTime: args.end_time, location: args.location,
+        reminderMinutes: args.reminder_minutes,
       });
     case "delete_event":
       return await deleteEvent(userId, args.event_id);

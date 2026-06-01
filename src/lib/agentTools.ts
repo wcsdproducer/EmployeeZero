@@ -151,13 +151,14 @@ export const CALENDAR_TOOLS = [
         description: { type: Type.STRING, description: "Event description" },
         attendees: { type: Type.STRING, description: "Comma-separated email addresses" },
         location: { type: Type.STRING, description: "Event location" },
+        reminder_minutes: { type: Type.NUMBER, description: "Reminder notification in minutes before event (e.g. 10, 30, 60). Overrides default reminder." },
       },
       required: ["summary", "start_time", "end_time"],
     },
   },
   {
     name: "update_event",
-    description: "Update an existing calendar event",
+    description: "Update an existing calendar event. Returns verified data from the calendar after the update.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -167,6 +168,7 @@ export const CALENDAR_TOOLS = [
         end_time: { type: Type.STRING, description: "New end time" },
         description: { type: Type.STRING, description: "New description" },
         location: { type: Type.STRING, description: "New location" },
+        reminder_minutes: { type: Type.NUMBER, description: "Set reminder notification in minutes before event (e.g. 10, 30, 60)" },
       },
       required: ["event_id"],
     },

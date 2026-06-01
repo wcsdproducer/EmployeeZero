@@ -60,6 +60,7 @@ export async function listEvents(
   description?: string;
   attendees?: string[];
   status: string;
+  reminders?: { useDefault: boolean; overrides?: { method: string; minutes: number }[] };
 }[]> {
   const client = await getCalendarClient(userId);
 
@@ -82,6 +83,10 @@ export async function listEvents(
     description: evt.description?.substring(0, 500) || undefined,
     attendees: evt.attendees?.map((a) => a.email || "").filter(Boolean),
     status: evt.status || "confirmed",
+    reminders: evt.reminders ? {
+      useDefault: evt.reminders.useDefault || false,
+      overrides: evt.reminders.overrides?.map((o) => ({ method: o.method || "popup", minutes: o.minutes || 10 })),
+    } : undefined,
   }));
 }
 
@@ -98,6 +103,7 @@ export async function getEvent(
   attendees?: { email: string; responseStatus: string }[];
   organizer?: string;
   htmlLink?: string;
+  reminders?: { useDefault: boolean; overrides?: { method: string; minutes: number }[] };
 }> {
   const client = await getCalendarClient(userId);
 
@@ -120,6 +126,10 @@ export async function getEvent(
     })),
     organizer: evt.organizer?.email || undefined,
     htmlLink: evt.htmlLink || undefined,
+    reminders: evt.reminders ? {
+      useDefault: evt.reminders.useDefault || false,
+      overrides: evt.reminders.overrides?.map((o) => ({ method: o.method || "popup", minutes: o.minutes || 10 })),
+    } : undefined,
   };
 }
 
@@ -131,7 +141,8 @@ export async function createEvent(
   description?: string,
   attendees?: string[],
   location?: string,
-  recurrence?: string[]
+  recurrence?: string[],
+  reminderMinutes?: number
 ): Promise<{ id: string; htmlLink: string }> {
   const client = await getCalendarClient(userId);
 
@@ -166,17 +177,25 @@ export async function createEvent(
     end = { dateTime: endTime };
   }
 
+  const requestBody: any = {
+    summary,
+    description,
+    location,
+    start,
+    end,
+    attendees: attendees?.map((email) => ({ email })),
+    recurrence: recurrence || undefined,
+  };
+  if (reminderMinutes !== undefined) {
+    requestBody.reminders = {
+      useDefault: false,
+      overrides: [{ method: "popup", minutes: reminderMinutes }],
+    };
+  }
+
   const res = await client.events.insert({
     calendarId: "primary",
-    requestBody: {
-      summary,
-      description,
-      location,
-      start,
-      end,
-      attendees: attendees?.map((email) => ({ email })),
-      recurrence: recurrence || undefined,
-    },
+    requestBody,
   });
 
   return { id: res.data.id!, htmlLink: res.data.htmlLink || "" };
@@ -191,8 +210,9 @@ export async function updateEvent(
     startTime?: string;
     endTime?: string;
     location?: string;
+    reminderMinutes?: number;
   }
-): Promise<{ id: string; updated: boolean }> {
+): Promise<{ id: string; updated: boolean; verifiedReminders?: { method: string; minutes: number }[] }> {
   const client = await getCalendarClient(userId);
 
   const body: any = {};
@@ -207,6 +227,12 @@ export async function updateEvent(
     const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(updates.endTime.trim());
     body.end = isAllDay ? { date: updates.endTime.trim() } : { dateTime: updates.endTime };
   }
+  if (updates.reminderMinutes !== undefined) {
+    body.reminders = {
+      useDefault: false,
+      overrides: [{ method: "popup", minutes: updates.reminderMinutes }],
+    };
+  }
 
   await client.events.patch({
     calendarId: "primary",
@@ -214,7 +240,14 @@ export async function updateEvent(
     requestBody: body,
   });
 
-  return { id: eventId, updated: true };
+  // Auto-verify: re-fetch the event to confirm the update
+  const verify = await client.events.get({ calendarId: "primary", eventId });
+  const verifiedReminders = verify.data.reminders?.overrides?.map((o) => ({
+    method: o.method || "popup",
+    minutes: o.minutes || 0,
+  }));
+
+  return { id: eventId, updated: true, verifiedReminders };
 }
 
 export async function deleteEvent(
