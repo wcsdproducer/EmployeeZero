@@ -123,6 +123,12 @@ import {
   createDocument,
   getDocument,
   appendText,
+  prependText,
+  replaceText,
+  deleteText,
+  clearDocument,
+  writeDocument,
+  updateDocTitle,
 } from "@/lib/docs";
 import {
   listAccounts as listBusinessAccounts,
@@ -824,6 +830,18 @@ async function executeTool(
       return await getDocument(userId, args.document_id);
     case "append_doc_text":
       return await appendText(userId, args.document_id, args.text);
+    case "prepend_doc_text":
+      return await prependText(userId, args.document_id, args.text);
+    case "replace_doc_text":
+      return await replaceText(userId, args.document_id, args.find_text, args.replace_with);
+    case "delete_doc_text":
+      return await deleteText(userId, args.document_id, args.find_text);
+    case "clear_document":
+      return await clearDocument(userId, args.document_id);
+    case "write_document":
+      return await writeDocument(userId, args.document_id, args.content);
+    case "update_doc_title":
+      return await updateDocTitle(userId, args.document_id, args.title);
     // Business Profile
     case "list_business_accounts":
       return await listBusinessAccounts(userId);

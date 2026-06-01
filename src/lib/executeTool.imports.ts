@@ -146,6 +146,12 @@ import {
   createDocument,
   getDocument,
   appendText,
+  prependText,
+  replaceText,
+  deleteText,
+  clearDocument,
+  writeDocument,
+  updateDocTitle,
 } from "@/lib/docs";
 import {
   listAccounts as listBusinessAccounts,

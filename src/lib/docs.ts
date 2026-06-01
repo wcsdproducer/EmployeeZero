@@ -106,3 +106,138 @@ export async function appendText(userId: string, documentId: string, text: strin
   });
   return { success: true, documentId, action: "text_appended" };
 }
+
+export async function prependText(userId: string, documentId: string, text: string) {
+  const docs = await getAuthenticatedDocs(userId);
+  await docs.documents.batchUpdate({
+    documentId,
+    requestBody: {
+      requests: [
+        {
+          insertText: {
+            location: { index: 1 }, // Index 1 is the start of the document body
+            text,
+          },
+        },
+      ],
+    },
+  });
+  return { success: true, documentId, action: "text_prepended" };
+}
+
+export async function insertTextAt(userId: string, documentId: string, text: string, index: number) {
+  const docs = await getAuthenticatedDocs(userId);
+  await docs.documents.batchUpdate({
+    documentId,
+    requestBody: {
+      requests: [
+        {
+          insertText: {
+            location: { index: Math.max(1, index) },
+            text,
+          },
+        },
+      ],
+    },
+  });
+  return { success: true, documentId, action: "text_inserted", atIndex: index };
+}
+
+export async function replaceText(userId: string, documentId: string, findText: string, replaceWith: string) {
+  const docs = await getAuthenticatedDocs(userId);
+  await docs.documents.batchUpdate({
+    documentId,
+    requestBody: {
+      requests: [
+        {
+          replaceAllText: {
+            containsText: {
+              text: findText,
+              matchCase: true,
+            },
+            replaceText: replaceWith,
+          },
+        },
+      ],
+    },
+  });
+  return { success: true, documentId, action: "text_replaced", found: findText, replacedWith: replaceWith };
+}
+
+export async function deleteText(userId: string, documentId: string, findText: string) {
+  // Replace the target text with an empty string to delete it
+  return await replaceText(userId, documentId, findText, "");
+}
+
+export async function clearDocument(userId: string, documentId: string) {
+  const docs = await getAuthenticatedDocs(userId);
+  const doc = await docs.documents.get({ documentId });
+  const endIndex = doc.data.body?.content?.reduce((max, el) => {
+    return Math.max(max, el.endIndex || 0);
+  }, 1) || 1;
+
+  if (endIndex <= 2) return { success: true, documentId, action: "already_empty" };
+
+  await docs.documents.batchUpdate({
+    documentId,
+    requestBody: {
+      requests: [
+        {
+          deleteContentRange: {
+            range: { startIndex: 1, endIndex: endIndex - 1 },
+          },
+        },
+      ],
+    },
+  });
+  return { success: true, documentId, action: "document_cleared" };
+}
+
+export async function updateDocTitle(userId: string, documentId: string, newTitle: string) {
+  // Google Docs API doesn't have a direct title update — use Drive API
+  const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
+  if (!snap.exists) throw new Error("No connections found");
+  const data = snap.data() as Record<string, any>;
+  const docsConn = data?.docs;
+  if (!docsConn?.connected || !docsConn?.refreshToken) {
+    throw new Error("Google Docs is not connected.");
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) throw new Error("Google OAuth not configured");
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({
+    access_token: docsConn.accessToken,
+    refresh_token: docsConn.refreshToken,
+    expiry_date: docsConn.expiryDate,
+  });
+
+  const drive = google.drive({ version: "v3", auth: oauth2Client });
+  await drive.files.update({
+    fileId: documentId,
+    requestBody: { name: newTitle },
+  });
+  return { success: true, documentId, action: "title_updated", newTitle };
+}
+
+export async function writeDocument(userId: string, documentId: string, content: string) {
+  // Clear document and write fresh content — useful for complete rewrites
+  await clearDocument(userId, documentId);
+  const docs = await getAuthenticatedDocs(userId);
+  await docs.documents.batchUpdate({
+    documentId,
+    requestBody: {
+      requests: [
+        {
+          insertText: {
+            location: { index: 1 },
+            text: content,
+          },
+        },
+      ],
+    },
+  });
+  return { success: true, documentId, action: "document_written" };
+}
