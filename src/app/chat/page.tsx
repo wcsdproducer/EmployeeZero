@@ -95,6 +95,14 @@ function getAgents(employeeName: string, avatarId: string | null) {
   ];
 }
 
+/** Convert bare URLs in text into clickable markdown links.
+ *  Skips URLs already inside markdown link syntax [text](url). */
+const linkifyUrls = (text: string): string =>
+  text.replace(
+    /(?<!\]\()(?<!\()\b(https?:\/\/[^\s)\]>"']+)/gi,
+    (url) => `[${url}](${url})`
+  );
+
 export default function ChatPage() {
   return (
     <Suspense fallback={
@@ -1228,7 +1236,7 @@ function ChatPageInner() {
                               ),
                             }}
                           >
-                            {msg.content}
+                            {linkifyUrls(msg.content)}
                           </ReactMarkdown>
                         )}
                       </div>
