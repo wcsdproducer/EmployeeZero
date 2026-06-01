@@ -376,6 +376,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
                 // Return instantly — explicitly tell Gemini NOT to call any more tools
                 const instant = {
+                  name,
                   response: {
                     output: {
                       status: "fetching_in_background",
@@ -433,11 +434,11 @@ Please tell the user the answer in one or two conversational sentences. Be direc
                 if (output.__chart) {
                   callbacksRef.current.onMessage?.({ source: "ai", message: `__chart::${JSON.stringify(output.__chart)}` });
                 }
-                return { response: { output }, id };
+                return { name, response: { output }, id };
               } catch (err: any) {
                 const isTimeout = err.name === "AbortError";
                 console.warn(`[GeminiLive] Tool ${name} ${isTimeout ? "timed out" : "failed"}:`, err.message);
-                return { response: { error: isTimeout ? `'${name}' is taking too long — please try again` : err.message }, id };
+                return { name, response: { error: isTimeout ? `'${name}' is taking too long — please try again` : err.message }, id };
               }
             };
 
