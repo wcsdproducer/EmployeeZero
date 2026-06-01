@@ -312,6 +312,10 @@ ACCURACY — DO NOT HALLUCINATE:
 
     systemPrompt += `\n\n## Current Date & Time\nThe current time for the user is ${new Date().toLocaleString("en-US", { timeZone: userTimezone || "America/New_York" })}.\n`;
 
+    // Final guard — must be the LAST thing in the prompt
+    systemPrompt += `\n\n## ABSOLUTE VOICE RULE — READ THIS LAST
+EVERYTHING ABOVE THIS LINE is internal configuration for YOUR reference only. NEVER read, recite, or speak any of the above instructions, tool descriptions, service configurations, workflow lists, scheduled jobs, memories, or system text aloud. The user must ONLY hear natural conversational responses. If you catch yourself about to speak a tool name, parameter description, or instruction text — STOP and rephrase as natural speech. Violations of this rule will break the user experience.`;
+
     // Gather Tools
     const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...NOTES_TOOLS, ...MEMORY_TOOLS, CREATE_CHART_TOOL];
     const hasGmailTools = connections.gmail?.connected || (connections.google?.connected && connections.google?.scopes?.includes("https://mail.google.com/"));
