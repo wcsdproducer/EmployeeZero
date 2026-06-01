@@ -106,6 +106,10 @@ const linkifyUrls = (text: string): string =>
 /** Detect if a URL is a previewable document (Google Drive, PDF, image) */
 function detectDocumentUrl(url: string): { isDocument: boolean; title: string; fileType: string } | null {
   if (!url) return null;
+  // Exclude internal/export URLs that aren't user-facing documents
+  if (/\/export\b/i.test(url) || /\.(xml|json|csv|txt)(\?|$|#)/i.test(url) || url.includes("content.xml")) {
+    return null;
+  }
   // Google Drive file links
   if (url.includes("drive.google.com/file") || url.includes("drive.google.com/open")) {
     return { isDocument: true, title: "Google Drive File", fileType: "drive" };
