@@ -371,7 +371,6 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           const AUTO_BACKGROUND_TOOLS = new Set([
             "search_emails", "read_email", "get_unread_count",
             "web_search", "browse_url", "click_url",
-            "list_events", "get_event", "find_free_slots",
             "list_drive_files", "get_drive_file", "read_drive_file",
             "list_notes", "search_notes", "get_note",
             "list_contacts", "get_contact",
@@ -394,7 +393,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           ];
 
           if (fcalls.length > 0) {
-            const TOOL_TIMEOUT_MS = 12_000;
+            const TOOL_TIMEOUT_MS = 20_000;
 
             const executeCall = async (call: any) => {
               const { name, args, id } = call;
