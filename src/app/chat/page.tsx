@@ -459,7 +459,7 @@ function ChatPageInner() {
   const activeVoiceAgentId = selectedAgentId;
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // default CLOSED on mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // default OPEN
   const [showSearch, setShowSearch] = useState(false);
   const [showHireModal, setShowHireModal] = useState(false);
   const [previewWorkflow, setPreviewWorkflow] = useState<WorkflowSuggestion | null>(null);
