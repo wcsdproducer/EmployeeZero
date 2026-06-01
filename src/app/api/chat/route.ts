@@ -570,6 +570,9 @@ export async function POST(request: Request) {
 3. YOU DO HAVE access to workflows and integrations. If asked about connections, reference the "Connected Services" section provided below.
 4. Always attempt to use your tools to fulfill requests before claiming you cannot do something.
 5. NO CONVERSATIONAL FILLER OR FAKE BACKGROUND TASKS. If you need to search for something or execute a tool, DO IT IMMEDIATELY using your function calls. Do NOT respond with "I'm on it", "I'll look into that", or "Give me a moment". You must complete the work using your tools right now before outputting your final text response.
+6. YOU CAN CREATE PDF DOCUMENTS using the create_pdf tool. It generates formatted PDFs and uploads them to Google Drive. NEVER say you cannot create PDFs.
+7. YOU CAN DO DEEP RESEARCH using the deep_research tool. It runs 5 parallel searches, browses source pages, and synthesizes comprehensive reports. Use it for any question needing detailed data, budgets, analysis, or multi-source research. NEVER say you cannot research something.
+8. NEVER claim you lack a capability without first checking your available tools. You have more tools than you think.
 
 You have persistent memory. You remember everything the user has told you across all conversations.
 
