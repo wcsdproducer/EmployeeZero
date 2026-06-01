@@ -190,8 +190,14 @@ export async function updateEvent(
   if (updates.summary) body.summary = updates.summary;
   if (updates.description) body.description = updates.description;
   if (updates.location) body.location = updates.location;
-  if (updates.startTime) body.start = { dateTime: updates.startTime };
-  if (updates.endTime) body.end = { dateTime: updates.endTime };
+  if (updates.startTime) {
+    const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(updates.startTime.trim());
+    body.start = isAllDay ? { date: updates.startTime.trim() } : { dateTime: updates.startTime };
+  }
+  if (updates.endTime) {
+    const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(updates.endTime.trim());
+    body.end = isAllDay ? { date: updates.endTime.trim() } : { dateTime: updates.endTime };
+  }
 
   await client.events.patch({
     calendarId: "primary",
