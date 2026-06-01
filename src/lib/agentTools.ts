@@ -243,6 +243,17 @@ export const BROWSER_TOOLS = [
       required: ["query"],
     },
   },
+  {
+    name: "deep_research",
+    description: "Comprehensive multi-source research. Generates multiple search queries, searches them in parallel, browses top source pages for detailed data, and synthesizes a thorough report with specific numbers, data points, and citations. Use this for ANY research question that needs detailed, accurate, multi-source answers (budgets, market analysis, comparisons, cost breakdowns, travel planning, etc.). Much more thorough than web_search.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        topic: { type: Type.STRING, description: "The research topic or question to investigate thoroughly" },
+      },
+      required: ["topic"],
+    },
+  },
 ];
 
 export const STRIPE_TOOLS = [

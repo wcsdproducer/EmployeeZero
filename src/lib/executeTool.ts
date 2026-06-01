@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/admin";
 import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
 import { GoogleGenAI, Type } from "@google/genai";
 import { FieldValue } from "firebase-admin/firestore";
+import { deepResearch } from "@/lib/research";
 import {
   listEmails,
   getEmail,
@@ -215,6 +216,8 @@ export async function executeTool(
     }
     case "web_search":
       return await webSearch(args.query);
+    case "deep_research":
+      return await deepResearch(args.topic);
     // Stripe Tools
     case "get_stripe_balance":
       return await getStripeBalance(userId);

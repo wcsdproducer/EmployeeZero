@@ -677,7 +677,7 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
         }
 
         // Browser capabilities (always available)
-        systemPrompt += `\n\n### Web Browsing\nYou can browse any website, read web pages, follow links (like unsubscribe URLs), submit forms, and search the web. Use browse_url to read pages, click_url to follow action links, submit_form for form submissions, and web_search to find information.`;
+        systemPrompt += `\n\n### Web Browsing & Research\nYou have two search tools — choose the right one:\n- **web_search**: Quick factual lookups (e.g., "what's the capital of France", "current weather"). Fast, ~2 seconds.\n- **deep_research**: Comprehensive multi-source research (e.g., budgets, cost of living, market analysis, comparisons, travel planning, financial planning). Runs 5 parallel searches, browses 6+ source pages, and synthesizes a detailed report with specific numbers and citations. Takes ~30 seconds but provides thorough, accurate results. **USE THIS for any question that needs detailed data, breakdowns, or analysis.**\n\nYou also have: browse_url (read specific pages), click_url (follow links), submit_form (POST to forms).`;
 
         // Notes (always available)
         systemPrompt += `\n\n### Notes & Knowledge Base\nYou can create, list, read, update, delete, and search notes. Notes persist across conversations and serve as your knowledge base. Use create_note to save reports, research, and important information for later reference.`;
@@ -881,7 +881,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
             allTools.push(...NOTES_TOOLS, ...MEMORY_TOOLS);
 
             const CORE_TOOL_NAMES = [
-              "browse_url", "click_url", "submit_form", "web_search",
+              "browse_url", "click_url", "submit_form", "web_search", "deep_research",
               "create_workflow", "list_my_workflows", "delete_workflow",
               "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
               "save_memory",
@@ -919,6 +919,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
               if (conversationId && userId) {
                 let actionLabel = `Running ${toolName}...`;
                 if (toolName === "web_search") actionLabel = "Searching the web...";
+                if (toolName === "deep_research") actionLabel = "Researching in depth...";
                 if (toolName === "read_url") actionLabel = "Reading website...";
                 if (toolName.includes("mail")) actionLabel = "Checking email...";
                 if (toolName.includes("calendar")) actionLabel = "Checking calendar...";
@@ -928,10 +929,11 @@ The memory_extract section will be automatically processed and NOT shown to the 
               }
 
               let toolResult: any;
+              const toolTimeout = toolName === "deep_research" ? 90000 : 30000;
               try {
                 toolResult = await withTimeout(
                   executeTool(userId, toolName!, args as Record<string, any>, agentId),
-                  30000,
+                  toolTimeout,
                   `Tool ${toolName}`
                 );
               } catch (err: any) {

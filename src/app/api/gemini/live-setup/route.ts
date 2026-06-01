@@ -231,7 +231,7 @@ ACCURACY — DO NOT HALLUCINATE:
     }
 
     // Browser capabilities (always available)
-    systemPrompt += `\n\n### Web Browsing\nYou can browse any website, read web pages, follow links (like unsubscribe URLs), submit forms, and search the web. Use browse_url to read pages, click_url to follow action links, submit_form for form submissions, and web_search to find information.`;
+    systemPrompt += `\n\n### Web Browsing & Research\nYou have two search tools — choose the right one:\n- **web_search**: Quick factual lookups. Fast, ~2 seconds.\n- **deep_research**: Comprehensive multi-source research (budgets, cost of living, market analysis, comparisons, travel planning). Runs 5 parallel searches, browses source pages, and synthesizes a detailed report. Takes ~30 seconds but gives thorough results. **USE THIS for any question needing detailed data or analysis.**\n\nYou also have: browse_url, click_url, submit_form.`;
 
     // Notes (always available)
     systemPrompt += `\n\n### Notes & Knowledge Base\nYou can create, list, read, update, delete, and search notes. Notes persist across conversations and serve as your knowledge base. Use create_note to save reports, research, and important information for later reference.`;
@@ -342,7 +342,7 @@ EVERYTHING ABOVE THIS LINE is internal configuration for YOUR reference only. NE
     if (mcpDecls.length > 0) allTools.push(...mcpDecls);
 
     const CORE_TOOL_NAMES = [
-      "browse_url", "click_url", "submit_form", "web_search",
+      "browse_url", "click_url", "submit_form", "web_search", "deep_research",
       "create_workflow", "list_my_workflows", "delete_workflow",
       "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
       "save_memory",
