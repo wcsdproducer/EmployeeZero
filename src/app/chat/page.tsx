@@ -636,6 +636,34 @@ function ChatPageInner() {
 
     const message = input.trim();
     setInput("");
+
+    // ── Voice mode: inject typed text into the live WebSocket session ──
+    if (isVoiceMode && conversation.status === "connected") {
+      // Save the user message to the voice conversation in Firestore
+      try {
+        if (!voiceConvIdRef.current) {
+          const docRef = await addDoc(collection(db, "conversations"), {
+            userId: user.uid,
+            title: "Voice Conversation",
+            messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
+            status: "running",
+            createdAt: Timestamp.now(),
+          });
+          voiceConvIdRef.current = docRef.id;
+          setActiveConvId(docRef.id);
+        } else {
+          await updateDoc(doc(db, "conversations", voiceConvIdRef.current), {
+            messages: arrayUnion({ role: "user", content: message, timestamp: new Date().toISOString() })
+          });
+        }
+      } catch (err) {
+        console.error("Failed to save typed voice message:", err);
+      }
+      // Inject into the voice WebSocket
+      conversation.sendClientContent(message);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
