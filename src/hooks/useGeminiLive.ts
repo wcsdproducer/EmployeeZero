@@ -5,6 +5,36 @@ import { authFetch } from "@/lib/authFetch";
 
 export type GeminiLiveStatus = "disconnected" | "connecting" | "connected" | "disconnecting";
 
+/** Recursively extract {name, url} pairs from tool results (Drive files, emails, etc.) */
+function extractLinks(obj: any, links: { name: string; url: string }[] = []): { name: string; url: string }[] {
+  if (!obj || typeof obj !== "object") return links;
+  if (Array.isArray(obj)) { obj.forEach(item => extractLinks(item, links)); return links; }
+  // Look for common link/url fields paired with a name/title/subject
+  const url = obj.link || obj.url || obj.webViewLink || obj.htmlLink || obj.threadLink || null;
+  const name = obj.name || obj.title || obj.subject || obj.filename || null;
+  if (url && typeof url === "string" && url.startsWith("http") && name) {
+    links.push({ name: String(name), url });
+  }
+  // Recurse into nested objects
+  for (const val of Object.values(obj)) {
+    if (val && typeof val === "object") extractLinks(val, links);
+  }
+  return links;
+}
+
+/** Deep-clone an object and strip URL fields so the voice model doesn't try to speak them */
+function stripUrls(obj: any): any {
+  if (!obj || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(stripUrls);
+  const clone: any = {};
+  for (const [k, v] of Object.entries(obj)) {
+    // Skip URL fields entirely
+    if (["link", "url", "webViewLink", "htmlLink", "threadLink", "webContentLink"].includes(k)) continue;
+    clone[k] = (v && typeof v === "object") ? stripUrls(v) : v;
+  }
+  return clone;
+}
+
 interface UseGeminiLiveOptions {
   onConnect?: () => void;
   onDisconnect?: () => void;
@@ -395,11 +425,20 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
                       signal: AbortSignal.timeout(45_000),
                     });
                     const result = await r.json();
-                    // Inject result back into voice session as a concise summary request
-                    const resultText = JSON.stringify(result).substring(0, 1500);
+
+                    // Extract any links from the result and emit them as a clickable chat message
+                    const links = extractLinks(result);
+                    if (links.length > 0) {
+                      const linkMsg = links.map(l => `[${l.name}](${l.url})`).join("\n");
+                      callbacksRef.current.onMessage?.({ source: "ai", message: linkMsg });
+                    }
+
+                    // Build a clean summary WITHOUT urls for the voice model to speak
+                    const cleanResult = stripUrls(result);
+                    const resultText = JSON.stringify(cleanResult).substring(0, 1500);
                     const injection = `[RESULT for ${friendlyName}]: ${resultText}
 
-Please tell the user the answer in one or two conversational sentences. Be direct and specific.`;
+Please tell the user the answer in one or two conversational sentences. Be direct and specific. Do NOT say any URLs or web addresses aloud — just refer to items by name. The links have already been displayed in the chat for the user to click.`;
                     if (wsRef.current?.readyState === WebSocket.OPEN) {
                       wsRef.current.send(JSON.stringify({
                         clientContent: { turns: [{ role: "user", parts: [{ text: injection }] }], turnComplete: true },
