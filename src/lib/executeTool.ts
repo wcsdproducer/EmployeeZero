@@ -223,8 +223,9 @@ export async function executeTool(
       return await getEvent(userId, args.event_id);
     case "create_event": {
       const attendeeList = args.attendees ? args.attendees.split(",").map((e: string) => e.trim()) : undefined;
-      console.log(`[Calendar] create_event args:`, JSON.stringify({ summary: args.summary, start: args.start_time, end: args.end_time }));
-      const calResult = await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location);
+      const recurrence = args.recurrence ? (Array.isArray(args.recurrence) ? args.recurrence : [args.recurrence]) : undefined;
+      console.log(`[Calendar] create_event args:`, JSON.stringify({ summary: args.summary, start: args.start_time, end: args.end_time, recurrence }));
+      const calResult = await createEvent(userId, args.summary, args.start_time, args.end_time, args.description, attendeeList, args.location, recurrence);
       console.log(`[Calendar] create_event result:`, JSON.stringify(calResult));
       return calResult;
     }

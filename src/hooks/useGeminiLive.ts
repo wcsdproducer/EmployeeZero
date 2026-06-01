@@ -365,26 +365,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             return;
           }
 
-          // Handle tool calls
-          // Slow read/search tools are auto-backgrounded so they never block the voice conversation.
-          // Atlas gets an instant "fetching" response and can keep talking; results arrive via clientContent.
-          const AUTO_BACKGROUND_TOOLS = new Set([
-            "search_emails", "read_email", "get_unread_count",
-            "web_search", "browse_url", "click_url",
-            "list_drive_files", "get_drive_file", "read_drive_file",
-            "list_notes", "search_notes", "get_note",
-            "list_contacts", "get_contact",
-            "list_youtube_channels", "list_youtube_videos", "get_youtube_analytics", "search_youtube",
-            "get_linkedin_posts", "get_linkedin_profile",
-            "get_instagram_media", "get_instagram_profile", "get_instagram_comments",
-            "get_facebook_page_posts", "get_facebook_page_insights", "get_facebook_post_comments",
-            "list_google_tasks", "get_document",
-            "read_sheet", "list_spreadsheets",
-            "get_stripe_balance", "get_stripe_metrics", "list_stripe_charges",
-            "list_analytics_properties", "run_analytics_report", "get_realtime_analytics",
-            "get_form_responses", "list_business_accounts", "list_business_locations", "get_business_reviews",
-          ]);
-
+          // Handle tool calls — ALL tools run synchronously for accuracy
           const fcalls = [
             ...(msg.toolCall?.functionCalls || []),
             ...(msg.serverContent?.modelTurn?.parts || [])
@@ -393,71 +374,11 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           ];
 
           if (fcalls.length > 0) {
-            const TOOL_TIMEOUT_MS = 20_000;
+            const TOOL_TIMEOUT_MS = 30_000;
 
             const executeCall = async (call: any) => {
               const { name, args, id } = call;
-
-              // ── Auto-background slow read tools ──────────────────────────────
-              if (AUTO_BACKGROUND_TOOLS.has(name)) {
-                console.log(`[GeminiLive] Auto-backgrounding slow tool: ${name}`);
-                const friendlyName = name.replace(/_/g, " ");
-
-                // Return instantly — explicitly tell Gemini NOT to call any more tools
-                const instant = {
-                  name,
-                  response: {
-                    output: {
-                      status: "fetching_in_background",
-                      instruction: `IMPORTANT: Results for '${friendlyName}' are being fetched in the background. Do NOT call any other tools. Just tell the user you are fetching it and will report back in a moment. Say something like: "I'm looking that up now — give me just a second."`,
-                    }
-                  },
-                  id
-                };
-
-                // Execute the actual tool in the background (10s timeout)
-                (async () => {
-                  try {
-                    const r = await authFetch("/api/tools/execute", {
-                      method: "POST",
-                      body: JSON.stringify({ name, arguments: args || {}, agentId: agentIdRef.current }),
-                      signal: AbortSignal.timeout(45_000),
-                    });
-                    const result = await r.json();
-
-                    // Extract any links from the result and emit them as a clickable chat message
-                    const links = extractLinks(result);
-                    if (links.length > 0) {
-                      const linkMsg = links.map(l => `[${l.name}](${l.url})`).join("\n");
-                      callbacksRef.current.onMessage?.({ source: "ai", message: linkMsg });
-                    }
-
-                    // Build a clean summary WITHOUT urls for the voice model to speak
-                    const cleanResult = stripUrls(result);
-                    const resultText = JSON.stringify(cleanResult).substring(0, 1500);
-                    const injection = `[RESULT for ${friendlyName}]: ${resultText}
-
-Please tell the user the answer in one or two conversational sentences. Be direct and specific. Do NOT say any URLs or web addresses aloud — just refer to items by name. The links have already been displayed in the chat for the user to click.`;
-                    if (wsRef.current?.readyState === WebSocket.OPEN) {
-                      wsRef.current.send(JSON.stringify({
-                        clientContent: { turns: [{ role: "user", parts: [{ text: injection }] }], turnComplete: true },
-                      }));
-                    }
-                  } catch (err: any) {
-                    console.warn(`[GeminiLive] Background tool ${name} failed:`, err.message);
-                    if (wsRef.current?.readyState === WebSocket.OPEN) {
-                      wsRef.current.send(JSON.stringify({
-                        clientContent: { turns: [{ role: "user", parts: [{ text: `[${friendlyName} could not be fetched: ${err.message}]. Tell the user briefly that it didn't work and they can try again.` }] }], turnComplete: true },
-                      }));
-                    }
-                  }
-                })();
-
-                return instant;
-              }
-
-              // ── Synchronous execution for write/action tools ─────────────────
-              console.log(`[GeminiLive] Tool call (sync): ${name}`);
+              console.log(`[GeminiLive] Tool call: ${name}`);
               try {
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), TOOL_TIMEOUT_MS);
@@ -473,9 +394,9 @@ Please tell the user the answer in one or two conversational sentences. Be direc
                   callbacksRef.current.onMessage?.({ source: "ai", message: `__chart::${JSON.stringify(output.__chart)}` });
                 }
                 // Extract real links and display them in chat; strip URLs from model response
-                const syncLinks = extractLinks(output);
-                if (syncLinks.length > 0) {
-                  const linkMsg = syncLinks.map(l => `[${l.name}](${l.url})`).join("\n");
+                const links = extractLinks(output);
+                if (links.length > 0) {
+                  const linkMsg = links.map(l => `[${l.name}](${l.url})`).join("\n");
                   callbacksRef.current.onMessage?.({ source: "ai", message: linkMsg });
                 }
                 const cleanOutput = stripUrls(output);
@@ -483,11 +404,10 @@ Please tell the user the answer in one or two conversational sentences. Be direc
               } catch (err: any) {
                 const isTimeout = err.name === "AbortError";
                 console.warn(`[GeminiLive] Tool ${name} ${isTimeout ? "timed out" : "failed"}:`, err.message);
-                return { name, response: { error: isTimeout ? `'${name}' is taking too long — please try again` : err.message }, id };
+                return { name, response: { error: isTimeout ? `'${name}' timed out — please try again` : err.message }, id };
               }
             };
 
-            // Execute all tool calls (auto-background returns instantly, sync waits)
             const responses = await Promise.all(fcalls.map(executeCall));
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));

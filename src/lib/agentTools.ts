@@ -141,7 +141,7 @@ export const CALENDAR_TOOLS = [
   },
   {
     name: "create_event",
-    description: "Create a new calendar event. For birthdays and all-day events, use date-only format (YYYY-MM-DD) to avoid timezone issues.",
+    description: "Create a new calendar event. For birthdays and all-day events, use date-only format (YYYY-MM-DD). IMPORTANT: For birthdays, always use the UPCOMING occurrence year (current or next year), NOT the birth year. For example, if today is 2026 and someone's birthday is Dec 5, use '2026-12-05' not '1969-12-05'. Set recurrence to make it annual.",
     parameters: {
       type: Type.OBJECT,
       properties: {

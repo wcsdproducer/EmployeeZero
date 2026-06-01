@@ -130,7 +130,8 @@ export async function createEvent(
   endTime: string,
   description?: string,
   attendees?: string[],
-  location?: string
+  location?: string,
+  recurrence?: string[]
 ): Promise<{ id: string; htmlLink: string }> {
   const client = await getCalendarClient(userId);
 
@@ -141,18 +142,25 @@ export async function createEvent(
   let end: any;
 
   if (isAllDay) {
-    // All-day events use { date: "YYYY-MM-DD" } — no timezone shifting
-    start = { date: startTime.trim() };
-    // End date for all-day events is exclusive, so add 1 day
-    const endDate = endTime?.trim();
-    if (endDate && /^\d{4}-\d{2}-\d{2}$/.test(endDate) && endDate !== startTime.trim()) {
-      end = { date: endDate };
-    } else {
-      // Single-day event: end = start + 1 day
-      const d = new Date(startTime.trim() + "T00:00:00");
-      d.setDate(d.getDate() + 1);
-      end = { date: d.toISOString().split("T")[0] };
+    // Safeguard: if the date is in the past (e.g. birth year 1969), fix to current/next year
+    let dateStr = startTime.trim();
+    const eventDate = new Date(dateStr + "T00:00:00");
+    const now = new Date();
+    if (eventDate.getFullYear() < now.getFullYear()) {
+      const month = eventDate.getMonth();
+      const day = eventDate.getDate();
+      const candidate = new Date(now.getFullYear(), month, day);
+      const year = candidate < now ? now.getFullYear() + 1 : now.getFullYear();
+      dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      console.log(`[Calendar] Auto-corrected past date ${startTime} → ${dateStr}`);
     }
+
+    // All-day events use { date: "YYYY-MM-DD" } — no timezone shifting
+    start = { date: dateStr };
+    // End date for all-day events is exclusive, so add 1 day
+    const d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    end = { date: d.toISOString().split("T")[0] };
   } else {
     start = { dateTime: startTime };
     end = { dateTime: endTime };
@@ -167,6 +175,7 @@ export async function createEvent(
       start,
       end,
       attendees: attendees?.map((email) => ({ email })),
+      recurrence: recurrence || undefined,
     },
   });
 
