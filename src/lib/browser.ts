@@ -172,7 +172,7 @@ export async function submitForm(
   }
 }
 
-/* ─── Web Search (Gemini Grounding — fast, ~500ms) ─── */
+/* ─── Web Search (Gemini Grounding — detailed, ~1-3s) ─── */
 
 export async function webSearch(
   query: string
@@ -181,7 +181,7 @@ export async function webSearch(
 
   if (apiKey) {
     try {
-      // Use Gemini generateContent with google_search grounding — returns in ~500ms
+      // Use Gemini generateContent with google_search grounding
       const t0 = Date.now();
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -189,11 +189,11 @@ export async function webSearch(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: query }] }],
+            contents: [{ parts: [{ text: `Research and provide detailed, factual information about: ${query}\n\nProvide specific numbers, data points, and sources where possible. Be thorough and comprehensive.` }] }],
             tools: [{ google_search: {} }],
-            generationConfig: { maxOutputTokens: 512 },
+            generationConfig: { maxOutputTokens: 2048 },
           }),
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(10000),
         }
       );
 
@@ -201,15 +201,16 @@ export async function webSearch(
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const searchQueries = data.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];
 
-        const results = groundingChunks.slice(0, 5).map((chunk: any) => ({
+        const results = groundingChunks.slice(0, 8).map((chunk: any) => ({
           title: chunk.web?.title || "",
           url: chunk.web?.uri || "",
           snippet: chunk.web?.title || "",
         }));
 
-        console.log(`[webSearch] Gemini grounding: ${Date.now() - t0}ms, ${results.length} sources`);
-        return { results, summary: text.substring(0, 1000) };
+        console.log(`[webSearch] Gemini grounding: ${Date.now() - t0}ms, ${results.length} sources, ${text.length} chars`);
+        return { results, summary: text.substring(0, 3000) };
       }
     } catch (err) {
       console.warn("[webSearch] Gemini grounding failed, trying fallback:", err);
@@ -220,19 +221,19 @@ export async function webSearch(
   try {
     const t0 = Date.now();
     const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1`;
-    const res = await fetch(ddgUrl, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(ddgUrl, { signal: AbortSignal.timeout(5000) });
     const data = await res.json();
     console.log(`[webSearch] DuckDuckGo fallback: ${Date.now() - t0}ms`);
 
     const results: { title: string; url: string; snippet: string }[] = [];
     if (data.AbstractText) {
-      results.push({ title: data.Heading || query, url: data.AbstractURL || "", snippet: data.AbstractText.substring(0, 300) });
+      results.push({ title: data.Heading || query, url: data.AbstractURL || "", snippet: data.AbstractText.substring(0, 500) });
     }
-    (data.RelatedTopics || []).slice(0, 4).forEach((t: any) => {
-      if (t.Text && t.FirstURL) results.push({ title: t.Text.substring(0, 80), url: t.FirstURL, snippet: t.Text.substring(0, 200) });
+    (data.RelatedTopics || []).slice(0, 6).forEach((t: any) => {
+      if (t.Text && t.FirstURL) results.push({ title: t.Text.substring(0, 100), url: t.FirstURL, snippet: t.Text.substring(0, 300) });
     });
     return { results, summary: data.AbstractText || undefined };
   } catch {
-    return { results: [] };
+    return { results: [], summary: "Web search temporarily unavailable. Please try again." };
   }
 }
