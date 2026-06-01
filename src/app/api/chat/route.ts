@@ -885,7 +885,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
               "create_workflow", "list_my_workflows", "delete_workflow",
               "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
               "save_memory",
-              "run_in_background", "create_chart"
+              "create_chart"
             ];
 
             let filteredTools = allTools;

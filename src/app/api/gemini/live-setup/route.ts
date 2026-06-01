@@ -5,7 +5,7 @@ import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import { loadPreferences } from "@/lib/selfImprove";
 import { getMcpToolDeclarations } from "@/lib/mcpClient";
-import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS, RUN_IN_BACKGROUND_TOOL, CREATE_CHART_TOOL } from "@/lib/agentTools";
+import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS, CREATE_CHART_TOOL } from "@/lib/agentTools";
 import { WORKFLOW_DEFINITIONS } from "@/lib/workflowDefinitions";
 import { listCustomWorkflows } from "@/lib/customWorkflows";
 
@@ -313,7 +313,7 @@ ACCURACY — DO NOT HALLUCINATE:
     systemPrompt += `\n\n## Current Date & Time\nThe current time for the user is ${new Date().toLocaleString("en-US", { timeZone: userTimezone || "America/New_York" })}.\n`;
 
     // Gather Tools
-    const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...NOTES_TOOLS, ...MEMORY_TOOLS, RUN_IN_BACKGROUND_TOOL, CREATE_CHART_TOOL];
+    const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...NOTES_TOOLS, ...MEMORY_TOOLS, CREATE_CHART_TOOL];
     const hasGmailTools = connections.gmail?.connected || (connections.google?.connected && connections.google?.scopes?.includes("https://mail.google.com/"));
     if (hasGmailTools) allTools.push(...GMAIL_TOOLS);
     if (connections.calendar?.connected) allTools.push(...CALENDAR_TOOLS);
@@ -342,7 +342,7 @@ ACCURACY — DO NOT HALLUCINATE:
       "create_workflow", "list_my_workflows", "delete_workflow",
       "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
       "save_memory",
-      "run_in_background", "create_chart"
+      "create_chart"
     ];
 
     let filteredTools = allTools;
