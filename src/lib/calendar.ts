@@ -134,14 +134,38 @@ export async function createEvent(
 ): Promise<{ id: string; htmlLink: string }> {
   const client = await getCalendarClient(userId);
 
+  // Detect all-day events: date-only strings like "2026-12-05" (no T or time component)
+  const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(startTime.trim());
+
+  let start: any;
+  let end: any;
+
+  if (isAllDay) {
+    // All-day events use { date: "YYYY-MM-DD" } — no timezone shifting
+    start = { date: startTime.trim() };
+    // End date for all-day events is exclusive, so add 1 day
+    const endDate = endTime?.trim();
+    if (endDate && /^\d{4}-\d{2}-\d{2}$/.test(endDate) && endDate !== startTime.trim()) {
+      end = { date: endDate };
+    } else {
+      // Single-day event: end = start + 1 day
+      const d = new Date(startTime.trim() + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      end = { date: d.toISOString().split("T")[0] };
+    }
+  } else {
+    start = { dateTime: startTime };
+    end = { dateTime: endTime };
+  }
+
   const res = await client.events.insert({
     calendarId: "primary",
     requestBody: {
       summary,
       description,
       location,
-      start: { dateTime: startTime },
-      end: { dateTime: endTime },
+      start,
+      end,
       attendees: attendees?.map((email) => ({ email })),
     },
   });

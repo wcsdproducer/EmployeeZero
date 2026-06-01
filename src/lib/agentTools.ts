@@ -141,13 +141,13 @@ export const CALENDAR_TOOLS = [
   },
   {
     name: "create_event",
-    description: "Create a new calendar event",
+    description: "Create a new calendar event. For birthdays and all-day events, use date-only format (YYYY-MM-DD) to avoid timezone issues.",
     parameters: {
       type: Type.OBJECT,
       properties: {
         summary: { type: Type.STRING, description: "Event title" },
-        start_time: { type: Type.STRING, description: "Start time (ISO 8601)" },
-        end_time: { type: Type.STRING, description: "End time (ISO 8601)" },
+        start_time: { type: Type.STRING, description: "Start time. Use ISO 8601 with timezone for timed events (e.g. '2026-12-05T14:00:00-04:00'). Use date-only 'YYYY-MM-DD' for birthdays and all-day events (e.g. '2026-12-05')." },
+        end_time: { type: Type.STRING, description: "End time. Use ISO 8601 with timezone for timed events. For all-day events, use same date as start_time or omit." },
         description: { type: Type.STRING, description: "Event description" },
         attendees: { type: Type.STRING, description: "Comma-separated email addresses" },
         location: { type: Type.STRING, description: "Event location" },
