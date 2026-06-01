@@ -1100,9 +1100,17 @@ async function getAvailableTools(userId: string, enabledTools?: string[]) {
       console.warn("[TaskEngine] MCP tool loading failed:", err.message);
     }
 
+    const CORE_TOOL_NAMES = [
+      "browse_url", "click_url", "submit_form", "web_search",
+      "create_workflow", "list_my_workflows", "delete_workflow",
+      "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
+      "run_in_background", "create_chart"
+    ];
+
     if (enabledTools && enabledTools.length > 0) {
       tools = tools.filter(t => 
         META_TOOLS.some(m => m.name === t.name) || 
+        CORE_TOOL_NAMES.includes(t.name) ||
         enabledTools.includes(t.name)
       );
     }

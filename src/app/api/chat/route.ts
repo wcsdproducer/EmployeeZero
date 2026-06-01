@@ -880,10 +880,17 @@ The memory_extract section will be automatically processed and NOT shown to the 
             // Image generation & notes — always available (no connection needed)
             allTools.push(...NOTES_TOOLS);
 
+            const CORE_TOOL_NAMES = [
+              "browse_url", "click_url", "submit_form", "web_search",
+              "create_workflow", "list_my_workflows", "delete_workflow",
+              "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
+              "run_in_background", "create_chart"
+            ];
+
             let filteredTools = allTools;
             if (soul.enabledTools && soul.enabledTools.length > 0) {
               filteredTools = allTools.filter(t => 
-                soul.enabledTools!.includes(t.name)
+                CORE_TOOL_NAMES.includes(t.name) || soul.enabledTools!.includes(t.name)
               );
             }
 
