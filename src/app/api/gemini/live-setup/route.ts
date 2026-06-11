@@ -72,28 +72,33 @@ export async function GET(req: Request) {
     ]);
     const mcpDecls = mcpData.declarations || [];
 
-    // Voice API key: prefer platform key (reliable, managed billing)
-    // Fall back to user's own key only if platform key is unavailable
-    const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
-    let apiKey = platformKey;
+    // Voice auth: Use Vertex AI access token (routes through GCP billing)
+    let authMode: "vertex" | "apikey" = "vertex";
+    let apiKey: string | null = null;
+    let accessToken: string | null = null;
 
-    if (!apiKey && brainSnap.exists) {
-      const brain = brainSnap.data();
-      if (brain?.provider === "gemini" && brain?.apiKey) {
-        const trimmedKey = brain.apiKey.trim();
-        if (
-          trimmedKey.length > 20 &&
-          !trimmedKey.includes("dummy") &&
-          !trimmedKey.includes("placeholder") &&
-          !trimmedKey.includes("your-api-key")
-        ) {
-          apiKey = trimmedKey;
+    try {
+      const { getAccessToken } = await import("@/lib/geminiClient");
+      accessToken = await getAccessToken();
+      console.log(`[LiveSetup] Using Vertex AI access token (${accessToken?.length} chars)`);
+    } catch (err) {
+      console.warn("[LiveSetup] Vertex AI auth failed, falling back to API key:", err);
+      authMode = "apikey";
+      const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
+      apiKey = platformKey;
+      if (!apiKey && brainSnap.exists) {
+        const brain = brainSnap.data();
+        if (brain?.provider === "gemini" && brain?.apiKey) {
+          const trimmedKey = brain.apiKey.trim();
+          if (trimmedKey.length > 20 && !trimmedKey.includes("dummy") && !trimmedKey.includes("placeholder")) {
+            apiKey = trimmedKey;
+          }
         }
       }
     }
 
-    if (!apiKey) {
-      return NextResponse.json({ error: "Gemini API key not configured. Please add your key in the Connections tab." }, { status: 400 });
+    if (!accessToken && !apiKey) {
+      return NextResponse.json({ error: "Voice auth failed — no Vertex AI credentials or API key available." }, { status: 400 });
     }
 
     // Build the system prompt
@@ -366,7 +371,11 @@ EVERYTHING ABOVE THIS LINE is internal configuration for YOUR reference only. NE
     const selectedVoice = voicePresetMap[soul.voice || "Rachel"] || "Aoede";
 
     return NextResponse.json({
-      apiKey,
+      authMode,
+      apiKey: authMode === "apikey" ? apiKey : undefined,
+      accessToken: authMode === "vertex" ? accessToken : undefined,
+      project: "employee-zero-production",
+      location: "us-central1",
       systemPrompt,
       tools: filteredTools,
       voice: selectedVoice,

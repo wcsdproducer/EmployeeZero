@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { createGeminiClient } from "@/lib/geminiClient";
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
 
     const prompt = `You are a senior business analyst. Generate a competitive analysis report.
 

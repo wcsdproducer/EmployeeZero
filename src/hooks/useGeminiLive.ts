@@ -285,25 +285,36 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         setupConfig = await res.json();
         console.log(`[GeminiLive] Setup fetched in ${Date.now() - t0}ms`);
       }
-      const { apiKey, systemPrompt, tools, voice } = setupConfig;
-      console.log(`[GeminiLive] Config: voice=${voice}, tools=${tools?.length || 0}`);
+      const { authMode, apiKey, accessToken, project, location, systemPrompt, tools, voice } = setupConfig;
+      console.log(`[GeminiLive] Config: authMode=${authMode}, voice=${voice}, tools=${tools?.length || 0}`);
 
       // 2. Grab mic
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 } });
       mediaStreamRef.current = stream;
       console.log("[GeminiLive] Microphone stream acquired");
 
-      // 3. Open WebSocket
-      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
-      const ws = new WebSocket(wsUrl);
+      // 3. Open WebSocket — Vertex AI or API key mode
+      let wsUrl: string;
+      if (authMode === "vertex" && accessToken) {
+        wsUrl = `wss://${location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.LlmBidiService/BidiGenerateContent`;
+      } else {
+        wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+      }
+      const ws = new WebSocket(wsUrl, authMode === "vertex" ? ["access_token", accessToken] : undefined);
       wsRef.current = ws;
-      console.log("[GeminiLive] WebSocket opening...");
+      console.log(`[GeminiLive] WebSocket opening (${authMode} mode)...`);
 
       ws.onopen = () => {
         console.log("[GeminiLive] WebSocket open — sending setup");
+
+        // Model name differs between Vertex AI and AI Studio
+        const modelName = authMode === "vertex"
+          ? `projects/${project}/locations/${location}/publishers/google/models/gemini-3.1-flash-live-preview`
+          : "models/gemini-3.1-flash-live-preview";
+
         ws.send(JSON.stringify({
           setup: {
-            model: "models/gemini-3.1-flash-live-preview",
+            model: modelName,
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || "Aoede" } } },

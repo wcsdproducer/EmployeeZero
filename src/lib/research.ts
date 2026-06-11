@@ -8,6 +8,7 @@
  */
 
 import { webSearch, browseUrl } from "@/lib/browser";
+import { vertexGenerateContent } from "@/lib/geminiClient";
 
 const SYNTH_MODEL = "gemini-2.5-flash";
 
@@ -19,32 +20,22 @@ interface ResearchResult {
 
 /** Generate targeted sub-queries from a broad research topic */
 async function generateSearchQueries(topic: string): Promise<string[]> {
-  const apiKey = process.env.GOOGLE_GENAI_API_KEY;
-  if (!apiKey) return [topic]; // fallback to raw topic
-
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${SYNTH_MODEL}:generateContent?key=${apiKey}`,
+    const data = await vertexGenerateContent(
+      SYNTH_MODEL,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `You are a research strategist. Given this research topic, generate exactly 5 specific, diverse search queries that would find comprehensive data from different angles. Cover: factual data/statistics, expert analysis, recent updates (2025-2026), practical/real-world examples, and comparison/context.
+        contents: [{ parts: [{ text: `You are a research strategist. Given this research topic, generate exactly 5 specific, diverse search queries that would find comprehensive data from different angles. Cover: factual data/statistics, expert analysis, recent updates (2025-2026), practical/real-world examples, and comparison/context.
 
 Topic: "${topic}"
 
 Return ONLY the 5 queries, one per line, no numbering or bullets. Each query should be a specific Google search query.` }] }],
-          generationConfig: { maxOutputTokens: 300, temperature: 0.3 },
-        }),
-        signal: AbortSignal.timeout(8000),
-      }
+        generationConfig: { maxOutputTokens: 300, temperature: 0.3 },
+      },
+      8000
     );
-    if (res.ok) {
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      const queries = text.split("\n").map((q: string) => q.trim()).filter((q: string) => q.length > 5 && q.length < 200);
-      if (queries.length >= 3) return queries.slice(0, 5);
-    }
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const queries = text.split("\n").map((q: string) => q.trim()).filter((q: string) => q.length > 5 && q.length < 200);
+    if (queries.length >= 3) return queries.slice(0, 5);
   } catch (err) {
     console.warn("[Research] Query generation failed:", err);
   }
@@ -73,9 +64,6 @@ async function fetchPageContent(url: string): Promise<string> {
 
 /** Synthesize all gathered data into a comprehensive report */
 async function synthesize(topic: string, searchResults: string[], pageContents: string[], sources: { title: string; url: string }[]): Promise<string> {
-  const apiKey = process.env.GOOGLE_GENAI_API_KEY;
-  if (!apiKey) return searchResults.join("\n\n");
-
   const allData = [
     ...searchResults.map((s, i) => `--- Search Result ${i + 1} ---\n${s}`),
     ...pageContents.filter(Boolean).map((p, i) => `--- Page Content ${i + 1} ---\n${p}`),
@@ -85,13 +73,10 @@ async function synthesize(topic: string, searchResults: string[], pageContents: 
   const truncatedData = allData.substring(0, 25000);
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${SYNTH_MODEL}:generateContent?key=${apiKey}`,
+    const data = await vertexGenerateContent(
+      SYNTH_MODEL,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `You are a senior research analyst. Compile a comprehensive, detailed research report from the data below.
+        contents: [{ parts: [{ text: `You are a senior research analyst. Compile a comprehensive, detailed research report from the data below.
 
 RESEARCH TOPIC: "${topic}"
 
@@ -111,16 +96,11 @@ INSTRUCTIONS:
 10. The report should be thorough enough that the user doesn't need to do additional research
 
 Write the report now:` }] }],
-          generationConfig: { maxOutputTokens: 4096, temperature: 0.2 },
-        }),
-        signal: AbortSignal.timeout(30000),
-      }
+        generationConfig: { maxOutputTokens: 4096, temperature: 0.2 },
+      },
+      30000
     );
-
-    if (res.ok) {
-      const data = await res.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || "Research synthesis failed — raw data available in sources.";
-    }
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Research synthesis failed — raw data available in sources.";
   } catch (err) {
     console.error("[Research] Synthesis failed:", err);
   }
