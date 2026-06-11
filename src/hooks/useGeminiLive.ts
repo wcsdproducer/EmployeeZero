@@ -293,11 +293,11 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       mediaStreamRef.current = stream;
       console.log("[GeminiLive] Microphone stream acquired");
 
-      // 3. Open WebSocket — Vertex AI or API key mode
+      // 3. Open WebSocket — use access token (Vertex AI) or API key
       let wsUrl: string;
       if (authMode === "vertex" && accessToken) {
-        // Vertex AI: pass access token as query parameter (browser WebSocket can't set Authorization headers)
-        wsUrl = `wss://${location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.LlmBidiService/BidiGenerateContent?access_token=${encodeURIComponent(accessToken)}`;
+        // Use generativelanguage endpoint with access_token (Vertex AI aiplatform WS doesn't support browser auth)
+        wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?access_token=${encodeURIComponent(accessToken)}`;
       } else {
         wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
       }
@@ -308,10 +308,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       ws.onopen = () => {
         console.log("[GeminiLive] WebSocket open — sending setup");
 
-        // Model name differs between Vertex AI and AI Studio
-        const modelName = authMode === "vertex"
-          ? `projects/${project}/locations/${location}/publishers/google/models/gemini-3.1-flash-live-preview`
-          : "models/gemini-3.1-flash-live-preview";
+        // Always use models/ prefix (both auth modes use generativelanguage.googleapis.com)
+        const modelName = "models/gemini-3.1-flash-live-preview";
 
         ws.send(JSON.stringify({
           setup: {
