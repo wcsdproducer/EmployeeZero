@@ -296,11 +296,12 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       // 3. Open WebSocket — Vertex AI or API key mode
       let wsUrl: string;
       if (authMode === "vertex" && accessToken) {
-        wsUrl = `wss://${location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.LlmBidiService/BidiGenerateContent`;
+        // Vertex AI: pass access token as query parameter (browser WebSocket can't set Authorization headers)
+        wsUrl = `wss://${location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.LlmBidiService/BidiGenerateContent?access_token=${encodeURIComponent(accessToken)}`;
       } else {
         wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
       }
-      const ws = new WebSocket(wsUrl, authMode === "vertex" ? ["access_token", accessToken] : undefined);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       console.log(`[GeminiLive] WebSocket opening (${authMode} mode)...`);
 
