@@ -72,9 +72,12 @@ export async function GET(req: Request) {
     ]);
     const mcpDecls = mcpData.declarations || [];
 
-    // Get User's own Gemini API key
-    let apiKey: string | null = null;
-    if (brainSnap.exists) {
+    // Voice API key: prefer platform key (reliable, managed billing)
+    // Fall back to user's own key only if platform key is unavailable
+    const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
+    let apiKey = platformKey;
+
+    if (!apiKey && brainSnap.exists) {
       const brain = brainSnap.data();
       if (brain?.provider === "gemini" && brain?.apiKey) {
         const trimmedKey = brain.apiKey.trim();
@@ -87,11 +90,6 @@ export async function GET(req: Request) {
           apiKey = trimmedKey;
         }
       }
-    }
-
-    // Fallback to platform API key if user has not configured their own
-    if (!apiKey) {
-      apiKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
     }
 
     if (!apiKey) {
