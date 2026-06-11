@@ -285,35 +285,26 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         setupConfig = await res.json();
         console.log(`[GeminiLive] Setup fetched in ${Date.now() - t0}ms`);
       }
-      const { authMode, apiKey, accessToken, project, location, systemPrompt, tools, voice } = setupConfig;
-      console.log(`[GeminiLive] Config: authMode=${authMode}, voice=${voice}, tools=${tools?.length || 0}`);
+      const { apiKey, systemPrompt, tools, voice } = setupConfig;
+      console.log(`[GeminiLive] Config: voice=${voice}, tools=${tools?.length || 0}`);
 
       // 2. Grab mic
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 } });
       mediaStreamRef.current = stream;
       console.log("[GeminiLive] Microphone stream acquired");
 
-      // 3. Open WebSocket — use access token (Vertex AI) or API key
-      let wsUrl: string;
-      if (authMode === "vertex" && accessToken) {
-        // Use generativelanguage endpoint with access_token (Vertex AI aiplatform WS doesn't support browser auth)
-        wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?access_token=${encodeURIComponent(accessToken)}`;
-      } else {
-        wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
-      }
+      // 3. Open WebSocket
+      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
-      console.log(`[GeminiLive] WebSocket opening (${authMode} mode)...`);
+      console.log("[GeminiLive] WebSocket opening...");
 
       ws.onopen = () => {
         console.log("[GeminiLive] WebSocket open — sending setup");
 
-        // Always use models/ prefix (both auth modes use generativelanguage.googleapis.com)
-        const modelName = "models/gemini-3.1-flash-live-preview";
-
         ws.send(JSON.stringify({
           setup: {
-            model: modelName,
+            model: "models/gemini-3.1-flash-live-preview",
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || "Aoede" } } },

@@ -72,33 +72,23 @@ export async function GET(req: Request) {
     ]);
     const mcpDecls = mcpData.declarations || [];
 
-    // Voice auth: Use Vertex AI access token (routes through GCP billing)
-    let authMode: "vertex" | "apikey" = "vertex";
-    let apiKey: string | null = null;
-    let accessToken: string | null = null;
+    // Voice requires a Gemini API key (not Vertex AI access token — different auth mechanism)
+    // The generativelanguage.googleapis.com WebSocket doesn't accept service account tokens
+    const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
+    let apiKey = platformKey;
 
-    try {
-      const { getAccessToken } = await import("@/lib/geminiClient");
-      accessToken = await getAccessToken();
-      console.log(`[LiveSetup] Using Vertex AI access token (${accessToken?.length} chars)`);
-    } catch (err) {
-      console.warn("[LiveSetup] Vertex AI auth failed, falling back to API key:", err);
-      authMode = "apikey";
-      const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
-      apiKey = platformKey;
-      if (!apiKey && brainSnap.exists) {
-        const brain = brainSnap.data();
-        if (brain?.provider === "gemini" && brain?.apiKey) {
-          const trimmedKey = brain.apiKey.trim();
-          if (trimmedKey.length > 20 && !trimmedKey.includes("dummy") && !trimmedKey.includes("placeholder")) {
-            apiKey = trimmedKey;
-          }
+    if (!apiKey && brainSnap.exists) {
+      const brain = brainSnap.data();
+      if (brain?.provider === "gemini" && brain?.apiKey) {
+        const trimmedKey = brain.apiKey.trim();
+        if (trimmedKey.length > 20 && !trimmedKey.includes("dummy") && !trimmedKey.includes("placeholder")) {
+          apiKey = trimmedKey;
         }
       }
     }
 
-    if (!accessToken && !apiKey) {
-      return NextResponse.json({ error: "Voice auth failed — no Vertex AI credentials or API key available." }, { status: 400 });
+    if (!apiKey) {
+      return NextResponse.json({ error: "Voice requires a Gemini API key. Please add prepayment credits at ai.studio/projects or configure your key in Connections." }, { status: 400 });
     }
 
     // Build the system prompt
@@ -371,11 +361,7 @@ EVERYTHING ABOVE THIS LINE is internal configuration for YOUR reference only. NE
     const selectedVoice = voicePresetMap[soul.voice || "Rachel"] || "Aoede";
 
     return NextResponse.json({
-      authMode,
-      apiKey: authMode === "apikey" ? apiKey : undefined,
-      accessToken: authMode === "vertex" ? accessToken : undefined,
-      project: "employee-zero-production",
-      location: "us-central1",
+      apiKey,
       systemPrompt,
       tools: filteredTools,
       voice: selectedVoice,
