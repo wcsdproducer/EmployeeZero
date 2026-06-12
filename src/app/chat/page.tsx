@@ -29,6 +29,7 @@ interface AgentDoc {
   status: string;
   plan: string;
   soul?: Record<string, any>;
+  customAvatar?: string;
 }
 
 interface ChatMessage {
@@ -849,7 +850,7 @@ function ChatPageInner() {
                             onClick={() => handleAgentSwitch(agent.id)}
                             className="flex-1 flex items-center gap-3 text-left overflow-hidden"
                         >
-                            <div className={cn("p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors", agent.color)}>
+                            <div className={cn("rounded-md bg-white/5 group-hover:bg-white/10 transition-colors overflow-hidden", (agent as any).customAvatar ? "w-8 h-8" : "p-1.5", agent.color)}>
                                 {agent.icon}
                             </div>
                             <div className="flex flex-col min-w-0">
@@ -1039,7 +1040,7 @@ function ChatPageInner() {
                   {isSidebarOpen ? <PanelLeftClose size={18} /> : <Menu size={18} />}
                 </Button>
                 <div className="flex items-center gap-2">
-                    <div className={cn("p-1.5 rounded-md bg-white/5", selectedAgent.color)}>
+                    <div className={cn("rounded-md bg-white/5 overflow-hidden", (selectedAgent as any).customAvatar ? "w-8 h-8" : "p-1.5", selectedAgent.color)}>
                         {selectedAgent.icon}
                     </div>
                     <h2 className="text-sm font-semibold tracking-tight">{selectedAgent.name}</h2>
@@ -1166,7 +1167,7 @@ function ChatPageInner() {
                     {msg.role === "user" ? (
                       <div className="w-8 h-8 rounded-full bg-neutral-800 flex-shrink-0 flex items-center justify-center text-xs font-bold mt-1">U</div>
                     ) : (
-                      <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1", selectedAgent.color, "bg-white/5 border border-white/5")}>{selectedAgent.icon}</div>
+                      <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1 overflow-hidden", selectedAgent.color, "bg-white/5 border border-white/5")}>{selectedAgent.icon}</div>
                     )}
                     <div className="space-y-2 flex-1">
                       <p className="text-sm font-semibold text-neutral-400">{msg.role === "user" ? "You" : selectedAgent.name}</p>
@@ -1411,7 +1412,7 @@ function ChatPageInner() {
                 {/* Loading indicator when waiting for response */}
                 {activeConv.status === "running" && (
                   <div className="flex gap-4">
-                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1", selectedAgent.color, "bg-white/5 border border-white/5")}>{selectedAgent.icon}</div>
+                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1 overflow-hidden", selectedAgent.color, "bg-white/5 border border-white/5")}>{selectedAgent.icon}</div>
                     <div className="space-y-4 flex-1">
                       <p className="text-sm font-semibold text-neutral-400">{selectedAgent.name}</p>
                       <div className="flex flex-col gap-4">
@@ -1432,8 +1433,10 @@ function ChatPageInner() {
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center space-y-8 pt-20">
                 <div className="relative">
-                    <div className={cn("w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl relative z-10", selectedAgent.color, "bg-white/5 border border-white/10")}>
-                        {selectedAgent.id === "primary" ? <span className="text-4xl">{(selectedAgent as any).emoji || "🤖"}</span> : selectedAgent.icon}
+                    <div className={cn("w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl relative z-10 overflow-hidden", selectedAgent.color, "bg-white/5 border border-white/10")}>
+                        {(selectedAgent as any).customAvatar 
+                          ? <img src={(selectedAgent as any).customAvatar} alt={selectedAgent.name} className="w-full h-full object-cover" />
+                          : selectedAgent.id === "primary" ? <span className="text-4xl">{(selectedAgent as any).emoji || "🤖"}</span> : selectedAgent.icon}
                     </div>
                     <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full -z-10" />
                 </div>
