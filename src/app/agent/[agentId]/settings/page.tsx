@@ -85,6 +85,9 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
 
   // Voice setup state
   const [connections, setConnections] = useState<Record<string, any>>({});
+  const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -142,6 +145,68 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
       console.error("Failed to save SOUL config:", err);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePreviewVoice(voiceId: string) {
+    // If already playing this voice, stop it
+    if (previewingVoice === voiceId) {
+      previewAudioRef.current?.pause();
+      previewAudioRef.current = null;
+      setPreviewingVoice(null);
+      return;
+    }
+
+    // Stop any currently playing preview
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+      setPreviewingVoice(null);
+    }
+
+    if (!user) return;
+    setLoadingPreview(voiceId);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/gemini/voice-preview?voice=${voiceId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("Voice preview failed:", err.error);
+        return;
+      }
+      const { audio, mimeType } = await res.json();
+
+      // Convert base64 to audio blob and play
+      const audioBytes = atob(audio);
+      const audioArray = new Uint8Array(audioBytes.length);
+      for (let i = 0; i < audioBytes.length; i++) {
+        audioArray[i] = audioBytes.charCodeAt(i);
+      }
+
+      // Gemini returns PCM — wrap in WAV or use the mimeType directly
+      const blob = new Blob([audioArray], { type: mimeType || "audio/wav" });
+      const url = URL.createObjectURL(blob);
+      const audioEl = new Audio(url);
+      previewAudioRef.current = audioEl;
+      setPreviewingVoice(voiceId);
+
+      audioEl.onended = () => {
+        setPreviewingVoice(null);
+        previewAudioRef.current = null;
+        URL.revokeObjectURL(url);
+      };
+      audioEl.onerror = () => {
+        setPreviewingVoice(null);
+        previewAudioRef.current = null;
+        URL.revokeObjectURL(url);
+      };
+      await audioEl.play();
+    } catch (err) {
+      console.error("Voice preview error:", err);
+    } finally {
+      setLoadingPreview(null);
     }
   }
 
@@ -526,24 +591,51 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
                       { id: "Adam", name: "Adam (Puck - Male)", desc: "Energetic, playful, and expressive" }
                     ].map((v) => {
                       const isSelected = (config.voice || "Rachel") === v.id;
+                      const isPlaying = previewingVoice === v.id;
+                      const isLoading = loadingPreview === v.id;
                       return (
-                        <button
+                        <div
                           key={v.id}
-                          onClick={() => setConfig((p) => ({ ...p, voice: v.id }))}
                           className={`flex flex-col items-start gap-1 p-4 rounded-xl border text-left transition-all ${
                             isSelected
                               ? "bg-purple-500/10 border-purple-500/30 text-white"
                               : "bg-[#111]/40 border-white/5 text-neutral-400 hover:bg-[#111] hover:border-white/10"
                           }`}
                         >
-                          <div className="flex items-center gap-2">
-                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? "border-purple-500" : "border-neutral-700"}`}>
-                              {isSelected && <div className="w-2 h-2 rounded-full bg-purple-500" />}
-                            </div>
-                            <span className="text-sm font-semibold">{v.name}</span>
+                          <div className="flex items-center gap-2 w-full">
+                            <button
+                              onClick={() => setConfig((p) => ({ ...p, voice: v.id }))}
+                              className="flex items-center gap-2 flex-1 min-w-0"
+                            >
+                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${isSelected ? "border-purple-500" : "border-neutral-700"}`}>
+                                {isSelected && <div className="w-2 h-2 rounded-full bg-purple-500" />}
+                              </div>
+                              <span className="text-sm font-semibold truncate">{v.name}</span>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handlePreviewVoice(v.id); }}
+                              disabled={isLoading}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex-shrink-0 ${
+                                isPlaying
+                                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                  : isLoading
+                                  ? "bg-white/5 text-neutral-500 border border-white/5"
+                                  : "bg-white/5 text-neutral-400 border border-white/10 hover:bg-white/10 hover:text-white"
+                              }`}
+                              title={isPlaying ? "Stop preview" : "Preview voice"}
+                            >
+                              {isLoading ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : isPlaying ? (
+                                <Square size={12} />
+                              ) : (
+                                <Play size={12} />
+                              )}
+                              {isLoading ? "Loading..." : isPlaying ? "Stop" : "Preview"}
+                            </button>
                           </div>
                           <p className="text-xs text-neutral-500 mt-1 pl-6">{v.desc}</p>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
