@@ -386,9 +386,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       wsRef.current = fakeWs as any;
       console.log("[GeminiLive] Voice proxy connected, opening SSE...");
 
-      // 4. Open SSE to receive messages from Gemini
+      // 4. Open SSE to receive messages from Gemini (with auto-reconnect)
       const sseUrl = `/api/gemini/voice-proxy?sessionId=${encodeURIComponent(proxySessionId)}`;
-      const eventSource = new EventSource(sseUrl);
 
       // Process SSE messages exactly like the old ws.onmessage
       const processMessage = async (msg: any) => {
@@ -516,24 +515,49 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         }
       };
 
-      eventSource.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          processMessage(msg);
-        } catch (err) {
-          console.error("[GeminiLive] SSE parse error:", err);
-        }
+      let sseReconnectAttempts = 0;
+      const MAX_SSE_RECONNECTS = 3;
+
+      const connectSSE = () => {
+        const es = new EventSource(sseUrl);
+        
+        es.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            sseReconnectAttempts = 0; // Reset on successful message
+            processMessage(msg);
+          } catch (err) {
+            console.error("[GeminiLive] SSE parse error:", err);
+          }
+        };
+
+        es.onerror = (e) => {
+          console.error("[GeminiLive] SSE error:", e);
+          es.close();
+          
+          if (statusRef.current === "connected" && sseReconnectAttempts < MAX_SSE_RECONNECTS) {
+            sseReconnectAttempts++;
+            console.log(`[GeminiLive] SSE reconnecting (attempt ${sseReconnectAttempts}/${MAX_SSE_RECONNECTS})...`);
+            setTimeout(() => {
+              if (statusRef.current === "connected") {
+                const newEs = connectSSE();
+                if (wsRef.current) {
+                  (wsRef.current as any).__eventSource = newEs;
+                }
+              }
+            }, 2000);
+          } else {
+            fakeWs.readyState = WebSocket.CLOSED;
+            cleanUp();
+            setStatusSync("disconnected");
+            callbacksRef.current.onDisconnect?.();
+          }
+        };
+
+        return es;
       };
 
-      eventSource.onerror = (e) => {
-        console.error("[GeminiLive] SSE error:", e);
-        if (eventSource.readyState === EventSource.CLOSED) {
-          fakeWs.readyState = WebSocket.CLOSED;
-          cleanUp();
-          setStatusSync("disconnected");
-          callbacksRef.current.onDisconnect?.();
-        }
-      };
+      const eventSource = connectSSE();
 
       // Store eventSource ref for cleanup
       (wsRef.current as any).__eventSource = eventSource;

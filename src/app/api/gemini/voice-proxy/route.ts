@@ -16,7 +16,7 @@ import type { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // 5 minute max for voice sessions
+export const maxDuration = 900; // 15 minute max for voice sessions
 
 interface ActiveSession {
   session: any;
