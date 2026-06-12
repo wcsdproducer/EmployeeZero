@@ -96,6 +96,7 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
   const [selectedAvatarIdx, setSelectedAvatarIdx] = useState<number | null>(null);
   const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
   const [showAvatarGen, setShowAvatarGen] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -167,6 +168,7 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
     setGeneratingAvatars(true);
     setGeneratedAvatars([]);
     setSelectedAvatarIdx(null);
+    setAvatarError(null);
     try {
       const token = await user.getIdToken();
       const res = await fetch("/api/gemini/generate-avatar", {
@@ -174,15 +176,15 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ description: avatarPrompt.trim() }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        console.error("Avatar generation failed:", err.error);
+        setAvatarError(data.error || "Failed to generate avatar.");
         return;
       }
-      const { avatars } = await res.json();
-      setGeneratedAvatars(avatars || []);
-    } catch (err) {
+      setGeneratedAvatars(data.avatars || []);
+    } catch (err: any) {
       console.error("Avatar generation error:", err);
+      setAvatarError(err.message || "Unexpected error.");
     } finally {
       setGeneratingAvatars(false);
     }
@@ -488,6 +490,9 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
                       <p className="text-[10px] text-neutral-600 pl-1">
                         {generatingAvatars ? "Creating your avatar..." : customAvatarUrl ? "Generate again to replace your current avatar." : "Describe what you'd like and click Generate."}
                       </p>
+                      {avatarError && (
+                        <p className="text-[10px] text-red-400 pl-1 mt-1">⚠️ {avatarError}</p>
+                      )}
                     </div>
                   </div>
 
