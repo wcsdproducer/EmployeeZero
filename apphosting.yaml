@@ -5,8 +5,6 @@ runConfig:
   cpu: 1
   memoryMiB: 2048
 
-scripts:
-  runCommand: node server.js
 
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY

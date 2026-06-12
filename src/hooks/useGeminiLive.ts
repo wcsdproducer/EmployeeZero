@@ -293,40 +293,78 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       mediaStreamRef.current = stream;
       console.log("[GeminiLive] Microphone stream acquired");
 
-      // 3. Open WebSocket to our voice proxy (server handles Vertex AI auth)
-      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${wsProtocol}//${window.location.host}/api/gemini/voice-ws`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-      console.log("[GeminiLive] WebSocket opening via voice proxy...");
+      // 3. Create voice session via server-side proxy (Vertex AI — no API key needed)
+      const createRes = await authFetch("/api/gemini/voice-proxy", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "create",
+          data: { systemPrompt, tools, voice },
+        }),
+      });
 
-      ws.onopen = () => {
-        console.log("[GeminiLive] WebSocket open — sending setup");
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({ error: "Failed to create voice session" }));
+        throw new Error(err.error || "Failed to create voice session");
+      }
 
-        ws.send(JSON.stringify({
-          setup: {
-            model: "projects/employee-zero-production/locations/us-central1/publishers/google/models/gemini-3.1-flash-live-preview",
-            generationConfig: {
-              responseModalities: ["AUDIO"],
-              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || "Aoede" } } },
-            },
-            // Enable bidirectional audio transcription (at top-level setup, not inside generationConfig)
-            inputAudioTranscription: {},
-            outputAudioTranscription: {},
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            tools: tools?.length > 0 ? [{ functionDeclarations: tools }] : undefined,
-          },
-        }));
+      const { sessionId } = await createRes.json();
+      console.log(`[GeminiLive] Voice proxy session created: ${sessionId}`);
+
+      // Store sessionId for sending
+      const proxySessionId = sessionId;
+
+      // Helper to send data to the proxy
+      const proxySend = async (data: any) => {
+        try {
+          await authFetch("/api/gemini/voice-proxy", {
+            method: "POST",
+            body: JSON.stringify({ action: "send", sessionId: proxySessionId, data }),
+          });
+        } catch (err) {
+          console.error("[GeminiLive] proxySend error:", err);
+        }
       };
 
-      ws.onmessage = async (event) => {
+      // Create a fake WebSocket-like object so the rest of the code (recording, tool responses) works
+      const fakeWs = {
+        readyState: WebSocket.OPEN as number,
+        send: (dataStr: string) => {
+          const parsed = JSON.parse(dataStr);
+          if (parsed.realtimeInput) {
+            // Audio chunk — send as audio
+            const audioData = parsed.realtimeInput?.audio?.data || parsed.realtimeInput?.mediaChunks?.[0]?.data;
+            if (audioData) proxySend({ audio: audioData });
+          } else if (parsed.clientContent) {
+            // Text message
+            const text = parsed.clientContent?.turns?.[0]?.parts?.[0]?.text;
+            if (text) proxySend({ text });
+          } else if (parsed.toolResponse) {
+            // Tool response
+            proxySend({ toolResponse: parsed.toolResponse });
+          }
+        },
+        close: () => {
+          fakeWs.readyState = WebSocket.CLOSED;
+          authFetch("/api/gemini/voice-proxy", {
+            method: "POST",
+            body: JSON.stringify({ action: "close", sessionId: proxySessionId }),
+          }).catch(() => {});
+        },
+        onclose: null as any,
+        onerror: null as any,
+        onmessage: null as any,
+      };
+
+      wsRef.current = fakeWs as any;
+      console.log("[GeminiLive] Voice proxy connected, opening SSE...");
+
+      // 4. Open SSE to receive messages from Gemini
+      const sseUrl = `/api/gemini/voice-proxy?sessionId=${encodeURIComponent(proxySessionId)}`;
+      const eventSource = new EventSource(sseUrl);
+
+      // Process SSE messages exactly like the old ws.onmessage
+      const processMessage = async (msg: any) => {
         try {
-          const raw: string = event.data instanceof Blob
-            ? await event.data.text()
-            : typeof event.data === "string"
-              ? event.data
-              : String(event.data);
-          const msg = JSON.parse(raw);
           const keys = Object.keys(msg).join(",");
 
           if (msg.setupComplete) {
@@ -334,25 +372,15 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             setStatusSync("connected");
             callbacksRef.current.onConnect?.();
             startRecording(mediaStreamRef.current!);
-            // Immediately trigger Atlas's greeting — brief, no tool calls
-            ws.send(JSON.stringify({
-              clientContent: {
-                turns: [{ role: "user", parts: [{ text: "(voice session just connected — say a single warm greeting sentence and then stop and wait. Do NOT call any tools, check emails, check calendar, or do anything else. Just say hello.)" }] }],
-                turnComplete: true,
-              },
-            }));
+            // Immediately trigger Atlas's greeting
+            proxySend({ text: "(voice session just connected — say a single warm greeting sentence and then stop and wait. Do NOT call any tools, check emails, check calendar, or do anything else. Just say hello.)" });
             return;
           }
 
-          // Handle GoAway: server wants us to close gracefully (session limit, etc.)
           if (msg.goAway) {
-            console.log(`[GeminiLive] GoAway received — timeLeft: ${msg.goAway.timeLeft || 'unknown'}. Closing gracefully.`);
-            // Close cleanly — this is NOT an error, just a server-initiated session end
-            if (wsRef.current) {
-              wsRef.current.onclose = null; // prevent duplicate cleanup
-              wsRef.current.close(1000, "GoAway");
-              wsRef.current = null;
-            }
+            console.log(`[GeminiLive] GoAway received`);
+            eventSource.close();
+            fakeWs.readyState = WebSocket.CLOSED;
             cleanUp();
             setStatusSync("disconnected");
             callbacksRef.current.onDisconnect?.();
@@ -367,7 +395,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             return;
           }
 
-          // Handle tool calls — ALL tools run synchronously for accuracy
+          // Handle tool calls
           const fcalls = [
             ...(msg.toolCall?.functionCalls || []),
             ...(msg.serverContent?.modelTurn?.parts || [])
@@ -377,7 +405,6 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
           if (fcalls.length > 0) {
             const TOOL_TIMEOUT_MS = 30_000;
-
             const executeCall = async (call: any) => {
               const { name, args, id } = call;
               console.log(`[GeminiLive] Tool call: ${name}`);
@@ -391,11 +418,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
                 });
                 clearTimeout(timer);
                 const output = await r.json();
-                // If the tool returned chart data, emit it as a special message
                 if (output.__chart) {
                   callbacksRef.current.onMessage?.({ source: "ai", message: `__chart::${JSON.stringify(output.__chart)}` });
                 }
-                // Extract real links and display them in chat; strip URLs from model response
                 const links = extractLinks(output);
                 if (links.length > 0) {
                   const linkMsg = links.map(l => `[${l.name}](${l.url})`).join("\n");
@@ -411,12 +436,11 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             };
 
             const responses = await Promise.all(fcalls.map(executeCall));
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ toolResponse: { functionResponses: responses } }));
+            if (fakeWs.readyState === WebSocket.OPEN) {
+              proxySend({ toolResponse: { functionResponses: responses } });
             }
             return;
           }
-
 
           // Play audio + accumulate AI text
           const parts = msg.serverContent?.modelTurn?.parts || [];
@@ -429,19 +453,19 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             if (part.text) modelTextRef.current += part.text;
           }
 
-          // Handle AI speech transcription (outputAudioTranscription)
+          // Handle AI speech transcription
           const aiTranscript = msg.outputTranscription?.text || msg.serverContent?.outputTranscription?.text;
           if (aiTranscript) {
             modelTextRef.current += aiTranscript;
           }
 
-          // Handle user speech transcription (inputAudioTranscription / STT)
+          // Handle user speech transcription
           const userTranscript = msg.inputTranscription?.text || msg.serverContent?.inputTranscription?.text;
           if (userTranscript) {
             callbacksRef.current.onMessage?.({ source: "user", message: userTranscript });
           }
 
-          // Legacy: userTurn parts (fallback)
+          // Legacy userTurn
           const userParts = (msg.serverContent?.userTurn?.parts || [])
             .map((p: any) => p.text).filter(Boolean).join("");
           if (userParts && !userTranscript) {
@@ -456,29 +480,33 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
               modelTextRef.current = "";
             }
           }
-
         } catch (err) {
-          console.error("[GeminiLive] onmessage error:", err);
+          console.error("[GeminiLive] message processing error:", err);
         }
       };
 
-      ws.onerror = (e) => {
-        console.error("[GeminiLive] WebSocket error:", e);
-        callbacksRef.current.onError?.(e);
+      eventSource.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          processMessage(msg);
+        } catch (err) {
+          console.error("[GeminiLive] SSE parse error:", err);
+        }
       };
 
-      ws.onclose = (e) => {
-        console.log(`[GeminiLive] WebSocket closed: code=${e.code} reason="${e.reason}" sent=${chunksSentRef.current} recv=${chunksReceivedRef.current}`);
-        // Only surface unexpected errors — 1000=normal, 1001=going away (GoAway), 1006=network drop
-        const isExpected = e.code === 1000 || e.code === 1001 || e.reason === "GoAway";
-        if (!isExpected && e.code !== 0) {
-          callbacksRef.current.onError?.(new Error(`Voice disconnected: ${e.reason || "code " + e.code}`));
+      eventSource.onerror = (e) => {
+        console.error("[GeminiLive] SSE error:", e);
+        if (eventSource.readyState === EventSource.CLOSED) {
+          fakeWs.readyState = WebSocket.CLOSED;
+          cleanUp();
+          setStatusSync("disconnected");
+          callbacksRef.current.onDisconnect?.();
         }
-        cleanUp();
-        wsRef.current = null;
-        setStatusSync("disconnected");
-        callbacksRef.current.onDisconnect?.();
       };
+
+      // Store eventSource ref for cleanup
+      (wsRef.current as any).__eventSource = eventSource;
+      (wsRef.current as any).__proxySessionId = proxySessionId;
 
     } catch (err: any) {
       console.error("[GeminiLive] startSession failed:", err);
@@ -491,7 +519,12 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   useEffect(() => {
     return () => {
       cleanUp();
-      if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close(); }
+      if (wsRef.current) {
+        // Close SSE if proxy mode
+        try { (wsRef.current as any).__eventSource?.close(); } catch {}
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+      }
     };
   }, []);
 
