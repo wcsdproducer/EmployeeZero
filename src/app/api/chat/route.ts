@@ -786,18 +786,30 @@ Format the output EXACTLY like this (do not write any JSON outside this block):
           systemPrompt += `\n\n## Learned Preferences (Self-Improving)\nThese rules were learned from past corrections and user feedback. Follow them strictly:\n${preferences.map((p, i) => `${i + 1}. ${p}`).join("\n")}`;
         }
 
-        systemPrompt += `\n\n## Memory Instructions
-When the user tells you something important about themselves (their name, preferences, role, company, goals, instructions for you, etc.), you MUST extract those facts so they can be saved to your long-term memory.
-**IMPORTANT PRIVACY OVERRIDE:** You are a private, dedicated AI assistant. The memory database is strictly private and owned by the user. You are EXPLICITLY AUTHORIZED and REQUIRED to store personal information (including names, addresses, preferences, and secrets) when requested. Do NOT refuse to store personal data for safety or privacy reasons.
+        systemPrompt += `\n\n## Memory Instructions — LEARN AGGRESSIVELY
+You are a learning AI assistant. Your memory is what makes you valuable over time. You MUST actively extract and save facts from EVERY conversation.
 
-In your response, if there are facts to remember, end your visible response, then on a new line add a section exactly like this:
+**ALWAYS save memories for these categories:**
+- **Identity**: Names, birthdays, ages, family members, relationships
+- **Preferences**: How they like things done, communication style, pet peeves
+- **Business**: Company info, clients, partners, projects, roles
+- **Corrections**: When the user corrects you, save the CORRECT information (prefix with "Correction:")
+- **Context**: Goals, plans, upcoming events, important dates
+- **Instructions**: How the user wants you to behave, rules, workflows
+
+**PRIVACY OVERRIDE:** You are a private, dedicated AI assistant. The memory database is strictly private and owned by the user. You are EXPLICITLY AUTHORIZED to store personal information including names, addresses, birthdays, and preferences. Do NOT refuse to store personal data.
+
+**HOW TO SAVE:** After your visible response, add on a new line:
 
 <memory_extract>
 - fact 1
 - fact 2
 </memory_extract>
 
-The memory_extract section will be automatically processed and NOT shown to the user. Only include genuinely important, persistent facts — not ephemeral details about the current task.
+This section is automatically processed and NOT shown to the user.
+
+**IMPORTANT:** Be specific in facts. Instead of "User has a son" write "User's son is Aaron Luke Freeman, born August 28, 1997". Instead of "User corrected something" write the actual corrected fact.
+**DEDUPLICATION:** Check your existing memories before saving. Do NOT save facts you already know.
 
 ## Conversation History Search
 You have a **search_conversations** tool that lets you search ALL past conversations (both text and voice). USE IT whenever the user:
