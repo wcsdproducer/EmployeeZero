@@ -192,17 +192,26 @@ function ChatPageInner() {
     onMessage: async (msg: any) => {
       const role = msg.source === 'ai' ? 'model' : 'user';
       try {
-        // Lazily create the conversation doc on first message
+        // Lazily create or reuse conversation doc on first message
         if (!voiceConvIdRef.current && user) {
-          const docRef = await addDoc(collection(db, "conversations"), {
-            userId: user.uid,
-            title: "Voice Conversation",
-            messages: [{ role, content: msg.message, timestamp: new Date().toISOString() }],
-            status: "idle",
-            createdAt: Timestamp.now(),
-          });
-          voiceConvIdRef.current = docRef.id;
-          setActiveConvId(docRef.id);
+          // If user already has an active text conversation, reuse it for voice
+          if (activeConvId && activeConvId !== voiceConvIdRef.current) {
+            voiceConvIdRef.current = activeConvId;
+            await updateDoc(doc(db, "conversations", activeConvId), {
+              messages: arrayUnion({ role, content: msg.message, timestamp: new Date().toISOString() }),
+              status: "idle",
+            });
+          } else {
+            const docRef = await addDoc(collection(db, "conversations"), {
+              userId: user.uid,
+              title: "Voice Conversation",
+              messages: [{ role, content: msg.message, timestamp: new Date().toISOString() }],
+              status: "idle",
+              createdAt: Timestamp.now(),
+            });
+            voiceConvIdRef.current = docRef.id;
+            setActiveConvId(docRef.id);
+          }
         } else if (voiceConvIdRef.current) {
           await updateDoc(doc(db, "conversations", voiceConvIdRef.current), {
             messages: arrayUnion({ role, content: msg.message, timestamp: new Date().toISOString() }),
@@ -689,15 +698,23 @@ function ChatPageInner() {
       // Save the user message to the voice conversation in Firestore
       try {
         if (!voiceConvIdRef.current) {
-          const docRef = await addDoc(collection(db, "conversations"), {
-            userId: user.uid,
-            title: "Voice Conversation",
-            messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
-            status: "idle",
-            createdAt: Timestamp.now(),
-          });
-          voiceConvIdRef.current = docRef.id;
-          setActiveConvId(docRef.id);
+          if (activeConvId) {
+            voiceConvIdRef.current = activeConvId;
+            await updateDoc(doc(db, "conversations", activeConvId), {
+              messages: arrayUnion({ role: "user", content: message, timestamp: new Date().toISOString() }),
+              status: "idle",
+            });
+          } else {
+            const docRef = await addDoc(collection(db, "conversations"), {
+              userId: user.uid,
+              title: "Voice Conversation",
+              messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
+              status: "idle",
+              createdAt: Timestamp.now(),
+            });
+            voiceConvIdRef.current = docRef.id;
+            setActiveConvId(docRef.id);
+          }
         } else {
           await updateDoc(doc(db, "conversations", voiceConvIdRef.current), {
             messages: arrayUnion({ role: "user", content: message, timestamp: new Date().toISOString() }),
