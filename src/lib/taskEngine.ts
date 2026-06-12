@@ -1419,10 +1419,14 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
       // No function call — model gave a text response
       const textResponse = response.text || "";
 
-      // If the model is asking a question (not calling task_complete),
-      // pause the task and write the question to the conversation
-      if (textResponse && task.conversationId) {
-        // Save state for resumption
+      // Determine if this is a genuine question requiring user input,
+      // or just the model summarizing completed work
+      const looksLikeQuestion = textResponse.includes("?") && 
+        /\b(should I|would you|do you|shall I|can I|want me|which|how should|please confirm|approve)\b/i.test(textResponse);
+
+      if (looksLikeQuestion && textResponse && task.conversationId) {
+        // Genuine question — pause the task and wait for user input
+        console.log(`[TaskEngine] Model asking question, pausing for user input`);
         await updateTask(taskId, {
           status: "waiting_input",
           question: textResponse,
@@ -1448,6 +1452,7 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
         return `__WAITING_INPUT__`;
       }
 
+      // Not a question — treat as task completion summary
       finalResult = textResponse || "Task completed — no report generated.";
       break;
     }
@@ -1776,8 +1781,8 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
 
       // Check if the model is asking ANOTHER question
       if (textResponse && task.conversationId && !textResponse.includes("task_complete")) {
-        // Could be another question — check if it looks like a question
-        const looksLikeQuestion = textResponse.includes("?") && textResponse.length < 500;
+        const looksLikeQuestion = textResponse.includes("?") && 
+          /\b(should I|would you|do you|shall I|can I|want me|which|how should|please confirm|approve)\b/i.test(textResponse);
         if (looksLikeQuestion) {
           await updateTask(taskId, {
             status: "waiting_input",
