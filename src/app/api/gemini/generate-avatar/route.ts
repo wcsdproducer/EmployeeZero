@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     }
 
     // Generate 1 avatar image using Vertex AI (bills to platform/developer account)
-    const avatarPrompt = `Generate a 1:1 square profile picture avatar image. ${description}. Style: digital art portrait, clean, square 512x512 format. No text or watermarks.`;
+    const avatarPrompt = `Generate a 1:1 square profile picture avatar image (512x512). ${description}. Important: must be perfectly square 1:1 aspect ratio. No text or watermarks.`;
 
     console.log("[AvatarGen] Generating with Vertex AI gemini-2.5-flash-image");
 
