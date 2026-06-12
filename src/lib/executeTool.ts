@@ -307,6 +307,88 @@ export async function executeTool(
     }
     case "delete_workflow":
       return await deleteCustomWorkflow(userId, args.workflow_id);
+    // Scheduled job / cron tools
+    case "schedule_workflow": {
+      const { workflow_id, schedule, name: jobName } = args;
+      // Resolve a human-readable name
+      let resolvedName = jobName;
+      if (!resolvedName) {
+        // Try built-in workflows
+        const builtIn = WORKFLOW_DEFINITIONS[workflow_id];
+        if (builtIn) {
+          resolvedName = workflow_id.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+        } else {
+          // Try custom workflows
+          const customs = await listCustomWorkflows(userId);
+          const custom = customs.find(w => w.id === workflow_id);
+          resolvedName = custom?.name || workflow_id;
+        }
+      }
+      const cronHumanMap: Record<string, string> = {
+        "0 8 * * *": "Daily 8 AM", "0 9 * * *": "Daily 9 AM", "0 18 * * *": "Daily 6 PM",
+        "0 * * * *": "Hourly", "*/15 * * * *": "Every 15 min", "*/30 * * * *": "Every 30 min",
+        "0 */2 * * *": "Every 2 hours", "0 9 * * 1-5": "Weekdays 9 AM", "0 8 * * 1-5": "Weekdays 8 AM",
+        "0 9 * * 1": "Mon 9 AM", "0 20 * * 0": "Sun 8 PM",
+      };
+      const humanSchedule = cronHumanMap[schedule] || schedule;
+      const newJob = {
+        id: `${workflow_id}-${Date.now()}`,
+        workflowId: workflow_id,
+        name: resolvedName,
+        schedule: humanSchedule,
+        cronExpression: schedule,
+        enabled: true,
+        createdAt: new Date().toISOString(),
+      };
+      const cronRef = adminDb.doc(`users/${userId}/settings/cron`);
+      const cronSnap = await cronRef.get();
+      if (cronSnap.exists) {
+        const existing = cronSnap.data()?.jobs || [];
+        await cronRef.update({ jobs: [...existing, newJob] });
+      } else {
+        await cronRef.set({ jobs: [newJob] });
+      }
+      return { success: true, message: `Scheduled "${resolvedName}" to run ${humanSchedule}`, job: newJob };
+    }
+    case "list_scheduled_jobs": {
+      const cronRef2 = adminDb.doc(`users/${userId}/settings/cron`);
+      const cronSnap2 = await cronRef2.get();
+      if (!cronSnap2.exists) return { jobs: [], message: "No scheduled jobs found." };
+      const jobs = cronSnap2.data()?.jobs || [];
+      return { jobs, message: `Found ${jobs.length} scheduled job(s).` };
+    }
+    case "pause_scheduled_job": {
+      const cronRef3 = adminDb.doc(`users/${userId}/settings/cron`);
+      const cronSnap3 = await cronRef3.get();
+      if (!cronSnap3.exists) return { error: "No scheduled jobs found." };
+      const jobs3 = (cronSnap3.data()?.jobs || []).map((j: any) =>
+        j.id === args.job_id ? { ...j, enabled: false } : j
+      );
+      await cronRef3.update({ jobs: jobs3 });
+      const paused = jobs3.find((j: any) => j.id === args.job_id);
+      return { success: true, message: `Paused "${paused?.name || args.job_id}".` };
+    }
+    case "resume_scheduled_job": {
+      const cronRef4 = adminDb.doc(`users/${userId}/settings/cron`);
+      const cronSnap4 = await cronRef4.get();
+      if (!cronSnap4.exists) return { error: "No scheduled jobs found." };
+      const jobs4 = (cronSnap4.data()?.jobs || []).map((j: any) =>
+        j.id === args.job_id ? { ...j, enabled: true } : j
+      );
+      await cronRef4.update({ jobs: jobs4 });
+      const resumed = jobs4.find((j: any) => j.id === args.job_id);
+      return { success: true, message: `Resumed "${resumed?.name || args.job_id}".` };
+    }
+    case "delete_scheduled_job": {
+      const cronRef5 = adminDb.doc(`users/${userId}/settings/cron`);
+      const cronSnap5 = await cronRef5.get();
+      if (!cronSnap5.exists) return { error: "No scheduled jobs found." };
+      const before = cronSnap5.data()?.jobs || [];
+      const after = before.filter((j: any) => j.id !== args.job_id);
+      await cronRef5.update({ jobs: after });
+      const deleted = before.find((j: any) => j.id === args.job_id);
+      return { success: true, message: `Deleted scheduled job "${deleted?.name || args.job_id}".` };
+    }
     // LinkedIn tools
     case "get_linkedin_profile":
       return await getLinkedInProfile(userId);

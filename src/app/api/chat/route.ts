@@ -701,7 +701,7 @@ Format the output EXACTLY like this (do not write any JSON outside this block):
 }
 \`\`\``;
 
-        systemPrompt += `\n\n### Custom Workflows\nYou have workflow management tools: create_workflow, list_my_workflows, delete_workflow.\n\n**IMPORTANT:** When the user asks to "create a workflow", "set up an automation", or "build a routine", use the **create_workflow** tool to SAVE a workflow definition. Do NOT actually execute the workflow steps — just save the definition so the user can run it later from their Workflows page.\n\nThe "goal" field should contain detailed, step-by-step instructions for another AI agent to follow when the workflow is eventually executed. Include specific tool names (like search_emails, list_events, web_search) and formatting requirements.\n\nExample: If the user says "create a workflow that checks my email every morning", save it with create_workflow — don't start scanning emails.`;
+        systemPrompt += `\n\n### Custom Workflows & Scheduling\nYou have workflow management tools: create_workflow, list_my_workflows, delete_workflow.\n\n**IMPORTANT:** When the user asks to "create a workflow", "set up an automation", or "build a routine", use the **create_workflow** tool to SAVE a workflow definition. Do NOT actually execute the workflow steps — just save the definition so the user can run it later from their Workflows page.\n\nThe "goal" field should contain detailed, step-by-step instructions for another AI agent to follow when the workflow is eventually executed. Include specific tool names (like search_emails, list_events, web_search) and formatting requirements.\n\n**Scheduling / Cron Jobs:** You can schedule any workflow (built-in or custom) to run automatically using these tools:\n- **schedule_workflow**: Schedule a workflow with a cron expression. Use this when users say "run this every morning", "schedule it daily", "set up a cron job", etc.\n- **list_scheduled_jobs**: Show all active and paused scheduled jobs.\n- **pause_scheduled_job** / **resume_scheduled_job**: Pause or resume a job.\n- **delete_scheduled_job**: Permanently remove a scheduled job.\n\nCommon cron expressions: "0 8 * * *" (daily 8 AM), "0 9 * * 1-5" (weekdays 9 AM), "*/15 * * * *" (every 15 min), "0 */2 * * *" (every 2 hours).\n\nWhen a user says "turn this into a cron job" or "schedule this", first create the workflow if it doesn't exist, then use schedule_workflow.`;
 
         // ── Dynamically built workflow awareness ──
         const connectedKeys = new Set(
@@ -887,6 +887,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
             const CORE_TOOL_NAMES = [
               "browse_url", "click_url", "submit_form", "web_search", "deep_research", "create_pdf",
               "create_workflow", "list_my_workflows", "delete_workflow",
+              "schedule_workflow", "list_scheduled_jobs", "pause_scheduled_job", "resume_scheduled_job", "delete_scheduled_job",
               "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
               "save_memory",
               "create_chart"

@@ -1129,6 +1129,7 @@ async function getAvailableTools(userId: string, enabledTools?: string[]) {
     const CORE_TOOL_NAMES = [
       "browse_url", "click_url", "submit_form", "web_search",
       "create_workflow", "list_my_workflows", "delete_workflow",
+      "schedule_workflow", "list_scheduled_jobs", "pause_scheduled_job", "resume_scheduled_job", "delete_scheduled_job",
       "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
       "create_chart"
     ];

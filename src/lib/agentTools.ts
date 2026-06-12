@@ -325,6 +325,57 @@ export const WORKFLOW_TOOLS = [
       required: ["workflow_id"],
     },
   },
+  {
+    name: "schedule_workflow",
+    description: "Schedule a workflow to run automatically on a cron schedule. Can schedule both built-in workflows and custom user workflows. Use this when the user asks to turn a workflow into a cron job, set up an automation, or schedule a recurring task.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        workflow_id: { type: Type.STRING, description: "The workflow ID to schedule. For built-in workflows use the kebab-case ID (e.g. 'morning-briefing', 'inbox-cleanup'). For custom workflows, use the workflow ID from list_my_workflows." },
+        schedule: { type: Type.STRING, description: "Cron expression for the schedule. Common examples: '0 8 * * *' (daily 8 AM), '0 9 * * 1-5' (weekdays 9 AM), '*/15 * * * *' (every 15 min), '0 */2 * * *' (every 2 hours), '0 9 * * 1' (Mondays 9 AM), '0 18 * * 5' (Fridays 6 PM)" },
+        name: { type: Type.STRING, description: "Human-readable name for this scheduled job (e.g. 'Morning Inbox Scan'). If not provided, will use the workflow name." },
+      },
+      required: ["workflow_id", "schedule"],
+    },
+  },
+  {
+    name: "list_scheduled_jobs",
+    description: "List all scheduled/cron jobs for the user, including their status (active or paused), schedule, and last run time.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "pause_scheduled_job",
+    description: "Pause an active scheduled job so it stops running. The job is not deleted and can be resumed later.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        job_id: { type: Type.STRING, description: "The scheduled job ID to pause" },
+      },
+      required: ["job_id"],
+    },
+  },
+  {
+    name: "resume_scheduled_job",
+    description: "Resume a paused scheduled job so it starts running again on its schedule.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        job_id: { type: Type.STRING, description: "The scheduled job ID to resume" },
+      },
+      required: ["job_id"],
+    },
+  },
+  {
+    name: "delete_scheduled_job",
+    description: "Permanently delete a scheduled job.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        job_id: { type: Type.STRING, description: "The scheduled job ID to delete" },
+      },
+      required: ["job_id"],
+    },
+  },
 ];
 
 export const DRIVE_TOOLS = [
