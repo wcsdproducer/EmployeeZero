@@ -546,10 +546,13 @@ function ChatPageInner() {
     .map(a => ({
       id: a.id,
       name: a.name,
-      icon: <span className="text-sm">{AVATAR_EMOJIS[a.avatar] || "🤖"}</span>,
+      icon: (a as any).customAvatar 
+        ? <img src={(a as any).customAvatar} alt={a.name} className="w-full h-full rounded-md object-cover" />
+        : <span className="text-sm">{AVATAR_EMOJIS[a.avatar] || "🤖"}</span>,
       color: "text-blue-400" as const,
       emoji: AVATAR_EMOJIS[a.avatar] || "🤖",
       jobTitle: a.soul?.jobTitle || "",
+      customAvatar: (a as any).customAvatar || null,
     }));
 
   // Only show legacy primary agent if no Firestore agents exist (backward compatibility)
