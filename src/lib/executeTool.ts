@@ -13,6 +13,7 @@ import {
   getUnreadCount,
   archiveEmail,
   trashEmail,
+  markAsRead,
 } from "@/lib/gmail";
 import { createTask, executeTask, resumeTask } from "@/lib/taskEngine";
 import { getWorkflowGoal, WORKFLOW_DEFINITIONS } from "@/lib/workflowDefinitions";
@@ -204,6 +205,9 @@ export async function executeTool(
     case "archive_email":
       await archiveEmail(userId, args.message_id);
       return { success: true, action: "archived" };
+    case "mark_as_read":
+      await markAsRead(userId, args.message_id);
+      return { success: true, action: "marked_as_read" };
     case "trash_email":
       await trashEmail(userId, args.message_id);
       return { success: true, action: "trashed" };

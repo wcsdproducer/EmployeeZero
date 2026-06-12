@@ -247,11 +247,16 @@ export async function getUnreadCount(userId: string): Promise<number> {
 
 export async function archiveEmail(userId: string, messageId: string): Promise<void> {
   const client = await getGmailClient(userId);
-  await client.users.messages.modify({
-    userId: "me",
-    id: messageId,
-    requestBody: { removeLabelIds: ["INBOX"] },
-  });
+  try {
+    await client.users.messages.modify({
+      userId: "me",
+      id: messageId,
+      requestBody: { removeLabelIds: ["INBOX"] },
+    });
+  } catch (err: any) {
+    console.error(`[Gmail] Archive failed for message ${messageId}:`, err.message);
+    throw new Error(`Failed to archive email ${messageId}: ${err.message}`);
+  }
 }
 
 export async function trashEmail(userId: string, messageId: string): Promise<void> {
@@ -260,4 +265,18 @@ export async function trashEmail(userId: string, messageId: string): Promise<voi
     userId: "me",
     id: messageId,
   });
+}
+
+export async function markAsRead(userId: string, messageId: string): Promise<void> {
+  const client = await getGmailClient(userId);
+  try {
+    await client.users.messages.modify({
+      userId: "me",
+      id: messageId,
+      requestBody: { removeLabelIds: ["UNREAD"] },
+    });
+  } catch (err: any) {
+    console.error(`[Gmail] Mark as read failed for ${messageId}:`, err.message);
+    throw new Error(`Failed to mark email as read: ${err.message}`);
+  }
 }

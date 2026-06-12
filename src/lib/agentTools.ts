@@ -100,6 +100,20 @@ export const GMAIL_TOOLS = [
     },
   },
   {
+    name: "mark_as_read",
+    description: "Mark an email as read (remove UNREAD label)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: {
+          type: Type.STRING,
+          description: "The Gmail message ID to mark as read",
+        },
+      },
+      required: ["message_id"],
+    },
+  },
+  {
     name: "trash_email",
     description: "Move an email to trash",
     parameters: {

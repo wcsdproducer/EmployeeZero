@@ -12,7 +12,7 @@ import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import {
   listEmails, getEmail, sendEmail, replyToEmail,
-  getUnreadCount, archiveEmail, trashEmail,
+  getUnreadCount, archiveEmail, trashEmail, markAsRead,
 } from "@/lib/gmail";
 import { getStripeBalance, listStripeCharges, getStripeMetrics } from "./stripeTools";
 import { browseUrl, clickUrl, submitForm, webSearch } from "@/lib/browser";
@@ -291,6 +291,17 @@ const GMAIL_TOOLS = [
       type: Type.OBJECT,
       properties: {
         message_id: { type: Type.STRING, description: "Message ID to archive" },
+      },
+      required: ["message_id"],
+    },
+  },
+  {
+    name: "mark_as_read",
+    description: "Mark an email as read (remove UNREAD label).",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: { type: Type.STRING, description: "Message ID to mark as read" },
       },
       required: ["message_id"],
     },
@@ -577,6 +588,9 @@ async function executeTool(
     case "archive_email":
       await archiveEmail(userId, args.message_id);
       return { success: true, action: "archived" };
+    case "mark_as_read":
+      await markAsRead(userId, args.message_id);
+      return { success: true, action: "marked_as_read" };
     case "trash_email":
       await trashEmail(userId, args.message_id);
       return { success: true, action: "trashed" };

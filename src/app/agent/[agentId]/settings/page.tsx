@@ -52,7 +52,7 @@ const SERVICES = [
 ];
 
 const SERVICE_TOOL_MAP: Record<string, string[]> = {
-  gmail: ["search_emails", "read_email", "send_email", "reply_to_email", "get_unread_count", "archive_email", "trash_email"],
+  gmail: ["search_emails", "read_email", "send_email", "reply_to_email", "get_unread_count", "archive_email", "mark_as_read", "trash_email"],
   calendar: ["list_events", "get_event", "create_event", "update_event", "delete_event", "find_free_slots"],
   drive: ["list_files", "get_file_metadata", "read_file_content", "create_file", "update_file_content", "delete_file", "search_files"],
   sheets: ["get_spreadsheet", "read_sheet_rows", "add_sheet_row", "update_sheet_row", "create_spreadsheet"],

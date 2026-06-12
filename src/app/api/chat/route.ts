@@ -419,6 +419,8 @@ export async function POST(request: Request) {
     const complexPatterns = [
       /\b(clean up|organize|triage|sort through|go through)\b.*\b(inbox|emails|mail|gmail)\b/i,
       /\b(archive|delete|trash)\b.*\b(all|every|older than|from last)\b/i,
+      /\b(all|every)\b.*\b(archive|delete|trash|mark as read)\b/i,  // catches "mark them all... archive"
+      /\b(all|every)\b.*\b(emails?|messages?)\b.*\b(from|by|sent by)\b/i,  // catches "all emails from X"
       /\b(draft|write|compose)\b.*\b(replies|responses)\b.*\b(all|each|every)\b/i,
       /\b(morning briefing|daily summary|end.of.day|weekly report)\b/i,
       /\b(run|execute|start|trigger)\b.*\b(workflow|automation|briefing)\b/i,
@@ -498,24 +500,47 @@ export async function POST(request: Request) {
     }
 
     const convRef = adminDb.doc(`conversations/${conversationId}`);
-    const convSnap = await convRef.get();
-    const convData = convSnap.exists ? convSnap.data() : null;
-    let allMessages: ChatMessage[] = convData?.messages || [];
-    let conversationSummary: string = convData?.summary || "";
 
-    // 3. Update status to running and write user message to conversation immediately if not already added
+    // 3. Atomic concurrency guard — prevent duplicate API calls
+    //    Use a transaction to ensure only ONE request can flip status from idle→running
     const now = new Date().toISOString();
-    const lastMsg = allMessages[allMessages.length - 1];
-    const userAlreadyAdded = lastMsg?.role === "user" && lastMsg?.content === message;
-    const initialMessages = userAlreadyAdded
-      ? allMessages
-      : [...allMessages, { role: "user" as const, content: message, timestamp: now }];
+    let allMessages: ChatMessage[] = [];
+    let conversationSummary: string = "";
+    let initialMessages: ChatMessage[] = [];
 
-    await convRef.update({
-      messages: initialMessages,
-      status: "running",
-      updatedAt: now,
-    });
+    try {
+      await adminDb.runTransaction(async (tx) => {
+        const convSnap = await tx.get(convRef);
+        const convData = convSnap.exists ? convSnap.data() : null;
+        const currentStatus = convData?.status || "idle";
+
+        // If already running, abort — another request is handling this
+        if (currentStatus === "running") {
+          throw new Error("__ALREADY_RUNNING__");
+        }
+
+        allMessages = convData?.messages || [];
+        conversationSummary = convData?.summary || "";
+
+        const lastMsg = allMessages[allMessages.length - 1];
+        const userAlreadyAdded = lastMsg?.role === "user" && lastMsg?.content === message;
+        initialMessages = userAlreadyAdded
+          ? allMessages
+          : [...allMessages, { role: "user" as const, content: message, timestamp: now }];
+
+        tx.update(convRef, {
+          messages: initialMessages,
+          status: "running",
+          updatedAt: now,
+        });
+      });
+    } catch (err: any) {
+      if (err.message === "__ALREADY_RUNNING__") {
+        console.log(`[Chat] Conversation ${conversationId} already running — rejecting duplicate request`);
+        return NextResponse.json({ status: "already_running" });
+      }
+      throw err;
+    }
 
     // Run Gemini and tool calling loop in background
     after(async () => {
