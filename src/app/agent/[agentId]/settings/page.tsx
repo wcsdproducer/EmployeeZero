@@ -190,19 +190,40 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
     }
   }
 
+  // Compress image client-side using Canvas (no server-side sharp needed)
+  function compressImage(dataUrl: string, size = 256, quality = 0.75): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, size, size);
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressed);
+      };
+      img.onerror = () => reject(new Error("Failed to load image for compression"));
+      img.src = dataUrl;
+    });
+  }
+
   async function handleSelectAvatar(idx: number) {
     if (!user || !generatedAvatars[idx]) return;
     setSelectedAvatarIdx(idx);
     const avatar = generatedAvatars[idx];
-    const dataUrl = `data:${avatar.mimeType};base64,${avatar.image}`;
+    const rawDataUrl = `data:${avatar.mimeType};base64,${avatar.image}`;
     
-    // Save to Firestore via server API (Admin SDK — more reliable than client writes)
     try {
+      // Compress client-side: 1.5MB PNG → ~10KB JPEG
+      const compressedDataUrl = await compressImage(rawDataUrl);
+      console.log(`[Avatar] Compressed: ${(rawDataUrl.length/1024).toFixed(0)}KB → ${(compressedDataUrl.length/1024).toFixed(0)}KB`);
+
       const token = await user.getIdToken();
       const res = await fetch("/api/avatar/save", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ agentId, customAvatar: dataUrl }),
+        body: JSON.stringify({ agentId, customAvatar: compressedDataUrl }),
       });
       if (!res.ok) {
         let errorMsg = `Server error (${res.status})`;
@@ -212,7 +233,7 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
         } catch { /* response wasn't JSON */ }
         throw new Error(errorMsg);
       }
-      setCustomAvatarUrl(dataUrl);
+      setCustomAvatarUrl(compressedDataUrl);
     } catch (err: any) {
       console.error("Failed to save avatar:", err);
       setAvatarError(`Failed to save avatar: ${err.message}`);
