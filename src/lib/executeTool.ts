@@ -573,6 +573,50 @@ export async function executeTool(
       await batch.commit();
       return { status: "saved", count: facts.length, facts };
     }
+    case "search_conversations": {
+      const query = (args.query || "").toLowerCase();
+      const maxResults = args.max_results || 5;
+      if (!query) return { error: "No search query provided." };
+      
+      const convSnap = await adminDb
+        .collection("conversations")
+        .where("userId", "==", userId)
+        .orderBy("createdAt", "desc")
+        .limit(50)
+        .get();
+      
+      const matches: any[] = [];
+      for (const doc of convSnap.docs) {
+        const data = doc.data();
+        const messages = data.messages || [];
+        const allText = messages.map((m: any) => m.content || "").join(" ").toLowerCase();
+        
+        if (allText.includes(query)) {
+          // Extract relevant message excerpts
+          const relevant = messages
+            .filter((m: any) => (m.content || "").toLowerCase().includes(query))
+            .slice(0, 3)
+            .map((m: any) => ({ role: m.role, content: (m.content || "").substring(0, 300) }));
+          
+          matches.push({
+            id: doc.id,
+            title: data.title || "Untitled",
+            date: data.createdAt?.toDate?.()?.toISOString?.() || data.createdAt || "unknown",
+            messageCount: messages.length,
+            matchingExcerpts: relevant,
+          });
+          
+          if (matches.length >= maxResults) break;
+        }
+      }
+      
+      return {
+        results: matches,
+        message: matches.length > 0
+          ? `Found ${matches.length} conversation(s) matching "${args.query}".`
+          : `No conversations found matching "${args.query}".`,
+      };
+    }
 
     // Google Tasks tools
     case "list_task_lists":

@@ -889,7 +889,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
               "create_workflow", "list_my_workflows", "delete_workflow",
               "schedule_workflow", "list_scheduled_jobs", "pause_scheduled_job", "resume_scheduled_job", "delete_scheduled_job",
               "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
-              "save_memory",
+              "save_memory", "search_conversations",
               "create_chart"
             ];
 

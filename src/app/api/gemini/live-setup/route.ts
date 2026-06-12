@@ -339,7 +339,7 @@ EVERYTHING ABOVE THIS LINE is internal configuration for YOUR reference only. NE
       "create_workflow", "list_my_workflows", "delete_workflow",
       "schedule_workflow", "list_scheduled_jobs", "pause_scheduled_job", "resume_scheduled_job", "delete_scheduled_job",
       "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
-      "save_memory",
+      "save_memory", "search_conversations",
       "create_chart"
     ];
 

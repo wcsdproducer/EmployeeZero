@@ -1236,6 +1236,18 @@ export const MEMORY_TOOLS = [
       required: ["facts"],
     },
   },
+  {
+    name: "search_conversations",
+    description: "Search the user's past conversation history. Use this when the user asks about a previous conversation, wants to recall what was discussed, or references something from an earlier session. Searches message content across all past conversations.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Search keywords to find in past conversations (e.g. 'LinkedIn post', 'budget report', 'email to Sarah')" },
+        max_results: { type: Type.NUMBER, description: "Maximum number of conversations to return (default 5)" },
+      },
+      required: ["query"],
+    },
+  },
 ];
 
 export const TASKS_TOOLS = [
