@@ -435,7 +435,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             const TOOL_TIMEOUT_MS = 30_000;
             const executeCall = async (call: any) => {
               const { name, args, id } = call;
-              console.log(`[GeminiLive] Tool call: ${name}`);
+              console.log(`[GeminiLive] Tool call event received. Name: "${name}", ID: "${id}"`);
+              console.log(`[GeminiLive] Tool arguments passed by model:`, JSON.stringify(args, null, 2));
               try {
                 const controller = new AbortController();
                 const timer = setTimeout(() => controller.abort(), TOOL_TIMEOUT_MS);
@@ -445,7 +446,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
                   signal: controller.signal,
                 });
                 clearTimeout(timer);
+                console.log(`[GeminiLive] Tool "${name}" API response status: ${r.status} ${r.statusText}`);
                 const output = await r.json();
+                console.log(`[GeminiLive] Tool "${name}" API parsed JSON output:`, JSON.stringify(output, null, 2));
                 if (output.__chart) {
                   callbacksRef.current.onMessage?.({ source: "ai", message: `__chart::${JSON.stringify(output.__chart)}` });
                 }
@@ -458,7 +461,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
                 return { name, response: { output: cleanOutput }, id };
               } catch (err: any) {
                 const isTimeout = err.name === "AbortError";
-                console.warn(`[GeminiLive] Tool ${name} ${isTimeout ? "timed out" : "failed"}:`, err.message);
+                console.warn(`[GeminiLive] Tool "${name}" ${isTimeout ? "timed out" : "failed"}:`, err.message);
                 return { name, response: { error: isTimeout ? `'${name}' timed out — please try again` : err.message }, id };
               }
             };

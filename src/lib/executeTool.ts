@@ -574,9 +574,8 @@ export async function executeTool(
       return { status: "saved", count: facts.length, facts };
     }
     case "search_conversations": {
-      const query = (args.query || "").toLowerCase();
+      const query = (args.query || args.search_query || args.searchTerm || args.q || "").toLowerCase().trim();
       const maxResults = args.max_results || 5;
-      if (!query) return { error: "No search query provided." };
       
       let convSnap;
       try {
@@ -599,14 +598,23 @@ export async function executeTool(
       for (const doc of convSnap.docs) {
         const data = doc.data();
         const messages = data.messages || [];
-        const allText = messages.map((m: any) => m.content || "").join(" ").toLowerCase();
         
-        if (allText.includes(query)) {
-          // Extract relevant message excerpts
+        // If there's no query, we match all conversations (returns most recent ones)
+        const allText = messages.map((m: any) => m.content || "").join(" ").toLowerCase();
+        const matchesQuery = !query || allText.includes(query);
+        
+        if (matchesQuery) {
+          // Extract relevant message excerpts matching the query
           const relevant = messages
-            .filter((m: any) => (m.content || "").toLowerCase().includes(query))
+            .filter((m: any) => !query || (m.content || "").toLowerCase().includes(query))
             .slice(0, 3)
             .map((m: any) => ({ role: m.role, content: (m.content || "").substring(0, 300) }));
+          
+          // Generate a clean transcript snippet of the last 5 messages for easy model reading
+          const transcriptSnippet = messages
+            .slice(-5)
+            .map((m: any) => `${m.role === "user" ? "User" : "Assistant"}: "${m.content || ""}"`)
+            .join("\n");
           
           matches.push({
             id: doc.id,
@@ -614,6 +622,7 @@ export async function executeTool(
             date: data.createdAt?.toDate?.()?.toISOString?.() || data.createdAt || "unknown",
             messageCount: messages.length,
             matchingExcerpts: relevant,
+            transcriptSnippet,
           });
           
           if (matches.length >= maxResults) break;
@@ -622,9 +631,9 @@ export async function executeTool(
       
       return {
         results: matches,
-        message: matches.length > 0
-          ? `Found ${matches.length} conversation(s) matching "${args.query}".`
-          : `No conversations found matching "${args.query}".`,
+        message: query
+          ? `Found ${matches.length} conversation(s) matching "${query}".`
+          : `Returned ${matches.length} most recent conversation(s) (no search query was provided).`,
       };
     }
 
