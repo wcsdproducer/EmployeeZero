@@ -755,8 +755,7 @@ function ChatPageInner() {
         convId = docRef.id;
         setActiveConvId(convId);
       } else {
-        // Update status to running
-        await updateDoc(doc(db, "conversations", convId), { status: "running" });
+        // Server manages status transition atomically via transaction guard
       }
 
       // Fire the chat API (don't await — Firestore listener handles updates)

@@ -901,9 +901,6 @@ ALWAYS search conversations FIRST before saying you don't remember or can't find
             if (connections.tiktok?.connected) {
               allTools.push(...TIKTOK_TOOLS);
             }
-            if (connections.stripe?.connected) {
-              allTools.push(...STRIPE_TOOLS);
-            }
             // Contacts: use any Google connection
             if (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected) {
               allTools.push(...CONTACTS_TOOLS);

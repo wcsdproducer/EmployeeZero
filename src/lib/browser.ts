@@ -20,7 +20,13 @@ export async function browseUrl(
 }> {
   const maxLen = options?.maxLength || 5000;
 
-  const res = await fetch(url, {
+  // Normalize URL — auto-prepend https:// if no protocol
+  let normalizedUrl = url.trim();
+  if (!/^https?:\/\//i.test(normalizedUrl)) {
+    normalizedUrl = `https://${normalizedUrl}`;
+  }
+
+  const res = await fetch(normalizedUrl, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -57,7 +63,7 @@ export async function browseUrl(
       if (href && linkText && !href.startsWith("#") && !href.startsWith("javascript:")) {
         // Resolve relative URLs
         try {
-          const resolved = new URL(href, url).toString();
+          const resolved = new URL(href, normalizedUrl).toString();
           links.push({ text: linkText.substring(0, 100), href: resolved });
         } catch {}
       }
@@ -184,13 +190,14 @@ export async function webSearch(
     const t0 = Date.now();
     const data = await vertexGenerateContent("gemini-2.5-flash", {
       contents: [{ parts: [{ text: `Research and provide detailed, factual information about: ${query}\n\nProvide specific numbers, data points, and sources where possible. Be thorough and comprehensive.` }] }],
-      tools: [{ googleSearch: {} }],
+      tools: [{ google_search: {} }],
       generationConfig: { maxOutputTokens: 2048 },
     }, 10000);
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const searchQueries = data.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];
+    const groundingMeta = data.candidates?.[0]?.groundingMetadata || data.candidates?.[0]?.grounding_metadata || {};
+    const groundingChunks = groundingMeta.groundingChunks || groundingMeta.grounding_chunks || [];
+    const searchQueries = groundingMeta.webSearchQueries || groundingMeta.web_search_queries || [];
 
     const results = groundingChunks.slice(0, 8).map((chunk: any) => ({
       title: chunk.web?.title || "",

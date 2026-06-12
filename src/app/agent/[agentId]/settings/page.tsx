@@ -196,14 +196,22 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
     const avatar = generatedAvatars[idx];
     const dataUrl = `data:${avatar.mimeType};base64,${avatar.image}`;
     
-    // Save to Firestore agent doc
+    // Save to Firestore via server API (Admin SDK — more reliable than client writes)
     try {
-      await updateDoc(doc(db, "users", user.uid, "agents", agentId), {
-        customAvatar: dataUrl,
+      const token = await user.getIdToken();
+      const res = await fetch("/api/avatar/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ agentId, customAvatar: dataUrl }),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Save failed");
+      }
       setCustomAvatarUrl(dataUrl);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save avatar:", err);
+      setAvatarError(`Failed to save avatar: ${err.message}`);
     }
   }
 
