@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     }
 
     // Generate 1 avatar image
-    const avatarPrompt = `Generate a small profile picture avatar image. ${description}. Style: digital art portrait, clean, square format. No text or watermarks.`;
+    const avatarPrompt = `Generate a 1:1 square profile picture avatar image. ${description}. Style: digital art portrait, clean, square 512x512 format. No text or watermarks.`;
 
     // Try image-generation-capable models in order of speed
     const models = ["gemini-2.5-flash-preview-image-generation", "gemini-2.0-flash-exp"];
@@ -69,10 +69,6 @@ export async function POST(req: Request) {
               ],
               generationConfig: {
                 responseModalities: ["IMAGE", "TEXT"],
-                imageGenerationConfig: {
-                  numberOfImages: 1,
-                  aspectRatio: "1:1",
-                },
               },
             }),
           }
