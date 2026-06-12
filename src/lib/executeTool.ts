@@ -578,12 +578,22 @@ export async function executeTool(
       const maxResults = args.max_results || 5;
       if (!query) return { error: "No search query provided." };
       
-      const convSnap = await adminDb
-        .collection("conversations")
-        .where("userId", "==", userId)
-        .orderBy("createdAt", "desc")
-        .limit(50)
-        .get();
+      let convSnap;
+      try {
+        convSnap = await adminDb
+          .collection("conversations")
+          .where("userId", "==", userId)
+          .orderBy("createdAt", "desc")
+          .limit(50)
+          .get();
+      } catch {
+        // Fallback if composite index doesn't exist yet
+        convSnap = await adminDb
+          .collection("conversations")
+          .where("userId", "==", userId)
+          .limit(50)
+          .get();
+      }
       
       const matches: any[] = [];
       for (const doc of convSnap.docs) {

@@ -797,7 +797,16 @@ In your response, if there are facts to remember, end your visible response, the
 - fact 2
 </memory_extract>
 
-The memory_extract section will be automatically processed and NOT shown to the user. Only include genuinely important, persistent facts — not ephemeral details about the current task.`;
+The memory_extract section will be automatically processed and NOT shown to the user. Only include genuinely important, persistent facts — not ephemeral details about the current task.
+
+## Conversation History Search
+You have a **search_conversations** tool that lets you search ALL past conversations (both text and voice). USE IT whenever the user:
+- Asks about a previous conversation: "What were we working on?", "Bring up that draft", "Remember when we discussed..."
+- References something from an earlier session: "the LinkedIn post we were drafting", "that email you sent", "the budget we discussed"
+- Asks you to recall or find something from past work
+- Says "we were working on..." or "you helped me with..." or "bring up what we had"
+
+ALWAYS search conversations FIRST before saying you don't remember or can't find something. Try multiple search terms if the first search returns no results.`;
 
         // 6. Build Gemini contents from windowed history + new message
         const contents = [
