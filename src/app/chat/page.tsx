@@ -198,14 +198,15 @@ function ChatPageInner() {
             userId: user.uid,
             title: "Voice Conversation",
             messages: [{ role, content: msg.message, timestamp: new Date().toISOString() }],
-            status: "running",
+            status: "idle",
             createdAt: Timestamp.now(),
           });
           voiceConvIdRef.current = docRef.id;
           setActiveConvId(docRef.id);
         } else if (voiceConvIdRef.current) {
           await updateDoc(doc(db, "conversations", voiceConvIdRef.current), {
-            messages: arrayUnion({ role, content: msg.message, timestamp: new Date().toISOString() })
+            messages: arrayUnion({ role, content: msg.message, timestamp: new Date().toISOString() }),
+            status: "idle",
           });
         }
       } catch (err) {
@@ -692,14 +693,15 @@ function ChatPageInner() {
             userId: user.uid,
             title: "Voice Conversation",
             messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
-            status: "running",
+            status: "idle",
             createdAt: Timestamp.now(),
           });
           voiceConvIdRef.current = docRef.id;
           setActiveConvId(docRef.id);
         } else {
           await updateDoc(doc(db, "conversations", voiceConvIdRef.current), {
-            messages: arrayUnion({ role: "user", content: message, timestamp: new Date().toISOString() })
+            messages: arrayUnion({ role: "user", content: message, timestamp: new Date().toISOString() }),
+            status: "idle",
           });
         }
       } catch (err) {
