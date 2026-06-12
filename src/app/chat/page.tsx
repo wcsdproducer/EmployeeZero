@@ -231,6 +231,7 @@ function ChatPageInner() {
           } else {
             const docRef = await addDoc(collection(db, "conversations"), {
               userId: user.uid,
+              agentId: selectedAgentIdRef.current || "primary",
               title: "Voice Conversation",
               messages: [{ role, content: msg.message, timestamp: new Date().toISOString() }],
               status: "idle",
@@ -741,6 +742,7 @@ function ChatPageInner() {
           } else {
             const docRef = await addDoc(collection(db, "conversations"), {
               userId: user.uid,
+              agentId: selectedAgent.id,
               title: "Voice Conversation",
               messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
               status: "idle",
@@ -920,7 +922,8 @@ function ChatPageInner() {
                 {conversations
                   .filter(c => {
                     // Show conversations for the selected agent
-                    // Legacy conversations (no agentId) are shown when the primary/first agent is selected
+                    // Legacy conversations (no agentId) are shown for the primary/first agent (Veronica)
+                    // Agent-specific conversations are shown only for their agent
                     const convAgentId = (c as any).agentId;
                     if (!convAgentId) return selectedAgentId === "primary" || selectedAgentId === allAgents[0]?.id;
                     return convAgentId === selectedAgentId;
