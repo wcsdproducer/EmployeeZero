@@ -13,6 +13,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
 import { GoogleGenAI, Type } from "@google/genai";
+import { createGeminiClient } from "@/lib/geminiClient";
 import {
   listEmails,
   getEmail,
@@ -273,7 +274,7 @@ async function summarizeOldMessages(
   messages: ChatMessage[],
   existingSummary?: string
 ): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = createGeminiClient(apiKey);
 
   const transcript = messages
     .map((m) => `${m.role === "user" ? "User" : "Agent"}: ${m.content.substring(0, 300)}`)
@@ -359,9 +360,9 @@ export async function POST(request: Request) {
       `[Chat] Using ${apiKey === platformKey ? "platform" : "user"} API key for user ${userId}`
     );
 
-    if (!apiKey) {
+    if (!apiKey && provider !== "gemini") {
       return NextResponse.json(
-        { error: "No API key configured. Please add your Gemini API key in Connections." },
+        { error: "No API key configured. Please add your API key in Connections." },
         { status: 400 }
       );
     }
@@ -814,7 +815,7 @@ The memory_extract section will be automatically processed and NOT shown to the 
           const hasGmailTools = connections.gmail?.connected;
 
           const callGemini = async (key: string) => {
-            const ai = new GoogleGenAI({ apiKey: key });
+            const ai = createGeminiClient(key);
 
             // Config with optional tools
             const config: any = {

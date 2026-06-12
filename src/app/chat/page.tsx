@@ -227,7 +227,7 @@ function ChatPageInner() {
       if (isMicError) {
         alert("Microphone access is required for Voice Mode. Please enable microphone permissions in your browser settings.");
       } else if (!isExpectedDisconnect) {
-        alert(error.message || "Failed to establish real-time voice connection. Make sure your Gemini API key is configured in the Connections tab.");
+        alert(error.message || "Failed to establish real-time voice connection. Please try again or contact support.");
       }
     }
   });

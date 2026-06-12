@@ -72,30 +72,23 @@ export async function GET(req: Request) {
     ]);
     const mcpDecls = mcpData.declarations || [];
 
-    // Get User's own Gemini API key
-    let apiKey: string | null = null;
-    if (brainSnap.exists) {
+    // Voice requires a Gemini API key (not Vertex AI access token — different auth mechanism)
+    // The generativelanguage.googleapis.com WebSocket doesn't accept service account tokens
+    const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
+    let apiKey = platformKey;
+
+    if (!apiKey && brainSnap.exists) {
       const brain = brainSnap.data();
       if (brain?.provider === "gemini" && brain?.apiKey) {
         const trimmedKey = brain.apiKey.trim();
-        if (
-          trimmedKey.length > 20 &&
-          !trimmedKey.includes("dummy") &&
-          !trimmedKey.includes("placeholder") &&
-          !trimmedKey.includes("your-api-key")
-        ) {
+        if (trimmedKey.length > 20 && !trimmedKey.includes("dummy") && !trimmedKey.includes("placeholder")) {
           apiKey = trimmedKey;
         }
       }
     }
 
-    // Fallback to platform API key if user has not configured their own
     if (!apiKey) {
-      apiKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
-    }
-
-    if (!apiKey) {
-      return NextResponse.json({ error: "Gemini API key not configured. Please add your key in the Connections tab." }, { status: 400 });
+      return NextResponse.json({ error: "Voice requires a Gemini API key. Please add prepayment credits at ai.studio/projects or configure your key in Connections." }, { status: 400 });
     }
 
     // Build the system prompt

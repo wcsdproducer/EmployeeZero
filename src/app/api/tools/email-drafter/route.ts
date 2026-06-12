@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { createGeminiClient } from "@/lib/geminiClient";
 
 export async function POST(req: Request) {
   try {
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
 
     const prompt = `You are a professional email writer. Draft a reply to the following email.
 

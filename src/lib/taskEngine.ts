@@ -3,6 +3,7 @@ import { recordWorkflowMetric, loadPreferences, getWorkflowOptimization } from "
 import { getMcpToolDeclarations, executeMcpTool } from "@/lib/mcpClient";
 import { FieldValue } from "firebase-admin/firestore";
 import { GoogleGenAI, Type } from "@google/genai";
+import { createGeminiClient } from "@/lib/geminiClient";
 import { deepResearch } from "@/lib/research";
 import { createPDF } from "@/lib/pdf";
 import { loadUserLLMConfig } from "@/lib/llmProviderAdmin";
@@ -1222,7 +1223,7 @@ export async function executeTask(taskId: string, overrideApiKey?: string): Prom
     openRouterClient = createOpenRouterClient(llmConfig!.apiKey);
     console.log(`[TaskEngine] Using OpenRouter — model: ${llmConfig!.model} (user: ${userId})`);
   } else {
-    ai = new GoogleGenAI({ apiKey });
+    ai = createGeminiClient(apiKey);
     console.log(`[TaskEngine] Using platform Gemini fallback (user: ${userId})`);
   }
 
@@ -1640,7 +1641,7 @@ export async function resumeTask(taskId: string, userInput: string, overrideApiK
   if (useOpenRouter) {
     openRouterClient = createOpenRouterClient(llmConfig!.apiKey);
   } else {
-    ai = new GoogleGenAI({ apiKey });
+    ai = createGeminiClient(apiKey);
   }
 
   const soulPrefix = buildSOULPrompt(userSOUL);
