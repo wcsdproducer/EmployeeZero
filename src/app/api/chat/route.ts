@@ -929,18 +929,24 @@ ALWAYS search conversations FIRST before saying you don't remember or can't find
               config,
             });
 
-            // Tool execution loop — max 10 rounds to handle multi-step operations
+            // Tool execution loop — max 6 rounds to handle multi-step operations
             let rounds = 0;
-            while (rounds < 10) {
+            while (rounds < 6) {
               const candidate = response.candidates?.[0];
               const parts = candidate?.content?.parts || [];
 
               // Check if there's a function call
               const fnCall = parts.find((p: any) => p.functionCall);
-              if (!fnCall?.functionCall) break; // No function call — we're done
+              const hasText = parts.some((p: any) => p.text && p.text.trim().length > 0);
+
+              // If model gave text but NO tool call, we're done — it's responding to the user
+              if (!fnCall?.functionCall) break;
+
+              // If model gave text AND a tool call, this is the last round — execute the tool but stop after
+              const isLastRound = hasText && rounds > 0;
 
               const { name: toolName, args } = fnCall.functionCall;
-              console.log(`[Chat] Tool call: ${toolName}(${JSON.stringify(args)})`);
+              console.log(`[Chat] Tool call (round ${rounds + 1}): ${toolName}(${JSON.stringify(args)})`);
 
               if (conversationId && userId) {
                 let actionLabel = `Running ${toolName}...`;
@@ -988,6 +994,18 @@ ALWAYS search conversations FIRST before saying you don't remember or can't find
                   } as any,
                 ],
               });
+
+              // If model already gave a text summary and is now doing another tool call, stop after this one
+              if (isLastRound) {
+                console.log("[Chat] Model gave text + tool call — executing last tool then stopping");
+                // Get one final response for the summary
+                response = await ai.models.generateContent({
+                  model: "gemini-2.5-flash",
+                  contents,
+                  config: { ...config, tools: undefined }, // No tools — force text-only response
+                });
+                break;
+              }
 
               response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
