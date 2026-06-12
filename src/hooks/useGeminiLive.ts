@@ -313,8 +313,8 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         setupConfig = await res.json();
         console.log(`[GeminiLive] Setup fetched in ${Date.now() - t0}ms`);
       }
-      const { systemPrompt, tools, voice } = setupConfig;
-      console.log(`[GeminiLive] Config: voice=${voice}, tools=${tools?.length || 0}`);
+      const { systemPrompt, tools, voice, agentName } = setupConfig;
+      console.log(`[GeminiLive] Config: voice=${voice}, tools=${tools?.length || 0}, agent=${agentName}`);
 
       // 2. Grab mic
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 } });
@@ -399,8 +399,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             setStatusSync("connected");
             callbacksRef.current.onConnect?.();
             startRecording(mediaStreamRef.current!);
-            // Immediately trigger Atlas's greeting
-            proxySend({ text: "(voice session just connected — say a single warm greeting sentence and then stop and wait. Do NOT call any tools, check emails, check calendar, or do anything else. Just say hello.)" });
+            // Immediately trigger greeting using the agent's configured name
+            const nameForGreeting = agentName || "Employee Zero";
+            proxySend({ text: `(voice session just connected — greet the user warmly as ${nameForGreeting}. Say ONE short greeting sentence using your name ${nameForGreeting}, then stop and wait. Do NOT call any tools, check emails, check calendar, or do anything else. Just say hello as ${nameForGreeting}.)` });
             return;
           }
 
