@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       activeSessions.set(id, entry);
 
       const session = await ai.live.connect({
-        model: "gemini-3.1-flash-live-preview",
+        model: "gemini-live-2.5-flash-native-audio",
         config: {
           responseModalities: ["AUDIO" as any],
           speechConfig: {
