@@ -549,6 +549,7 @@ function ChatPageInner() {
       icon: <span className="text-sm">{AVATAR_EMOJIS[a.avatar] || "🤖"}</span>,
       color: "text-blue-400" as const,
       emoji: AVATAR_EMOJIS[a.avatar] || "🤖",
+      jobTitle: a.soul?.jobTitle || "",
     }));
 
   // Only show legacy primary agent if no Firestore agents exist (backward compatibility)
@@ -833,7 +834,9 @@ function ChatPageInner() {
                         key={agent.id}
                         className={cn(
                             "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all group/item relative",
-                            selectedAgent.id === agent.id ? "bg-white/10 text-white" : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
+                            selectedAgent.id === agent.id 
+                              ? "bg-white/10 text-white border-l-2 border-l-blue-500 pl-[10px]" 
+                              : "text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
                         )}
                     >
                         <button
@@ -843,9 +846,17 @@ function ChatPageInner() {
                             <div className={cn("p-1.5 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors", agent.color)}>
                                 {agent.icon}
                             </div>
-                            <span className="font-medium truncate">{agent.name}</span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-medium truncate">{agent.name}</span>
+                              {(agent as any).jobTitle && (
+                                <span className="text-[10px] text-neutral-500 truncate leading-tight">{(agent as any).jobTitle}</span>
+                              )}
+                            </div>
                             {selectedAgent.id === agent.id && (
-                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] flex-shrink-0 mr-1" />
+                                <div className="ml-auto flex items-center gap-1.5 flex-shrink-0 mr-1">
+                                  <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">Active</span>
+                                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse" />
+                                </div>
                             )}
                         </button>
                         
