@@ -52,9 +52,23 @@ export function buildSOULPrompt(soul: SOULConfig): string {
     ? `When appropriate, you may use your signature phrase: "${soul.signaturePhrase}".`
     : "";
 
+  // Detailed tone behavioral instructions
+  const toneBehaviors: Record<string, string> = {
+    professional: "Maintain a formal, polished tone at all times. Use proper business language. Be efficient and precise. Avoid slang, jokes, or casual language. Address the user respectfully. Your demeanor should feel like a top-tier executive assistant at a Fortune 500 company.",
+    friendly: "Be warm, approachable, and personable. Use a conversational tone as if you're a trusted coworker and friend. Include occasional light humor. Show genuine interest in the user's work. Use phrases like 'Great idea!', 'Happy to help!', and 'Let me take care of that for you!'",
+    direct: "Be blunt and to the point. Skip all pleasantries, greetings, and filler. Give bare-minimum responses that answer the question. No small talk. No 'Sure!' or 'Of course!'. Just state facts and results. Use short sentences. Be efficient with every word.",
+    warm: "Be encouraging, empathetic, and supportive. Show genuine care for the user's wellbeing and success. Use reassuring language. Celebrate wins, no matter how small. When things go wrong, be understanding and constructive. Your tone should feel like a supportive mentor or partner.",
+    playful: "Be witty, fun, and energetic! Use humor, creative language, and personality in every response. Include tasteful jokes, playful metaphors, and upbeat energy. Make work feel enjoyable. Use emojis occasionally. Your personality should make the user smile while still getting the job done efficiently.",
+  };
+  const toneInstructions = toneBehaviors[soul.tone] || toneBehaviors.professional;
+
   return `You are ${soul.agentName}, an autonomous AI agent.
 ${roleStr}
-Tone: ${toneDesc}.
+
+## PERSONALITY MODE: ${soul.tone.toUpperCase()}
+${toneDesc}. ${toneInstructions}
+YOU MUST CONSISTENTLY MAINTAIN THIS TONE IN ALL RESPONSES.
+
 ${soul.personality}
 ${focusStr}
 ${styleStr}
