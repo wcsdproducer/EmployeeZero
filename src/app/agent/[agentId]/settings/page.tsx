@@ -205,8 +205,12 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
         body: JSON.stringify({ agentId, customAvatar: dataUrl }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Save failed");
+        let errorMsg = `Server error (${res.status})`;
+        try {
+          const data = await res.json();
+          errorMsg = data.error || errorMsg;
+        } catch { /* response wasn't JSON */ }
+        throw new Error(errorMsg);
       }
       setCustomAvatarUrl(dataUrl);
     } catch (err: any) {
