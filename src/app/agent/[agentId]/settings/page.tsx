@@ -439,133 +439,108 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
                   </div>
                 </div>
 
-                {/* Avatar Generator */}
-                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start gap-3">
+                {/* Agent Avatar */}
+                <div>
+                  <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block mb-3 font-mono">
+                    Agent Avatar
+                  </label>
+                  <div className="flex items-start gap-4">
+                    {/* Current avatar preview */}
+                    <div className="flex-shrink-0">
                       {customAvatarUrl ? (
-                        <img src={customAvatarUrl} alt="Agent avatar" className="w-12 h-12 rounded-xl object-cover border border-white/10" />
+                        <img src={customAvatarUrl} alt="Agent avatar" className="w-16 h-16 rounded-2xl object-cover border border-white/10 shadow-lg" />
                       ) : (
-                        <div className="w-12 h-12 bg-gradient-to-tr from-purple-500/10 to-blue-500/10 border border-white/10 rounded-xl flex items-center justify-center">
-                          <ImagePlus size={20} className="text-purple-400" />
+                        <div className="w-16 h-16 bg-gradient-to-tr from-purple-500/10 to-blue-500/10 border border-white/10 rounded-2xl flex items-center justify-center">
+                          <ImagePlus size={22} className="text-neutral-600" />
                         </div>
                       )}
-                      <div>
-                        <h3 className="text-sm font-bold text-white">Agent Avatar</h3>
-                        <p className="text-xs text-neutral-500 mt-0.5">
-                          {customAvatarUrl ? "Custom avatar set. Generate a new one to replace it." : "Generate a custom AI avatar using Nanobanana 2."}
-                        </p>
-                      </div>
                     </div>
-                    <button
-                      onClick={() => setShowAvatarGen(!showAvatarGen)}
-                      className="px-3 py-1.5 text-xs font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-all"
-                    >
-                      <Wand2 size={12} className="inline mr-1.5 -mt-0.5" />
-                      {showAvatarGen ? "Close" : "Generate Avatar"}
-                    </button>
+                    {/* Description + generate */}
+                    <div className="flex-1 space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={avatarPrompt}
+                          onChange={(e) => setAvatarPrompt(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleGenerateAvatars()}
+                          placeholder="Describe your agent's look, e.g. a sleek android with glowing blue eyes..."
+                          className="flex-1 bg-[#111] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-neutral-700 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-sm"
+                        />
+                        <button
+                          onClick={handleGenerateAvatars}
+                          disabled={generatingAvatars || !avatarPrompt.trim()}
+                          className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold text-xs rounded-xl hover:from-purple-500 hover:to-blue-500 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
+                        >
+                          {generatingAvatars ? (
+                            <><Loader2 size={13} className="animate-spin" /> Generating...</>
+                          ) : (
+                            <><Wand2 size={13} /> Generate</>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-neutral-600 pl-1">
+                        {customAvatarUrl ? "Generate again to replace your current avatar." : "Describe what you'd like, then generate 3 options to choose from."}
+                      </p>
+                    </div>
                   </div>
 
-                  {showAvatarGen && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4 pt-4 border-t border-white/5"
-                    >
-                      <div>
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block mb-2 font-mono">
-                          Describe Your Avatar
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={avatarPrompt}
-                            onChange={(e) => setAvatarPrompt(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleGenerateAvatars()}
-                            placeholder="e.g. A futuristic female android with glowing blue eyes, silver hair..."
-                            className="flex-1 bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-neutral-700 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-sm"
-                          />
+                  {/* Loading state */}
+                  {generatingAvatars && (
+                    <div className="flex items-center justify-center py-10 mt-4">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-500/20 to-blue-500/20 border border-purple-500/10 flex items-center justify-center animate-pulse">
+                          <Wand2 size={22} className="text-purple-400" />
+                        </div>
+                        <p className="text-sm text-neutral-400">Generating 3 options...</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Generated avatars grid */}
+                  {generatedAvatars.length > 0 && !generatingAvatars && (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-xs font-semibold text-neutral-400">Choose your avatar:</p>
+                      <div className="grid grid-cols-3 gap-4">
+                        {generatedAvatars.map((av, idx) => (
                           <button
-                            onClick={handleGenerateAvatars}
-                            disabled={generatingAvatars || !avatarPrompt.trim()}
-                            className="px-5 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold text-sm rounded-xl hover:from-purple-500 hover:to-blue-500 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                            key={idx}
+                            onClick={() => handleSelectAvatar(idx)}
+                            className={`relative group rounded-2xl overflow-hidden border-2 transition-all aspect-square ${
+                              selectedAvatarIdx === idx
+                                ? "border-purple-500 ring-2 ring-purple-500/30 scale-[1.02]"
+                                : "border-white/10 hover:border-white/30 hover:scale-[1.01]"
+                            }`}
                           >
-                            {generatingAvatars ? (
-                              <><Loader2 size={14} className="animate-spin" /> Generating...</>
-                            ) : (
-                              <><Wand2 size={14} /> Generate 3 Options</>
+                            <img
+                              src={`data:${av.mimeType};base64,${av.image}`}
+                              alt={`Avatar option ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            {selectedAvatarIdx === idx && (
+                              <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center shadow-lg">
+                                  <Check size={20} className="text-white" />
+                                </div>
+                              </div>
                             )}
                           </button>
-                        </div>
-                        <p className="text-[10px] text-neutral-600 mt-1.5 pl-1">
-                          Powered by Nanobanana 2 · Billed to your Gemini API key
-                        </p>
+                        ))}
                       </div>
-
-                      {/* Loading state */}
-                      {generatingAvatars && (
-                        <div className="flex items-center justify-center py-12">
-                          <div className="flex flex-col items-center gap-3">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-500/20 to-blue-500/20 border border-purple-500/10 flex items-center justify-center animate-pulse">
-                              <Wand2 size={24} className="text-purple-400" />
-                            </div>
-                            <p className="text-sm text-neutral-400">Generating 3 avatar options...</p>
-                            <p className="text-xs text-neutral-600">This may take 10-15 seconds</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Generated avatars grid */}
-                      {generatedAvatars.length > 0 && !generatingAvatars && (
-                        <div className="space-y-3">
-                          <p className="text-xs font-semibold text-neutral-400">Click to select your avatar:</p>
-                          <div className="grid grid-cols-3 gap-4">
-                            {generatedAvatars.map((av, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => handleSelectAvatar(idx)}
-                                className={`relative group rounded-2xl overflow-hidden border-2 transition-all aspect-square ${
-                                  selectedAvatarIdx === idx
-                                    ? "border-purple-500 ring-2 ring-purple-500/30 scale-[1.02]"
-                                    : "border-white/10 hover:border-white/30 hover:scale-[1.01]"
-                                }`}
-                              >
-                                <img
-                                  src={`data:${av.mimeType};base64,${av.image}`}
-                                  alt={`Avatar option ${idx + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                                {selectedAvatarIdx === idx && (
-                                  <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
-                                    <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center shadow-lg">
-                                      <Check size={20} className="text-white" />
-                                    </div>
-                                  </div>
-                                )}
-                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <p className="text-xs text-white font-medium text-center">Option {idx + 1}</p>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                          <div className="flex items-center justify-between pt-2">
-                            <button
-                              onClick={handleGenerateAvatars}
-                              disabled={generatingAvatars}
-                              className="px-4 py-2 text-xs font-semibold text-neutral-400 border border-white/10 rounded-lg hover:bg-white/5 hover:text-white transition-all"
-                            >
-                              🔄 Try Again
-                            </button>
-                            {selectedAvatarIdx !== null && (
-                              <p className="text-xs text-emerald-400 flex items-center gap-1.5">
-                                <Check size={14} /> Avatar saved!
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={handleGenerateAvatars}
+                          disabled={generatingAvatars}
+                          className="px-4 py-2 text-xs font-semibold text-neutral-400 border border-white/10 rounded-lg hover:bg-white/5 hover:text-white transition-all"
+                        >
+                          🔄 Try Again
+                        </button>
+                        {selectedAvatarIdx !== null && (
+                          <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                            <Check size={14} /> Avatar saved!
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
 
