@@ -855,7 +855,7 @@ function ChatPageInner() {
                             <div className="flex flex-col min-w-0">
                               <span className="font-medium truncate">{agent.name}</span>
                               {(agent as any).jobTitle && (
-                                <span className="text-[10px] text-neutral-500 truncate leading-tight">{(agent as any).jobTitle}</span>
+                                <span className="text-[10px] text-neutral-400 truncate leading-tight">{(agent as any).jobTitle}</span>
                               )}
                             </div>
                             {selectedAgent.id === agent.id && (
@@ -1441,7 +1441,7 @@ function ChatPageInner() {
                 </div>
                 <div className="space-y-3">
                     <h1 className="text-3xl font-bold tracking-tight">How can {selectedAgent.name} help you today?</h1>
-                    <p className="text-neutral-500 max-w-sm mx-auto text-sm">Deploy an autonomous mission to scale your tactical operations.</p>
+                    <p className="text-neutral-400 max-w-sm mx-auto text-sm">Deploy an autonomous mission to scale your tactical operations.</p>
                 </div>
                 {/* Rotating Workflow Suggestions */}
                 <div className="w-full max-w-2xl pt-4">
@@ -1472,13 +1472,13 @@ function ChatPageInner() {
                             </div>
                             <span className="font-semibold text-[13px] text-neutral-200 group-hover:text-white transition-colors">{wf.name}</span>
                           </div>
-                          <p className="text-[12px] text-neutral-500 leading-relaxed mb-2">{wf.tagline}</p>
+                          <p className="text-[12px] text-neutral-400 leading-relaxed mb-2">{wf.tagline}</p>
                           <div className="flex gap-1.5">
                             {wf.skills.slice(0, 2).map((s) => (
-                              <span key={s} className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-500">{s}</span>
+                              <span key={s} className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-400">{s}</span>
                             ))}
                             {wf.skills.length > 2 && (
-                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-500">+{wf.skills.length - 2}</span>
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-neutral-400">+{wf.skills.length - 2}</span>
                             )}
                           </div>
                         </button>
