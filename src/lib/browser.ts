@@ -4,8 +4,6 @@
  * No Puppeteer needed for basic operations.
  */
 
-import { vertexGenerateContent } from "@/lib/geminiClient";
-
 /* ─── Fetch & Parse Web Page ─── */
 
 export async function browseUrl(
@@ -179,29 +177,44 @@ export async function submitForm(
 export async function webSearch(
   query: string
 ): Promise<{ results: { title: string; url: string; snippet: string }[]; summary?: string }> {
-  try {
-    // Use Vertex AI Gemini generateContent with google_search grounding
-    const t0 = Date.now();
-    const data = await vertexGenerateContent("gemini-2.5-flash", {
-      contents: [{ parts: [{ text: `Research and provide detailed, factual information about: ${query}\n\nProvide specific numbers, data points, and sources where possible. Be thorough and comprehensive.` }] }],
-      tools: [{ googleSearch: {} }],
-      generationConfig: { maxOutputTokens: 2048 },
-    }, 10000);
+  const apiKey = process.env.GOOGLE_GENAI_API_KEY;
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const searchQueries = data.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];
+  if (apiKey) {
+    try {
+      // Use Gemini generateContent with google_search grounding
+      const t0 = Date.now();
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `Research and provide detailed, factual information about: ${query}\n\nProvide specific numbers, data points, and sources where possible. Be thorough and comprehensive.` }] }],
+            tools: [{ google_search: {} }],
+            generationConfig: { maxOutputTokens: 2048 },
+          }),
+          signal: AbortSignal.timeout(10000),
+        }
+      );
 
-    const results = groundingChunks.slice(0, 8).map((chunk: any) => ({
-      title: chunk.web?.title || "",
-      url: chunk.web?.uri || "",
-      snippet: chunk.web?.title || "",
-    }));
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const groundingChunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const searchQueries = data.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];
 
-    console.log(`[webSearch] Gemini grounding: ${Date.now() - t0}ms, ${results.length} sources, ${text.length} chars`);
-    return { results, summary: text.substring(0, 3000) };
-  } catch (err) {
-    console.warn("[webSearch] Gemini grounding failed, trying fallback:", err);
+        const results = groundingChunks.slice(0, 8).map((chunk: any) => ({
+          title: chunk.web?.title || "",
+          url: chunk.web?.uri || "",
+          snippet: chunk.web?.title || "",
+        }));
+
+        console.log(`[webSearch] Gemini grounding: ${Date.now() - t0}ms, ${results.length} sources, ${text.length} chars`);
+        return { results, summary: text.substring(0, 3000) };
+      }
+    } catch (err) {
+      console.warn("[webSearch] Gemini grounding failed, trying fallback:", err);
+    }
   }
 
   // Fallback: DuckDuckGo Instant Answer API (no key needed, fast JSON)

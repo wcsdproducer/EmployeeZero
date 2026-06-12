@@ -3,9 +3,9 @@
  * Uses Google Gemini / Imagen via @google/genai.
  */
 
-import { createGeminiClient } from "@/lib/geminiClient";
+import { GoogleGenAI } from "@google/genai";
 
-const genai = createGeminiClient();
+const genai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY! });
 
 /* ─── Generate Image ─── */
 

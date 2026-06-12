@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createGeminiClient } from "@/lib/geminiClient";
+import { GoogleGenAI } from "@google/genai";
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
     }
 
-    const ai = createGeminiClient(apiKey);
+    const ai = new GoogleGenAI({ apiKey });
 
     const typeLabels: Record<string, string> = {
       "client-call": "Client Call",

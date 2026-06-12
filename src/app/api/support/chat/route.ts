@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createGeminiClient } from "@/lib/geminiClient";
+import { GoogleGenAI } from "@google/genai";
 
 const SYSTEM_PROMPT = `You are the Employee Zero Support Assistant — a friendly, knowledgeable AI helper for Employee Zero, an AI-powered digital employee platform.
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "AI not configured" }, { status: 500 });
     }
 
-    const ai = createGeminiClient(apiKey);
+    const ai = new GoogleGenAI({ apiKey });
 
     const conversationLines = (history || []).map(
       (m: { role: string; content: string }) =>

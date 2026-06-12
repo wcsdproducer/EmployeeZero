@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/admin";
 import { verifyAuth, checkRateLimit, rateLimitResponse } from "@/lib/auth";
-import { Type } from "@google/genai";
-import { createGeminiClient } from "@/lib/geminiClient";
+import { GoogleGenAI, Type } from "@google/genai";
 import {
   listEmails,
   getEmail,
@@ -255,7 +254,7 @@ async function summarizeOldMessages(
   messages: ChatMessage[],
   existingSummary?: string
 ): Promise<string> {
-  const ai = createGeminiClient(apiKey);
+  const ai = new GoogleGenAI({ apiKey });
 
   const transcript = messages
     .map((m) => `${m.role === "user" ? "User" : "Agent"}: ${m.content.substring(0, 300)}`)

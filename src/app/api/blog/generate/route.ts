@@ -1,4 +1,4 @@
-import { createGeminiClient } from "@/lib/geminiClient";
+import { GoogleGenAI } from "@google/genai";
 import { generateImage } from "@/lib/imageGen";
 import { createBlogPost } from "@/lib/blog";
 import { NextResponse } from "next/server";
@@ -6,7 +6,7 @@ import { adminDb } from "@/lib/admin";
 import { getStorage } from "firebase-admin/storage";
 import crypto from "crypto";
 
-const genai = createGeminiClient();
+const genai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENAI_API_KEY! });
 const storage = getStorage();
 
 export async function POST(req: Request) {
