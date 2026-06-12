@@ -38,3 +38,4 @@ next-env.d.ts
 
 # Bot memory database
 .data/
+firebase-debug.log

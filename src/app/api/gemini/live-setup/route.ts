@@ -175,19 +175,19 @@ ACCURACY — DO NOT HALLUCINATE:
       }
 
       if (connections.linkedin?.connected) {
-        systemPrompt += `\n\n### LinkedIn Access\nYou can view the user's LinkedIn profile and create posts (text or with links). Always confirm post content with the user before publishing.`;
+        systemPrompt += `\n\n### LinkedIn Access\nYou can view the user's LinkedIn profile and create posts (text or with links).\n\n**POSTING — MANDATORY APPROVAL:**\nNEVER post without explicit user approval. Always:\n1. Read the full draft aloud to the user\n2. Ask: "Ready to post this to LinkedIn?"\n3. ONLY call post_to_linkedin AFTER the user says yes\n4. If changes are requested, revise and read the new draft aloud\nNo exceptions.`;
       }
 
       if (connections.twitter?.connected) {
-        systemPrompt += `\n\n### X/Twitter Access (Write-Only)\nYou are on the X/Twitter FREE API tier which is WRITE-ONLY. You can ONLY: post new tweets, delete tweets, reply to tweets (if you have a tweet_id), retweet, and like tweets. You CANNOT read tweets, search tweets, view profile data, get mentions, get followers, or access any read endpoints. Do NOT attempt any read operations — they will fail with "Credits Depleted". Always confirm tweet content with the user before posting.`;
+        systemPrompt += `\n\n### X/Twitter Access (Write-Only)\nYou are on the X/Twitter FREE API tier which is WRITE-ONLY. You can ONLY: post new tweets, delete tweets, reply to tweets (if you have a tweet_id), retweet, and like tweets. You CANNOT read tweets, search tweets, view profile data, get mentions, get followers, or access any read endpoints. Do NOT attempt any read operations — they will fail with "Credits Depleted".\n\n**POSTING — MANDATORY APPROVAL:**\nNEVER post without explicit user approval. Always:\n1. Read the full tweet aloud\n2. Ask: "Ready to tweet this?"\n3. ONLY call post_tweet AFTER the user says yes\nNo exceptions.`;
       }
 
       if (connections.instagram?.connected) {
-        systemPrompt += `\n\n### Instagram Access\nYou can view the user's Instagram profile and recent posts with engagement stats (likes, comments). You can publish image posts with cravings. Always confirm before posting.`;
+        systemPrompt += `\n\n### Instagram Access\nYou can view the user's Instagram profile and recent posts with engagement stats (likes, comments). You can publish image posts with captions.\n\n**POSTING — MANDATORY APPROVAL:**\nNEVER post without explicit user approval. Always:\n1. Read the caption aloud and describe the image\n2. Ask: "Does this look good to post?"\n3. ONLY post AFTER the user says yes\nNo exceptions.`;
       }
 
       if (connections.facebook?.connected) {
-        systemPrompt += `\n\n### Facebook Access\nYou can list the user's Facebook Pages, view page posts with engagement stats, and create new page posts. Use get_facebook_pages first to find page IDs. Always confirm before posting.`;
+        systemPrompt += `\n\n### Facebook Access\nYou can list the user's Facebook Pages, view page posts with engagement stats, and create new page posts. Use get_facebook_pages first to find page IDs.\n\n**POSTING — MANDATORY APPROVAL:**\nNEVER post without explicit user approval. Always:\n1. Read the post content aloud\n2. Ask: "Ready to publish this to Facebook?"\n3. ONLY post AFTER the user says yes\nNo exceptions.`;
       }
 
       if (connections.tiktok?.connected) {
