@@ -16,7 +16,6 @@ export async function POST(req: Request) {
     }
 
     // Get the USER's Gemini API key (bills to their account, not ours)
-    // Fallback chain: user brain key → platform env key
     const platformKey = process.env.GOOGLE_GENAI_API_KEY?.trim() || null;
     let apiKey = "";
 
@@ -33,7 +32,6 @@ export async function POST(req: Request) {
       console.error("[AvatarGen] Error reading brain settings:", e.message);
     }
 
-    // Fallback to platform key
     if (!apiKey && platformKey) {
       apiKey = platformKey;
     }
@@ -45,72 +43,56 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate 1 avatar image
+    // Generate 1 avatar image using gemini-2.5-flash-image
     const avatarPrompt = `Generate a 1:1 square profile picture avatar image. ${description}. Style: digital art portrait, clean, square 512x512 format. No text or watermarks.`;
 
-    // Try image-generation-capable models in order of speed
-    const models = ["gemini-2.5-flash-preview-image-generation", "gemini-2.0-flash-exp"];
-    let lastError = "";
-
-    for (const model of models) {
-      try {
-        console.log(`[AvatarGen] Trying model: ${model}`);
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: "user",
-                  parts: [{ text: avatarPrompt }],
-                },
-              ],
-              generationConfig: {
-                responseModalities: ["IMAGE", "TEXT"],
-              },
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error(`[AvatarGen] ${model} error (${response.status}):`, errText.substring(0, 500));
-          lastError = `${model}: ${response.status} - ${errText.substring(0, 200)}`;
-          continue; // try next model
-        }
-
-        const data = await response.json();
-        const candidate = data.candidates?.[0];
-        const parts = candidate?.content?.parts || [];
-        const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
-
-        if (!imagePart) {
-          console.error(`[AvatarGen] ${model} returned no image. Response:`, JSON.stringify(data).substring(0, 500));
-          lastError = `${model}: No image in response`;
-          continue; // try next model
-        }
-
-        console.log(`[AvatarGen] Success with model: ${model}`);
-        return NextResponse.json({
-          avatars: [{
-            image: imagePart.inlineData.data,
-            mimeType: imagePart.inlineData.mimeType,
-          }],
-        });
-      } catch (err: any) {
-        console.error(`[AvatarGen] ${model} exception:`, err.message);
-        lastError = `${model}: ${err.message}`;
-        continue;
+    console.log("[AvatarGen] Generating with gemini-2.5-flash-image");
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: avatarPrompt }],
+            },
+          ],
+        }),
       }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("[AvatarGen] Gemini error:", response.status, errText.substring(0, 500));
+      return NextResponse.json(
+        { error: `gemini-2.5-flash-image: ${response.status} - ${errText.substring(0, 200)}` },
+        { status: 500 }
+      );
     }
 
-    // All models failed
-    return NextResponse.json(
-      { error: `Failed to generate avatar. ${lastError}` },
-      { status: 500 }
-    );
+    const data = await response.json();
+    const candidate = data.candidates?.[0];
+    const parts = candidate?.content?.parts || [];
+    const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
+
+    if (!imagePart) {
+      // Log what we got back
+      const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text).join(" ");
+      console.error("[AvatarGen] No image in response. Text:", textParts.substring(0, 300));
+      return NextResponse.json(
+        { error: `No image generated. ${textParts ? "Model said: " + textParts.substring(0, 100) : "Try a different description."}` },
+        { status: 500 }
+      );
+    }
+
+    console.log("[AvatarGen] Success! Image generated.");
+    return NextResponse.json({
+      avatars: [{
+        image: imagePart.inlineData.data,
+        mimeType: imagePart.inlineData.mimeType,
+      }],
+    });
   } catch (error: any) {
     console.error("[AvatarGen] Error:", error.message);
     return NextResponse.json({ error: `Internal Server Error: ${error.message}` }, { status: 500 });
