@@ -31,8 +31,16 @@ export const functions = getFunctions(app);
 const googleProvider = new GoogleAuthProvider();
 
 export async function signInWithGoogle(): Promise<{ user: User | null; isNewUser: boolean }> {
+  // Detect mobile — go straight to redirect (popup is unreliable on mobile browsers)
+  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android|webOS|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    await signInWithRedirect(auth, googleProvider);
+    return { user: null, isNewUser: false }; // redirect will reload the page
+  }
+
   try {
-    // Try popup first — works in most environments
+    // Desktop: try popup first
     const result = await signInWithPopup(auth, googleProvider);
     const { getAdditionalUserInfo } = await import("firebase/auth");
     const additionalInfo = getAdditionalUserInfo(result);
@@ -47,7 +55,7 @@ export async function signInWithGoogle(): Promise<{ user: User | null; isNewUser
       code === "auth/internal-error"
     ) {
       await signInWithRedirect(auth, googleProvider);
-      return { user: null, isNewUser: false }; // redirect will reload the page
+      return { user: null, isNewUser: false };
     }
     throw err;
   }
