@@ -192,6 +192,35 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     const source = ctx.createMediaStreamSource(stream);
     sourceNodeRef.current = source;
 
+    // Audio batching: accumulate chunks and send in batches to reduce HTTP overhead
+    let pendingAudioChunks: Int16Array[] = [];
+    let batchTimer: ReturnType<typeof setTimeout> | null = null;
+    const BATCH_INTERVAL_MS = 200; // Send accumulated audio every 200ms
+
+    const flushAudio = () => {
+      if (pendingAudioChunks.length === 0) return;
+      const currentWs = wsRef.current;
+      if (!currentWs || currentWs.readyState !== WebSocket.OPEN) return;
+      const totalLen = pendingAudioChunks.reduce((s, c) => s + c.length, 0);
+      const merged = new Int16Array(totalLen);
+      let offset = 0;
+      for (const chunk of pendingAudioChunks) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      pendingAudioChunks = [];
+      const b64 = buf2b64(merged.buffer as ArrayBuffer);
+
+      chunksSentRef.current++;
+      if (chunksSentRef.current <= 3) {
+        console.log(`[GeminiLive] Sending batched mic chunk #${chunksSentRef.current}: ${merged.length} samples, b64 len=${b64.length}`);
+      }
+
+      currentWs.send(JSON.stringify({
+        realtimeInput: { audio: { mimeType: "audio/pcm;rate=16000", data: b64 } }
+      }));
+    };
+
     processor.onaudioprocess = (e) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -199,16 +228,15 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       const input = e.inputBuffer.getChannelData(0);
       const resampled = resample(new Float32Array(input), nativeSR, 16000);
       const i16 = f32ToI16(resampled);
-      const b64 = buf2b64(i16.buffer as ArrayBuffer);
+      pendingAudioChunks.push(i16);
 
-      chunksSentRef.current++;
-      if (chunksSentRef.current <= 3) {
-        console.log(`[GeminiLive] Sending mic chunk #${chunksSentRef.current}: ${i16.length} samples, b64 len=${b64.length}`);
+      // Schedule a flush if not already scheduled
+      if (!batchTimer) {
+        batchTimer = setTimeout(() => {
+          batchTimer = null;
+          flushAudio();
+        }, BATCH_INTERVAL_MS);
       }
-
-      ws.send(JSON.stringify({
-        realtimeInput: { audio: { mimeType: "audio/pcm;rate=16000", data: b64 } }
-      }));
     };
 
     // Connect: mic source → processor → silent gain → destination
