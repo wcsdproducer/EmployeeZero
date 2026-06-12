@@ -428,7 +428,7 @@ function ChatPageInner() {
   }, [searchParams, user]);
   const [purchasedAgents, setPurchasedAgents] = useState<AgentDoc[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("primary");
-  const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
+  // NOTE: selectedAgent is derived below after allAgents is built
   
   const selectedAgentIdRef = useRef(selectedAgentId);
   useEffect(() => { selectedAgentIdRef.current = selectedAgentId; }, [selectedAgentId]);
@@ -554,6 +554,9 @@ function ChatPageInner() {
 
   // Only show legacy primary agent if no Firestore agents exist (backward compatibility)
   const allAgents = activeAgents.length > 0 ? activeAgents : agents;
+
+  // Derive selectedAgent from allAgents (includes Firestore agents like Atlas, Sam)
+  const selectedAgent = allAgents.find(a => a.id === selectedAgentId) || allAgents[0] || agents[0];
 
   // Fetch user profile for employee name
   useEffect(() => {
