@@ -171,6 +171,9 @@ function ChatPageInner() {
 
   // Separate ref just for voice conversations so we can clean them up on disconnect
   const voiceConvIdRef = useRef<string | null>(null);
+  // Track last model message to deduplicate repeated completions
+  const lastModelMsgRef = useRef<string>("");
+  const lastModelMsgTimeRef = useRef<number>(0);
 
   const conversation = useGeminiLive({
     onConnect: () => {
@@ -192,6 +195,29 @@ function ChatPageInner() {
     },
     onMessage: async (msg: any) => {
       const role = msg.source === 'ai' ? 'model' : 'user';
+      
+      // Deduplicate consecutive model messages (prevents "5x completion" bug)
+      // The voice model often generates multiple turns after task completion
+      if (role === 'model') {
+        const now = Date.now();
+        const timeSinceLast = now - (lastModelMsgTimeRef.current || 0);
+        const lastLen = lastModelMsgRef.current?.length || 0;
+        const thisLen = msg.message?.length || 0;
+        
+        // If two model messages arrive within 30s and both are short (completion summaries),
+        // skip the duplicate to prevent the repetition loop
+        if (timeSinceLast < 30000 && lastLen > 0 && lastLen < 300 && thisLen < 300) {
+          console.log("[Voice] Skipping duplicate model completion message");
+          return;
+        }
+        lastModelMsgRef.current = msg.message || "";
+        lastModelMsgTimeRef.current = now;
+      } else {
+        // Reset on user message — allow fresh model responses
+        lastModelMsgRef.current = "";
+        lastModelMsgTimeRef.current = 0;
+      }
+
       try {
         // Lazily create or reuse conversation doc on first message
         if (!voiceConvIdRef.current && user) {
