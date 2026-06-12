@@ -445,9 +445,15 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
                     Agent Avatar
                   </label>
                   <div className="flex items-start gap-4">
-                    {/* Current avatar preview */}
-                    <div className="flex-shrink-0">
-                      {customAvatarUrl ? (
+                    {/* Current avatar preview — shows shimmer while generating */}
+                    <div className="flex-shrink-0 relative">
+                      {generatingAvatars ? (
+                        <div className="w-16 h-16 rounded-2xl border border-purple-500/30 overflow-hidden">
+                          <div className="w-full h-full bg-gradient-to-r from-purple-500/10 via-purple-500/20 to-purple-500/10 animate-pulse flex items-center justify-center">
+                            <Loader2 size={20} className="text-purple-400 animate-spin" />
+                          </div>
+                        </div>
+                      ) : customAvatarUrl ? (
                         <img src={customAvatarUrl} alt="Agent avatar" className="w-16 h-16 rounded-2xl object-cover border border-white/10 shadow-lg" />
                       ) : (
                         <div className="w-16 h-16 bg-gradient-to-tr from-purple-500/10 to-blue-500/10 border border-white/10 rounded-2xl flex items-center justify-center">
@@ -462,9 +468,10 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
                           type="text"
                           value={avatarPrompt}
                           onChange={(e) => setAvatarPrompt(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleGenerateAvatars()}
+                          onKeyDown={(e) => e.key === "Enter" && !generatingAvatars && handleGenerateAvatars()}
                           placeholder="Describe your agent's look, e.g. a sleek android with glowing blue eyes..."
-                          className="flex-1 bg-[#111] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-neutral-700 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-sm"
+                          disabled={generatingAvatars}
+                          className="flex-1 bg-[#111] border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-neutral-700 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-sm disabled:opacity-50"
                         />
                         <button
                           onClick={handleGenerateAvatars}
@@ -479,54 +486,43 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
                         </button>
                       </div>
                       <p className="text-[10px] text-neutral-600 pl-1">
-                        {customAvatarUrl ? "Generate again to replace your current avatar." : "Describe what you'd like, then generate 3 options to choose from."}
+                        {generatingAvatars ? "Creating your avatar..." : customAvatarUrl ? "Generate again to replace your current avatar." : "Describe what you'd like and click Generate."}
                       </p>
                     </div>
                   </div>
 
-                  {/* Loading state */}
-                  {generatingAvatars && (
-                    <div className="flex items-center justify-center py-10 mt-4">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-500/20 to-blue-500/20 border border-purple-500/10 flex items-center justify-center animate-pulse">
-                          <Wand2 size={22} className="text-purple-400" />
-                        </div>
-                        <p className="text-sm text-neutral-400">Generating 3 options...</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Generated avatars grid */}
+                  {/* Generated avatar result */}
                   {generatedAvatars.length > 0 && !generatingAvatars && (
-                    <div className="mt-4 space-y-3">
-                      <p className="text-xs font-semibold text-neutral-400">Choose your avatar:</p>
-                      <div className="grid grid-cols-3 gap-4">
-                        {generatedAvatars.map((av, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => handleSelectAvatar(idx)}
-                            className={`relative group rounded-2xl overflow-hidden border-2 transition-all aspect-square ${
-                              selectedAvatarIdx === idx
-                                ? "border-purple-500 ring-2 ring-purple-500/30 scale-[1.02]"
-                                : "border-white/10 hover:border-white/30 hover:scale-[1.01]"
-                            }`}
-                          >
-                            <img
-                              src={`data:${av.mimeType};base64,${av.image}`}
-                              alt={`Avatar option ${idx + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                            {selectedAvatarIdx === idx && (
-                              <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
-                                <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center shadow-lg">
-                                  <Check size={20} className="text-white" />
-                                </div>
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between">
+                    <div className="mt-4 flex items-start gap-4">
+                      <button
+                        onClick={() => handleSelectAvatar(0)}
+                        className={`relative rounded-2xl overflow-hidden border-2 transition-all w-32 h-32 flex-shrink-0 ${
+                          selectedAvatarIdx === 0
+                            ? "border-purple-500 ring-2 ring-purple-500/30"
+                            : "border-white/10 hover:border-white/30"
+                        }`}
+                      >
+                        <img
+                          src={`data:${generatedAvatars[0].mimeType};base64,${generatedAvatars[0].image}`}
+                          alt="Generated avatar"
+                          className="w-full h-full object-cover"
+                        />
+                        {selectedAvatarIdx === 0 && (
+                          <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center shadow-lg">
+                              <Check size={16} className="text-white" />
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                      <div className="flex flex-col gap-2 pt-2">
+                        <button
+                          onClick={() => handleSelectAvatar(0)}
+                          disabled={selectedAvatarIdx === 0}
+                          className="px-4 py-2 text-xs font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-all disabled:opacity-50"
+                        >
+                          {selectedAvatarIdx === 0 ? "✓ Selected" : "Use This Avatar"}
+                        </button>
                         <button
                           onClick={handleGenerateAvatars}
                           disabled={generatingAvatars}
@@ -535,8 +531,8 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
                           🔄 Try Again
                         </button>
                         {selectedAvatarIdx !== null && (
-                          <p className="text-xs text-emerald-400 flex items-center gap-1.5">
-                            <Check size={14} /> Avatar saved!
+                          <p className="text-xs text-emerald-400 flex items-center gap-1.5 mt-1">
+                            <Check size={12} /> Avatar saved!
                           </p>
                         )}
                       </div>
