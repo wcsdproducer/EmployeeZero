@@ -285,7 +285,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         setupConfig = await res.json();
         console.log(`[GeminiLive] Setup fetched in ${Date.now() - t0}ms`);
       }
-      const { apiKey, systemPrompt, tools, voice } = setupConfig;
+      const { systemPrompt, tools, voice } = setupConfig;
       console.log(`[GeminiLive] Config: voice=${voice}, tools=${tools?.length || 0}`);
 
       // 2. Grab mic
@@ -293,18 +293,19 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       mediaStreamRef.current = stream;
       console.log("[GeminiLive] Microphone stream acquired");
 
-      // 3. Open WebSocket
-      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+      // 3. Open WebSocket to our voice proxy (server handles Vertex AI auth)
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${wsProtocol}//${window.location.host}/api/gemini/voice-ws`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
-      console.log("[GeminiLive] WebSocket opening...");
+      console.log("[GeminiLive] WebSocket opening via voice proxy...");
 
       ws.onopen = () => {
         console.log("[GeminiLive] WebSocket open — sending setup");
 
         ws.send(JSON.stringify({
           setup: {
-            model: "models/gemini-3.1-flash-live-preview",
+            model: "projects/employee-zero-production/locations/us-central1/publishers/google/models/gemini-3.1-flash-live-preview",
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice || "Aoede" } } },
