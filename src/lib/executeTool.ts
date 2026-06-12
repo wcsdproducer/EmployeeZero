@@ -584,14 +584,14 @@ export async function executeTool(
           .collection("conversations")
           .where("userId", "==", userId)
           .orderBy("createdAt", "desc")
-          .limit(50)
+          .limit(500)
           .get();
       } catch {
         // Fallback if composite index doesn't exist yet
         convSnap = await adminDb
           .collection("conversations")
           .where("userId", "==", userId)
-          .limit(50)
+          .limit(500)
           .get();
       }
       
