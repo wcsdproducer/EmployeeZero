@@ -1177,10 +1177,8 @@ export async function createTask(
 ): Promise<string> {
   const now = new Date().toISOString();
   const taskRef = adminDb.collection("tasks").doc();
-  const task: Omit<Task, "id"> & { apiKey?: string } = {
+  const task: any = {
     userId,
-    conversationId,
-    agentId,
     goal,
     status: "planning",
     steps: [],
@@ -1188,8 +1186,10 @@ export async function createTask(
     createdAt: now,
     updatedAt: now,
   };
-  // Store API key temporarily in task doc so executeTask can use it
-  if (apiKey) (task as any)._apiKey = apiKey;
+  if (conversationId) task.conversationId = conversationId;
+  if (agentId) task.agentId = agentId;
+  if (apiKey) task._apiKey = apiKey;
+
   await taskRef.set(task);
   return taskRef.id;
 }
