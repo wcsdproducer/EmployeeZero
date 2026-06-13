@@ -594,6 +594,7 @@ export async function POST(request: Request) {
           loadTeamContext(userId, agentId)
         ]);
         const mcpDecls = mcpData.declarations || [];
+        console.log(`[Chat] Step 4 done: ${memories.length} memories, ${Object.keys(connections).length} connections`);
 
         // 4b. Sliding window + rolling summarization
         //     If conversation is long, summarize old messages and only send recent ones
@@ -857,6 +858,7 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
         ];
 
         // 7. Call Gemini
+        console.log(`[Chat] Step 7: Calling Gemini (provider: ${provider}, contents: ${contents.length} messages)`);
         let result: string;
 
         if (provider === "gemini") {
@@ -1025,17 +1027,19 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
             }
 
             // Extract text from the final response after tool loop
-            const finalCandidate = response.candidates?.[0];
-            const finalParts = finalCandidate?.content?.parts || [];
-            const textParts = finalParts
-              .filter((p: any) => p.text)
-              .map((p: any) => p.text)
-              .join("");
+            // NEVER use response.text — it's a getter that throws on empty responses
+            const extractText = (r: any): string => {
+              try {
+                const parts = r?.candidates?.[0]?.content?.parts || [];
+                return parts.filter((p: any) => p.text).map((p: any) => p.text).join("") || "";
+              } catch { return ""; }
+            };
 
-            // If we got text, return it
-            if (textParts) return textParts;
-            // response.text is a getter that THROWS if response is empty — must wrap in try/catch
-            try { if (response.text) return response.text; } catch {}
+            const finalText = extractText(response);
+            if (finalText) {
+              console.log(`[Chat] Got response (${finalText.length} chars)`);
+              return finalText;
+            }
 
             // No text response — force a follow-up to get a verbal reply
             console.warn("[Chat] Empty model response — forcing verbal follow-up (no thinking, no tools)");
@@ -1051,10 +1055,7 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
                 config: { systemInstruction: systemPrompt },
               });
 
-              const retryText =
-                retryResponse.text ||
-                retryResponse.candidates?.[0]?.content?.parts?.filter((p: any) => p.text).map((p: any) => p.text).join("") ||
-                "";
+              const retryText = extractText(retryResponse);
               if (retryText) return retryText;
             } catch (retryErr: any) {
               console.warn("[Chat] Retry also failed:", retryErr.message);
