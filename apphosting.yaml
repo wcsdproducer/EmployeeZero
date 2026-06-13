@@ -4,6 +4,7 @@ runConfig:
   concurrency: 80
   cpu: 1
   memoryMiB: 2048
+  cpuThrottling: false  # Keep CPU active after response for after() callbacks (Gemini calls)
   requestTimeout: 900  # 15 min — needed for voice sessions (SSE long-poll)
 
 

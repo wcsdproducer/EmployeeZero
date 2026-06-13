@@ -581,7 +581,9 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    // Run Gemini and tool calling loop inline (NOT in after() — Cloud Run throttles CPU after response)
+    // Run Gemini and tool calling loop in after() — returns HTTP response immediately
+    // CPU throttling is disabled via apphosting.yaml so after() gets full CPU
+    after(async () => {
     try {
         // 4. Load memories + connections + preferences + learned behaviors
         console.log(`[Chat] Step 4: Loading data...`);
@@ -1164,8 +1166,9 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
           });
         } catch {}
       }
+    }); // end after()
 
-    return NextResponse.json({ status: "completed" });
+    return NextResponse.json({ status: "processing" });
   } catch (err: any) {
     console.error("Chat API error:", err);
 
