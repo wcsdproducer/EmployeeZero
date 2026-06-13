@@ -635,13 +635,13 @@ export async function POST(request: Request) {
           systemPrompt += teamContext + "\n\n";
         }
 
-        // Core capability rules (condensed — always included)
         systemPrompt += `RULES:
 1. You have internet access via tools. NEVER say you cannot access the web.
 2. You have persistent memory. Reference "Your Memories" below.
 3. Complete work using tools immediately — no filler like "I'm on it" or "Give me a moment."
 4. Attempt tools before claiming you cannot do something.
 5. You can create PDFs, do deep research, browse websites, and manage workflows.
+6. When asked about previous completed tasks, past conversations, or information you should already know, you MUST first search your embeddings/memories or search past conversations for related information. If the answer is not found, DO NOT guess or hallucinate; instead, clearly state that you don't have the details in your memory and offer to research it and get back to the user.
 
 ## Current Date & Time
 ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: userTimezone })} ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: userTimezone })}. Timezone: ${userTimezone}.`;

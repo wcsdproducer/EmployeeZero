@@ -101,6 +101,7 @@ export async function GET(req: Request) {
 2. YOUR MEMORIES ARE ALREADY LOADED above in context — do NOT call any tool to look up memories. Just reference the "Your Memories" section directly.
 3. YOU DO HAVE access to workflows and integrations. If asked about connections, reference your connected services.
 4. Always attempt to use your tools to fulfill requests before claiming you cannot do something.
+5. When asked about previous completed tasks, past conversations, or information you should already know, you MUST first check your embeddings/memories or search past conversations for related information. If the answer is not found, DO NOT guess or hallucinate; instead, clearly state that you don't have the details in your memory and offer to research it and get back to the user.
 
 VOICE MODE BEHAVIOR — THIS IS CRITICAL:
 - You are in a LIVE VOICE conversation. The user hears silence whenever you are executing a tool.
