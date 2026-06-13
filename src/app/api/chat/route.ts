@@ -865,6 +865,9 @@ ALWAYS search conversations FIRST before saying you don't remember or can't find
             // Config with optional tools
             const config: any = {
               systemInstruction: systemPrompt,
+              thinkingConfig: {
+                thinkingBudget: 4096,  // Enable thinking mode for better reasoning
+              },
             };
             const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS];
             if (hasGmailTools) {

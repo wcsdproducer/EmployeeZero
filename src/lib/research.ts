@@ -14,7 +14,7 @@ const SYNTH_MODEL = "gemini-2.5-flash";
 
 interface ResearchResult {
   report: string;
-  sources: { title: string; url: string; snippet: string }[];
+  sources: { title: string; domain: string }[];
   queriesUsed: string[];
 }
 
@@ -156,9 +156,19 @@ export async function deepResearch(topic: string): Promise<ResearchResult> {
   const report = await synthesize(topic, summaries, validPages, sources);
   console.log(`[Research] Complete in ${Date.now() - t0}ms — report: ${report.length} chars, ${sources.length} sources`);
 
+  // Return clean source names only — no raw URLs that the model might dump into chat
+  const cleanSources = sources.slice(0, 12).map(s => {
+    try {
+      const domain = new URL(s.url).hostname.replace(/^www\./, "");
+      return { title: s.title || domain, domain };
+    } catch {
+      return { title: s.title || "Unknown Source", domain: "" };
+    }
+  });
+
   return {
     report,
-    sources: sources.slice(0, 12),
+    sources: cleanSources,
     queriesUsed: queries,
   };
 }

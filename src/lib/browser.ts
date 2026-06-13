@@ -201,7 +201,7 @@ export async function submitForm(
 
 export async function webSearch(
   query: string
-): Promise<{ results: { title: string; url: string; snippet: string }[]; summary?: string }> {
+): Promise<{ results: { title: string; url: string; snippet: string }[]; summary?: string; sourceNames?: string[] }> {
   try {
     // Use Vertex AI Gemini generateContent with google_search grounding
     const t0 = Date.now();
@@ -216,14 +216,22 @@ export async function webSearch(
     const groundingChunks = groundingMeta.groundingChunks || groundingMeta.grounding_chunks || [];
     const searchQueries = groundingMeta.webSearchQueries || groundingMeta.web_search_queries || [];
 
-    const results = groundingChunks.slice(0, 8).map((chunk: any) => ({
-      title: chunk.web?.title || "",
-      url: chunk.web?.uri || "",
-      snippet: chunk.web?.title || "",
-    }));
+    // Extract clean source names (domains) — avoid passing raw grounding redirect URLs to the model
+    // which causes it to dump them verbatim into responses
+    const sourceNames = groundingChunks.slice(0, 8).map((chunk: any) => {
+      const title = chunk.web?.title || "";
+      const uri = chunk.web?.uri || "";
+      // Extract readable domain from the grounding redirect URL or direct URL
+      try {
+        const parsed = new URL(uri);
+        return title || parsed.hostname.replace(/^www\./, "");
+      } catch {
+        return title || uri;
+      }
+    }).filter(Boolean);
 
-    console.log(`[webSearch] Gemini grounding: ${Date.now() - t0}ms, ${results.length} sources, ${text.length} chars`);
-    return { results, summary: text.substring(0, 3000) };
+    console.log(`[webSearch] Gemini grounding: ${Date.now() - t0}ms, ${sourceNames.length} sources, ${text.length} chars`);
+    return { results: [], summary: text.substring(0, 3000), sourceNames };
   } catch (err) {
     console.warn("[webSearch] Gemini grounding failed, trying fallback:", err);
   }
