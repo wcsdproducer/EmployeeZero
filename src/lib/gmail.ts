@@ -280,3 +280,49 @@ export async function markAsRead(userId: string, messageId: string): Promise<voi
     throw new Error(`Failed to mark email as read: ${err.message}`);
   }
 }
+
+export async function spamEmail(userId: string, messageId: string): Promise<void> {
+  const client = await getGmailClient(userId);
+  try {
+    await client.users.messages.modify({
+      userId: "me",
+      id: messageId,
+      requestBody: {
+        addLabelIds: ["SPAM"],
+        removeLabelIds: ["INBOX"],
+      },
+    });
+  } catch (err: any) {
+    console.error(`[Gmail] Spam failed for message ${messageId}:`, err.message);
+    throw new Error(`Failed to mark email as spam: ${err.message}`);
+  }
+}
+
+export async function markAsUnread(userId: string, messageId: string): Promise<void> {
+  const client = await getGmailClient(userId);
+  try {
+    await client.users.messages.modify({
+      userId: "me",
+      id: messageId,
+      requestBody: { addLabelIds: ["UNREAD"] },
+    });
+  } catch (err: any) {
+    console.error(`[Gmail] Mark as unread failed for ${messageId}:`, err.message);
+    throw new Error(`Failed to mark email as unread: ${err.message}`);
+  }
+}
+
+export async function unarchiveEmail(userId: string, messageId: string): Promise<void> {
+  const client = await getGmailClient(userId);
+  try {
+    await client.users.messages.modify({
+      userId: "me",
+      id: messageId,
+      requestBody: { addLabelIds: ["INBOX"] },
+    });
+  } catch (err: any) {
+    console.error(`[Gmail] Unarchive failed for ${messageId}:`, err.message);
+    throw new Error(`Failed to unarchive email: ${err.message}`);
+  }
+}
+

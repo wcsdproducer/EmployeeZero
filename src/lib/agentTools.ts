@@ -127,6 +127,48 @@ export const GMAIL_TOOLS = [
       required: ["message_id"],
     },
   },
+  {
+    name: "spam_email",
+    description: "Mark an email as spam (add SPAM label and remove from inbox)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: {
+          type: Type.STRING,
+          description: "The Gmail message ID to mark as spam",
+        },
+      },
+      required: ["message_id"],
+    },
+  },
+  {
+    name: "mark_as_unread",
+    description: "Mark an email as unread (add UNREAD label)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: {
+          type: Type.STRING,
+          description: "The Gmail message ID to mark as unread",
+        },
+      },
+      required: ["message_id"],
+    },
+  },
+  {
+    name: "unarchive_email",
+    description: "Unarchive an email (move it back to inbox by adding INBOX label)",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        message_id: {
+          type: Type.STRING,
+          description: "The Gmail message ID to unarchive",
+        },
+      },
+      required: ["message_id"],
+    },
+  },
 ];
 
 export const CALENDAR_TOOLS = [

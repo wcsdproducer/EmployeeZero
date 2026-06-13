@@ -11,6 +11,9 @@ import {
   getUnreadCount,
   archiveEmail,
   trashEmail,
+  spamEmail,
+  markAsUnread,
+  unarchiveEmail,
 } from "@/lib/gmail";
 import { createTask, executeTask, resumeTask } from "@/lib/taskEngine";
 import { getWorkflowGoal, WORKFLOW_DEFINITIONS } from "@/lib/workflowDefinitions";

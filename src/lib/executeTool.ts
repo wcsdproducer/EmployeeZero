@@ -15,6 +15,9 @@ import {
   archiveEmail,
   trashEmail,
   markAsRead,
+  spamEmail,
+  markAsUnread,
+  unarchiveEmail,
 } from "@/lib/gmail";
 import { createTask, executeTask, resumeTask } from "@/lib/taskEngine";
 import { getWorkflowGoal, WORKFLOW_DEFINITIONS } from "@/lib/workflowDefinitions";
@@ -212,6 +215,15 @@ export async function executeTool(
     case "trash_email":
       await trashEmail(userId, args.message_id);
       return { success: true, action: "trashed" };
+    case "spam_email":
+      await spamEmail(userId, args.message_id);
+      return { success: true, action: "marked_as_spam" };
+    case "mark_as_unread":
+      await markAsUnread(userId, args.message_id);
+      return { success: true, action: "marked_as_unread" };
+    case "unarchive_email":
+      await unarchiveEmail(userId, args.message_id);
+      return { success: true, action: "unarchived" };
     case "browse_url":
       return await browseUrl(args.url, { extractLinks: args.extract_links });
     case "click_url":
