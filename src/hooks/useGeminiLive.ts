@@ -54,6 +54,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const nextPlayTimeRef = useRef<number>(0);
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const modelTextRef = useRef<string>("");
+  const transcriptionRef = useRef<string>("");
   const agentIdRef = useRef<string>("primary");
   const callbacksRef = useRef(options);
   const chunksSentRef = useRef<number>(0);
@@ -284,6 +285,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     setStatusSync("connecting");
     agentIdRef.current = params.agentId || "primary";
     modelTextRef.current = "";
+    transcriptionRef.current = "";
 
     // Create AudioContext synchronously on the user gesture stack
     try {
@@ -487,7 +489,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           // Handle AI speech transcription
           const aiTranscript = msg.outputTranscription?.text || msg.serverContent?.outputTranscription?.text;
           if (aiTranscript) {
-            modelTextRef.current += aiTranscript;
+            transcriptionRef.current += aiTranscript;
           }
 
           // Handle user speech transcription
@@ -505,11 +507,12 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
 
           // Turn complete
           if (msg.serverContent?.turnComplete) {
-            const t = modelTextRef.current.trim();
+            const t = (modelTextRef.current.trim() || transcriptionRef.current.trim());
             if (t) {
               callbacksRef.current.onMessage?.({ source: "ai", message: t });
-              modelTextRef.current = "";
             }
+            modelTextRef.current = "";
+            transcriptionRef.current = "";
           }
         } catch (err) {
           console.error("[GeminiLive] message processing error:", err);
