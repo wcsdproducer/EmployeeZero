@@ -865,12 +865,16 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
             const ai = createGeminiClient(key);
 
             // Config with dynamic thinking budget based on intent
+            // Only enable thinking mode for complex intents (>= 1024 tokens)
+            // For simple chat, omit thinkingConfig entirely to use model defaults
             const config: any = {
               systemInstruction: systemPrompt,
-              thinkingConfig: {
-                thinkingBudget: intentResult.thinkingBudget,
-              },
             };
+            if (intentResult.thinkingBudget >= 1024) {
+              config.thinkingConfig = {
+                thinkingBudget: intentResult.thinkingBudget,
+              };
+            }
 
             // Intent-aware tool loading — only load tools matching detected intent
             const allTools: any[] = [];
