@@ -127,6 +127,7 @@ export async function POST(req: NextRequest) {
       } else if (data.text) {
         await entry.session.sendClientContent({
           turns: [{ role: "user", parts: [{ text: data.text }] }],
+          turnComplete: true,
         });
       } else if (data.toolResponse) {
         await entry.session.sendToolResponse(data.toolResponse);
@@ -182,8 +183,10 @@ export async function GET(req: NextRequest) {
 
   const encoder = new TextEncoder();
 
+  let currentController: ReadableStreamDefaultController | null = null;
   const stream = new ReadableStream({
     start(controller) {
+      currentController = controller;
       entry.sseController = controller;
       entry.lastActivity = Date.now();
 
@@ -207,7 +210,9 @@ export async function GET(req: NextRequest) {
       }, 15000);
     },
     cancel() {
-      entry.sseController = null;
+      if (entry.sseController === currentController) {
+        entry.sseController = null;
+      }
     },
   });
 
