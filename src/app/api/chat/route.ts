@@ -921,11 +921,30 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
             config.tools = [{ functionDeclarations: filteredTools }];
             console.log(`[Chat] Tools loaded: ${filteredTools.length} (intent: ${intentResult.intents.join("+")})`);
 
-            let response = await ai.models.generateContent({
-              model: "gemini-2.5-flash",
-              contents,
-              config,
-            });
+            // Safe wrapper: catches "model output empty" SDK errors and retries without tools
+            const safeGenerate = async (genConfig: any, retryCount = 0): Promise<any> => {
+              try {
+                return await ai.models.generateContent({
+                  model: "gemini-2.5-flash",
+                  contents,
+                  config: genConfig,
+                });
+              } catch (err: any) {
+                const isEmpty = err.message?.includes("model output") || err.message?.includes("both be empty");
+                if (isEmpty && retryCount < 2) {
+                  console.warn(`[Chat] Empty output (attempt ${retryCount + 1}), retrying without tools/thinking`);
+                  return await safeGenerate({ systemInstruction: systemPrompt }, retryCount + 1);
+                }
+                if (isEmpty) {
+                  // Return a synthetic response object with fallback text
+                  console.warn("[Chat] Empty output after retries, using fallback");
+                  return { text: "I heard you! I had a brief processing hiccup. Could you try again?", candidates: [{ content: { parts: [{ text: "I heard you! I had a brief processing hiccup. Could you try again?" }] } }] };
+                }
+                throw err;
+              }
+            };
+
+            let response = await safeGenerate(config);
 
             // Tool execution loop — max 6 rounds to handle multi-step operations
             let rounds = 0;
@@ -997,19 +1016,11 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
               if (isLastRound) {
                 console.log("[Chat] Model gave text + tool call — executing last tool then stopping");
                 // Get one final response for the summary
-                response = await ai.models.generateContent({
-                  model: "gemini-2.5-flash",
-                  contents,
-                  config: { ...config, tools: undefined }, // No tools — force text-only response
-                });
+                response = await safeGenerate({ ...config, tools: undefined }); // No tools — force text-only response
                 break;
               }
 
-              response = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents,
-                config,
-              });
+              response = await safeGenerate(config);
 
               rounds++;
             }
