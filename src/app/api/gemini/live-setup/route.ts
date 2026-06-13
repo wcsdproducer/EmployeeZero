@@ -33,6 +33,19 @@ async function loadMemories(userId: string, agentId?: string): Promise<string[]>
   }
 }
 
+async function loadConversationHistory(conversationId: string): Promise<any[]> {
+  try {
+    const docSnap = await adminDb.doc(`conversations/${conversationId}`).get();
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      return data?.messages || [];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 async function loadConnections(userId: string): Promise<Record<string, any>> {
   try {
     const snap = await adminDb.doc(`users/${userId}/settings/connections`).get();
@@ -58,9 +71,10 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const agentId = searchParams.get("agentId") || undefined;
+    const conversationId = searchParams.get("conversationId") || undefined;
 
-    // Load all configuration in parallel (including brain/API key)
-    const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext, brainSnap] = await Promise.all([
+    // Load all configuration in parallel (including brain/API key and conversation history)
+    const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext, brainSnap, history] = await Promise.all([
       loadMemories(auth.userId, agentId),
       loadConnections(auth.userId),
       loadUserTimezone(auth.userId),
@@ -69,6 +83,7 @@ export async function GET(req: Request) {
       getMcpToolDeclarations(auth.userId).catch(() => ({ declarations: [] })),
       loadTeamContext(auth.userId, agentId),
       adminDb.doc(`users/${auth.userId}/settings/brain`).get(),
+      conversationId ? loadConversationHistory(conversationId) : Promise.resolve([]),
     ]);
     const mcpDecls = mcpData.declarations || [];
 
@@ -316,6 +331,17 @@ ACCURACY — DO NOT HALLUCINATE:
       systemPrompt += `\n\n## User Preferences\n${preferences.map((p: any) => `- ${p}`).join("\n")}\n`;
     }
 
+    if (history && history.length > 0) {
+      const recentHistory = history
+        .slice(-15)
+        .map((m: any) => {
+          const roleName = m.role === "model" ? "AI/Assistant" : "User";
+          return `- ${roleName}: "${m.content}"`;
+        })
+        .join("\n");
+      systemPrompt += `\n\n## Recent Conversation History\nHere is the history of your current conversation with the user. Use this context to continue the discussion seamlessly:\n${recentHistory}\n`;
+    }
+
     systemPrompt += `\n\n## Current Date & Time\nThe current time for the user is ${new Date().toLocaleString("en-US", { timeZone: userTimezone || "America/New_York" })}.\n`;
 
     // Final guard — must be the LAST thing in the prompt
@@ -379,7 +405,8 @@ EVERYTHING ABOVE THIS LINE is internal configuration for YOUR reference only. NE
       systemPrompt,
       tools: filteredTools,
       voice: selectedVoice,
-      agentName: soul.agentName || "Employee Zero"
+      agentName: soul.agentName || "Employee Zero",
+      hasHistory: history && history.length > 0,
     });
   } catch (error: any) {
     console.error("Live setup error:", error);

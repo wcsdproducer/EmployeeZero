@@ -278,7 +278,7 @@ function ChatPageInner() {
       try {
         // startSession must be invoked synchronously on the user gesture click stack
         // to prevent browsers from blocking/suspending the AudioContext.
-        await conversation.startSession({ agentId: selectedAgentId });
+        await conversation.startSession({ agentId: selectedAgentId, conversationId: activeConvId });
       } catch (err: any) {
         alert("Microphone access is required for Voice Mode.");
       }

@@ -280,7 +280,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     }
   };
 
-  const startSession = async (params: { agentId: string }) => {
+  const startSession = async (params: { agentId: string; conversationId?: string | null }) => {
     if (statusRef.current !== "disconnected") return;
     setStatusSync("connecting");
     agentIdRef.current = params.agentId || "primary";
@@ -300,9 +300,9 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
     }
 
     try {
-      // 1. Get setup config — use cached version if available and fresh (<5 min)
+      // 1. Get setup config — use cached version if available and fresh (<5 min) AND conversationId is not provided
       const cache = setupCacheRef.current;
-      const isCacheFresh = cache && cache.agentId === params.agentId && (Date.now() - cache.fetchedAt) < 300_000;
+      const isCacheFresh = !params.conversationId && cache && cache.agentId === params.agentId && (Date.now() - cache.fetchedAt) < 300_000;
       let setupConfig: any;
       if (isCacheFresh) {
         setupConfig = cache.config;
@@ -310,13 +310,14 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
         setupCacheRef.current = null; // consume cache
       } else {
         const t0 = Date.now();
-        const res = await authFetch(`/api/gemini/live-setup?agentId=${params.agentId}`);
+        const url = `/api/gemini/live-setup?agentId=${params.agentId}${params.conversationId ? `&conversationId=${encodeURIComponent(params.conversationId)}` : ""}`;
+        const res = await authFetch(url);
         if (!res.ok) throw new Error(`live-setup failed: ${await res.text()}`);
         setupConfig = await res.json();
         console.log(`[GeminiLive] Setup fetched in ${Date.now() - t0}ms`);
       }
-      const { systemPrompt, tools, voice, agentName } = setupConfig;
-      console.log(`[GeminiLive] Config: voice=${voice}, tools=${tools?.length || 0}, agent=${agentName}`);
+      const { systemPrompt, tools, voice, agentName, hasHistory } = setupConfig;
+      console.log(`[GeminiLive] Config: voice=${voice}, tools=${tools?.length || 0}, agent=${agentName}, hasHistory=${!!hasHistory}`);
 
       // 2. Grab mic
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 } });
@@ -401,9 +402,14 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             setStatusSync("connected");
             callbacksRef.current.onConnect?.();
             startRecording(mediaStreamRef.current!);
-            // Immediately trigger greeting using the agent's configured name
-            const nameForGreeting = agentName || "Employee Zero";
-            proxySend({ text: `(voice session just connected — greet the user warmly as ${nameForGreeting}. Say ONE short greeting sentence using your name ${nameForGreeting}, then stop and wait. Do NOT call any tools, check emails, check calendar, or do anything else. Just say hello as ${nameForGreeting}.)` });
+            
+            if (hasHistory) {
+              proxySend({ text: `(voice session reconnected or resumed — say ONE brief conversational sentence acknowledging you are ready to continue, e.g. "I'm back, let's continue.", then stop and wait. Do NOT call any tools or greet them as a new connection.)` });
+            } else {
+              // Immediately trigger greeting using the agent's configured name
+              const nameForGreeting = agentName || "Employee Zero";
+              proxySend({ text: `(voice session just connected — greet the user warmly as ${nameForGreeting}. Say ONE short greeting sentence using your name ${nameForGreeting}, then stop and wait. Do NOT call any tools, check emails, check calendar, or do anything else. Just say hello as ${nameForGreeting}.)` });
+            }
             return;
           }
 
