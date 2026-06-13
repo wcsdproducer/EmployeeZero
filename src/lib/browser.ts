@@ -209,7 +209,7 @@ export async function webSearch(
       contents: [{ role: "user", parts: [{ text: `Research and provide detailed, factual information about: ${query}\n\nProvide specific numbers, data points, and sources where possible. Be thorough and comprehensive.` }] }],
       tools: [{ google_search: {} }],
       generationConfig: { maxOutputTokens: 2048 },
-    }, 10000);
+    }, 30000);
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const groundingMeta = data.candidates?.[0]?.groundingMetadata || data.candidates?.[0]?.grounding_metadata || {};
