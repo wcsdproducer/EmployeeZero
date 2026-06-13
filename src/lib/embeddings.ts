@@ -5,7 +5,7 @@
  * for memories and notes, enabling intelligent knowledge retrieval.
  */
 
-import { GoogleGenAI } from "@google/genai";
+import { createGeminiClient } from "@/lib/geminiClient";
 
 const EMBEDDING_MODEL = "text-embedding-004";
 const EMBEDDING_DIMENSION = 256; // Compact vectors for Firestore storage
@@ -16,7 +16,7 @@ const EMBEDDING_DIMENSION = 256; // Compact vectors for Firestore storage
  */
 export async function embedText(apiKey: string, text: string): Promise<number[]> {
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
     const result = await ai.models.embedContent({
       model: EMBEDDING_MODEL,
       contents: text.substring(0, 2000), // Limit input to avoid token overflow

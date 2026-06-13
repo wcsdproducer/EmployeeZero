@@ -12,7 +12,7 @@
  */
 
 import { adminDb } from "@/lib/admin";
-import { GoogleGenAI } from "@google/genai";
+import { createGeminiClient } from "@/lib/geminiClient";
 
 /* ─── Types ─── */
 
@@ -146,7 +146,7 @@ async function clusterAndSynthesize(
   memories: MemoryDoc[],
   apiKey: string
 ): Promise<TopicCluster[]> {
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = createGeminiClient(apiKey);
 
   // Build the prompt with numbered memories for ID tracking
   const memoriesList = memories

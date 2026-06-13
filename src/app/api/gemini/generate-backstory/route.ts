@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { createGeminiClient } from "@/lib/geminiClient";
 import { verifyAuth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +18,8 @@ export async function POST(req: Request) {
     }
 
     const apiKey = process.env.GOOGLE_GENAI_API_KEY?.trim();
-    if (!apiKey) {
-      return NextResponse.json({ error: "Gemini API key is not configured on the server" }, { status: 500 });
-    }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = createGeminiClient(apiKey);
 
     const prompt = `Write a rich, engaging, and creative personality description for an AI executive agent.
 Agent Name: ${agentName}
