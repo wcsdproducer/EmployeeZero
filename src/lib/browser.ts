@@ -206,7 +206,7 @@ export async function webSearch(
     // Use Vertex AI Gemini generateContent with google_search grounding
     const t0 = Date.now();
     const data = await vertexGenerateContent("gemini-2.5-flash", {
-      contents: [{ parts: [{ text: `Research and provide detailed, factual information about: ${query}\n\nProvide specific numbers, data points, and sources where possible. Be thorough and comprehensive.` }] }],
+      contents: [{ role: "user", parts: [{ text: `Research and provide detailed, factual information about: ${query}\n\nProvide specific numbers, data points, and sources where possible. Be thorough and comprehensive.` }] }],
       tools: [{ google_search: {} }],
       generationConfig: { maxOutputTokens: 2048 },
     }, 10000);

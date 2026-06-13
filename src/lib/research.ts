@@ -24,7 +24,7 @@ async function generateSearchQueries(topic: string): Promise<string[]> {
     const data = await vertexGenerateContent(
       SYNTH_MODEL,
       {
-        contents: [{ parts: [{ text: `You are a research strategist. Given this research topic, generate exactly 5 specific, diverse search queries that would find comprehensive data from different angles. Cover: factual data/statistics, expert analysis, recent updates (2025-2026), practical/real-world examples, and comparison/context.
+        contents: [{ role: "user", parts: [{ text: `You are a research strategist. Given this research topic, generate exactly 5 specific, diverse search queries that would find comprehensive data from different angles. Cover: factual data/statistics, expert analysis, recent updates (2025-2026), practical/real-world examples, and comparison/context.
 
 Topic: "${topic}"
 
@@ -76,7 +76,7 @@ async function synthesize(topic: string, searchResults: string[], pageContents: 
     const data = await vertexGenerateContent(
       SYNTH_MODEL,
       {
-        contents: [{ parts: [{ text: `You are a senior research analyst. Compile a comprehensive, detailed research report from the data below.
+        contents: [{ role: "user", parts: [{ text: `You are a senior research analyst. Compile a comprehensive, detailed research report from the data below.
 
 RESEARCH TOPIC: "${topic}"
 
