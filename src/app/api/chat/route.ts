@@ -1023,29 +1023,40 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
             if (response.text) return response.text;
 
             // No text response — force a follow-up to get a verbal reply
-            console.warn("[Chat] Empty model response — forcing verbal follow-up");
-            contents.push({
-              role: "user" as const,
-              parts: [{ text: "Please respond to my message with a helpful verbal reply. Summarize what you just did or address what I said." }],
-            });
+            console.warn("[Chat] Empty model response — forcing verbal follow-up (no thinking, no tools)");
+            try {
+              contents.push({
+                role: "user" as const,
+                parts: [{ text: "Please respond to my message with a helpful verbal reply. Summarize what you just did or address what I said." }],
+              });
 
-            const retryResponse = await ai.models.generateContent({
-              model: "gemini-2.5-flash",
-              contents,
-              config: { systemInstruction: systemPrompt },
-            });
+              const retryResponse = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents,
+                config: { systemInstruction: systemPrompt },
+              });
 
-            return (
-              retryResponse.text ||
-              retryResponse.candidates?.[0]?.content?.parts?.filter((p: any) => p.text).map((p: any) => p.text).join("") ||
-              "I heard you, but I'm having trouble formulating a response. Could you try rephrasing?"
-            );
+              const retryText =
+                retryResponse.text ||
+                retryResponse.candidates?.[0]?.content?.parts?.filter((p: any) => p.text).map((p: any) => p.text).join("") ||
+                "";
+              if (retryText) return retryText;
+            } catch (retryErr: any) {
+              console.warn("[Chat] Retry also failed:", retryErr.message);
+            }
+
+            // Hard fallback — never let this throw
+            return "I heard you! I'm having a brief hiccup processing that. Could you try again?";
           };
 
           try {
             result = await callGemini(apiKey);
           } catch (err: any) {
-            if (apiKey !== platformKey && platformKey) {
+            const isEmptyOutputError = err.message?.includes("model output") || err.message?.includes("both be empty");
+            if (isEmptyOutputError) {
+              console.warn("[Chat] Gemini returned empty output, using fallback");
+              result = "I heard you! I had a brief processing hiccup. Could you try sending that again?";
+            } else if (apiKey !== platformKey && platformKey) {
               console.warn(`[Chat] User key failed (${err.message}), retrying with platform key`);
               result = await callGemini(platformKey);
             } else {
