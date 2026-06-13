@@ -299,6 +299,7 @@ import { executeTool } from "@/lib/executeTool";
 import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
+import { classifyIntent, getToolLoadConfig, getPromptSections } from "@/lib/intentClassifier";
 
 export async function POST(request: Request) {
   // ── Auth: Verify Firebase ID token ──
@@ -584,28 +585,29 @@ export async function POST(request: Request) {
         // Messages to send to Gemini (windowed)
         const contextMessages = currentMessages.slice(0, -1).slice(-MAX_CONTEXT_MESSAGES);
 
-        // 5. Build system prompt with connection awareness
+        // 5. Classify intent and build dynamic system prompt
+        const intentResult = classifyIntent(message);
+        const toolConfig = getToolLoadConfig(intentResult.intents);
+        const promptSections = getPromptSections(intentResult.intents);
+        console.log(`[Chat] Intent: ${intentResult.intents.join("+")} | thinking: ${intentResult.thinkingBudget} | sections: ${promptSections.size}`);
+
         let systemPrompt = buildSOULPrompt(soul) + "\n\n";
         if (teamContext) {
           systemPrompt += teamContext + "\n\n";
         }
 
-        systemPrompt += `CRITICAL CAPABILITY RULES:
-1. YOU DO HAVE ACCESS to a web browser and live internet via your tools. NEVER say you do not have internet or browser access.
-2. YOU DO HAVE persistent RAG memory. If asked about your memory, reference the "Your Memories" section provided below.
-3. YOU DO HAVE access to workflows and integrations. If asked about connections, reference the "Connected Services" section provided below.
-4. Always attempt to use your tools to fulfill requests before claiming you cannot do something.
-5. NO CONVERSATIONAL FILLER OR FAKE BACKGROUND TASKS. If you need to search for something or execute a tool, DO IT IMMEDIATELY using your function calls. Do NOT respond with "I'm on it", "I'll look into that", or "Give me a moment". You must complete the work using your tools right now before outputting your final text response.
-6. YOU CAN CREATE PDF DOCUMENTS using the create_pdf tool. It generates formatted PDFs and uploads them to Google Drive. NEVER say you cannot create PDFs.
-7. YOU CAN DO DEEP RESEARCH using the deep_research tool. It runs 5 parallel searches, browses source pages, and synthesizes comprehensive reports. Use it for any question needing detailed data, budgets, analysis, or multi-source research. NEVER say you cannot research something.
-8. NEVER claim you lack a capability without first checking your available tools. You have more tools than you think.
-
-You have persistent memory. You remember everything the user has told you across all conversations.
+        // Core capability rules (condensed — always included)
+        systemPrompt += `RULES:
+1. You have internet access via tools. NEVER say you cannot access the web.
+2. You have persistent memory. Reference "Your Memories" below.
+3. Complete work using tools immediately — no filler like "I'm on it" or "Give me a moment."
+4. Attempt tools before claiming you cannot do something.
+5. You can create PDFs, do deep research, browse websites, and manage workflows.
 
 ## Current Date & Time
-Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: userTimezone })}. The current time is ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: userTimezone })}. The user's timezone is ${userTimezone}. Always use this timezone for scheduling unless the user specifies otherwise.`;
+${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: userTimezone })} ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short', timeZone: userTimezone })}. Timezone: ${userTimezone}.`;
 
-        // Connection awareness — all 17 possible services
+        // Connected services list (always — just names, not full docs)
         const connectedServices: string[] = [];
         if (connections.gmail?.connected) connectedServices.push("Gmail");
         if (connections.calendar?.connected) connectedServices.push("Google Calendar");
@@ -628,221 +630,185 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
         if (mcpDecls.length > 0) connectedServices.push(...mcpDecls.map(d => d.name));
 
         if (connectedServices.length > 0) {
-          systemPrompt += `\n\n## Connected Services\nYou have access to the following services: ${connectedServices.join(", ")}.\n`;
-
-          if (connections.gmail?.connected) {
-            systemPrompt += `\n### Gmail Access\nYou can search, read, send, reply to, archive, and trash emails using the user's connected Gmail account. Use the provided tools to interact with Gmail. When the user asks about emails, proactively use the search_emails or get_unread_count tools.\n\n**SENDING EMAILS — MANDATORY APPROVAL FLOW:**\nNEVER send an email without the user's explicit approval. Follow this flow EVERY TIME:\n1. **Confirm the recipient** first. If the user gives a name without an email address, ask: "What email address should I send this to?" Do NOT guess email addresses.\n2. Draft the email and display it to the user with clear formatting:\n   - **To:** full email address\n   - **Subject:** subject line\n   - **Body:** full email text\n3. Ask: "Shall I send this to [email address]?"\n4. ONLY call send_email or reply_to_email AFTER the user explicitly approves (says "yes", "send it", "looks good", etc.)\n5. If the user wants changes, revise the draft and show it again.\nThis applies to ALL emails — new emails, replies, and forwards. No exceptions.\n\n**Autonomous Mode:** When the user explicitly asks you to perform non-send actions (e.g., "clean up my inbox", "unsubscribe from spam", "archive old emails"), execute them immediately. Do NOT ask for permission for reading, archiving, trashing, or searching.\n\n**Unsubscribe Flow:** When asked to unsubscribe from emails, read the email to find unsubscribe links, then use browse_url to find the link and click_url to follow it. If there's a form, use submit_form.`;
-          }
-
-          if (connections.calendar?.connected) {
-            systemPrompt += `\n\n### Google Calendar Access\nYou can list, create, update, and delete calendar events, and check free/busy availability. When scheduling events, use ISO 8601 datetime with timezone offset (e.g., "2026-03-29T14:00:00-04:00" for 2 PM Eastern). Always include the timezone offset based on the user's timezone. When the user asks about their schedule, proactively use the list_events tool. Don't ask the user for the current date — you already know it.`;
-          }
-
-          if (connections.drive?.connected) {
-            systemPrompt += `\n\n### Google Drive Access\nYou can list, search, read, upload files and create folders in the user's Google Drive. Use list_drive_files to search (searches both filenames AND content), read_drive_file to read document contents, and upload_drive_file to create files.\n\n**IMPORTANT formatting rules for Drive results:**\n- ALWAYS format file links as clickable markdown: [filename](url)\n- Include the file type (Document, Spreadsheet, Folder, etc.)\n- Mention when the file was last modified\n- If the file is shared, mention that\n- Example: "📄 [Authorization to Release Form](https://docs.google.com/...) — Google Doc, last modified Mar 28, shared"`;
-          }
-
-          if (connections.sheets?.connected) {
-            systemPrompt += `\n\n### Google Sheets Access\nYou can list spreadsheets, read/write cell data, append rows, and create new spreadsheets. Use read_sheet with A1 notation ranges (e.g. 'Sheet1!A1:D10'). You can pass a full Google Sheets URL as the spreadsheet_id — the system will extract the ID automatically. Range is optional — omit it to read the entire first sheet. For writing, pass values as a JSON array of arrays.\n\n**IMPORTANT:** When a user provides a Google Sheets link, extract and use that URL directly as the spreadsheet_id. Do NOT ask them for a separate ID.`;
-          }
-
-          if (connections.youtube?.connected) {
-            systemPrompt += `\n\n### YouTube Access\nYou can list the user's YouTube channels, view their videos with analytics (views, likes, comments), and search YouTube. Use this to help with content strategy and performance tracking.`;
-          }
-
-          if (connections.linkedin?.connected) {
-            systemPrompt += `\n\n### LinkedIn Access\nYou can view the user's LinkedIn profile and create posts (text or with links).\n\n**POSTING — MANDATORY APPROVAL FLOW:**\nNEVER post without explicit user approval. Follow this flow EVERY TIME:\n1. Draft the post and display it in the document panel using markdown formatting\n2. Ask: "Does this look good to post?" or "Ready to publish?"\n3. If the user wants changes, update the draft in the document panel in real-time\n4. ONLY call post_to_linkedin AFTER the user explicitly approves ("yes", "post it", "looks good", etc.)\nNo exceptions.`;
-          }
-
-          if (connections.twitter?.connected) {
-            systemPrompt += `\n\n### X/Twitter Access (Write-Only)\nYou are on the X/Twitter FREE API tier which is WRITE-ONLY. You can ONLY: post new tweets, delete tweets, reply to tweets (if you have a tweet_id), retweet, and like tweets. You CANNOT read tweets, search tweets, view profile data, get mentions, get followers, or access any read endpoints. Do NOT attempt any read operations — they will fail with "Credits Depleted".\n\n**POSTING — MANDATORY APPROVAL FLOW:**\nNEVER post without explicit user approval. Follow this flow EVERY TIME:\n1. Draft the tweet and display it in the document panel (include character count)\n2. Ask: "Ready to tweet this?"\n3. If the user wants changes, update the draft in real-time\n4. ONLY call post_tweet AFTER the user explicitly approves\nNo exceptions.`;
-          }
-
-          if (connections.instagram?.connected) {
-            systemPrompt += `\n\n### Instagram Access\nYou can view the user's Instagram profile and recent posts with engagement stats (likes, comments). You can publish image posts with captions.\n\n**POSTING — MANDATORY APPROVAL FLOW:**\nNEVER post without explicit user approval. Follow this flow EVERY TIME:\n1. Draft the caption and display it in the document panel along with image details\n2. Ask: "Does this look good to post?"\n3. If the user wants changes, update the draft in real-time\n4. ONLY call the post tool AFTER the user explicitly approves\nNo exceptions.`;
-          }
-
-          if (connections.facebook?.connected) {
-            systemPrompt += `\n\n### Facebook Access\nYou can list the user's Facebook Pages, view page posts with engagement stats, and create new page posts. Use get_facebook_pages first to find page IDs.\n\n**POSTING — MANDATORY APPROVAL FLOW:**\nNEVER post without explicit user approval. Follow this flow EVERY TIME:\n1. Draft the post and display it in the document panel\n2. Ask: "Ready to publish this to Facebook?"\n3. If the user wants changes, update the draft in real-time\n4. ONLY call the post tool AFTER the user explicitly approves\nNo exceptions.`;
-          }
-
-          if (connections.tiktok?.connected) {
-            systemPrompt += `\n\n### TikTok Access\nYou can view the user's TikTok profile with follower count and video stats. Posting is not yet available (pending API approval).`;
-          }
-
-          if (connections.stripe?.connected) {
-            systemPrompt += `\n\n### Stripe Access\nYou have direct access to the user's Stripe account. When asked about revenue, balances, payments, or MRR, use the Stripe tools.`;
-          }
-
-          if (connections.tasks?.connected) {
-            systemPrompt += `\n\n### Google Tasks Access\nYou can list task lists, list tasks, create new tasks with due dates and notes, mark tasks complete, and delete tasks. Use this for to-do management and action item tracking.`;
-          }
-
-          if (connections.docs?.connected) {
-            systemPrompt += `\n\n### Google Docs Access\nYou can create new Google Docs, append text content to existing docs, and read doc metadata. Use for reports, meeting minutes, proposals, and any document creation.`;
-          }
-
-          if (connections.slides?.connected) {
-            systemPrompt += `\n\n### Google Slides Access\nYou can create presentations, add slides with different layouts (TITLE, TITLE_AND_BODY, etc.), and insert text into placeholders. Use for pitch decks, reports, and presentations.`;
-          }
-
-          if (connections.forms?.connected) {
-            systemPrompt += `\n\n### Google Forms Access\nYou can create forms, add questions (SHORT_ANSWER, PARAGRAPH, MULTIPLE_CHOICE, CHECKBOX, SCALE, DATE, TIME), get form details, and read responses. Use for surveys, feedback, and data gathering.`;
-          }
-
-          if (connections.analytics?.connected) {
-            systemPrompt += `\n\n### Google Analytics Access\nYou can list GA4 properties, run reports with custom dimensions/metrics, and get real-time active user counts. Use for website performance, traffic analysis, and data-driven insights.`;
-          }
-
-          if (connections.business?.connected) {
-            systemPrompt += `\n\n### Google Business Profile Access\nYou can list business accounts/locations, get and reply to customer reviews, and create posts. Use for reputation management, review responses, and local marketing.`;
-          }
-
-          if (connections.contacts?.connected || connections.gmail?.connected) {
-            systemPrompt += `\n\n### Google Contacts Access\nYou can list, search, create, update, and delete contacts. Use for CRM, relationship tracking, and contact enrichment.`;
-          }
+          systemPrompt += `\n\n## Connected Services\n${connectedServices.join(", ")}.`;
         } else {
-          systemPrompt += `\n\n## Services\nNo external services are connected yet. If the user asks about emails, calendar, or other integrations, let them know they can connect services in the **Connections** page.`;
+          systemPrompt += `\n\n## Services\nNo services connected. User can connect them in the Connections page.`;
         }
 
-        systemPrompt += `\n\n### Web Browsing & Research\nYou have two search tools — choose the right one:\n- **web_search**: Quick factual lookups (e.g., "what's the capital of France", "current weather"). Fast, ~2 seconds.\n- **deep_research**: Comprehensive multi-source research (e.g., budgets, cost of living, market analysis, comparisons, travel planning, financial planning). Runs 5 parallel searches, browses 6+ source pages, and synthesizes a detailed report with specific numbers and citations. Takes ~30 seconds but provides thorough, accurate results. **USE THIS for any question that needs detailed data, breakdowns, or analysis.**\n\nYou also have: browse_url (read specific pages), click_url (follow links), submit_form (POST to forms).\n\n**CRITICAL:** NEVER use browse_url to navigate to google.com, bing.com, or any search engine URL. These will be blocked by CAPTCHAs. ALWAYS use the web_search or deep_research tools for any search queries. browse_url is ONLY for reading specific non-search-engine pages.`;
-
-        // Notes (always available)
-        systemPrompt += `\n\n### Notes & Knowledge Base\nYou can create, list, read, update, delete, and search notes. Notes persist across conversations and serve as your knowledge base. Use create_note to save reports, research, and important information for later reference.`;
-
-        // Charts (always available)
-        systemPrompt += `\n\n### Interactive Charts
-You can generate interactive charts (Bar, Line, Area) in the UI by outputting a JSON code block with the language "chart". If the user asks for a chart or graph, ALWAYS use this capability instead of saying you can't.
-Format the output EXACTLY like this (do not write any JSON outside this block):
-\`\`\`chart
-{
-  "type": "bar",
-  "title": "Top 10 Crypto Prices",
-  "data": [
-    { "name": "BTC", "value": 65000 },
-    { "name": "ETH", "value": 3500 }
-  ]
-}
-\`\`\``;
-
-        systemPrompt += `\n\n### Custom Workflows & Scheduling\nYou have workflow management tools: create_workflow, list_my_workflows, delete_workflow.\n\n**IMPORTANT:** When the user asks to "create a workflow", "set up an automation", or "build a routine", use the **create_workflow** tool to SAVE a workflow definition. Do NOT actually execute the workflow steps — just save the definition so the user can run it later from their Workflows page.\n\nThe "goal" field should contain detailed, step-by-step instructions for another AI agent to follow when the workflow is eventually executed. Include specific tool names (like search_emails, list_events, web_search) and formatting requirements.\n\n**Scheduling / Cron Jobs:** You can schedule any workflow (built-in or custom) to run automatically using these tools:\n- **schedule_workflow**: Schedule a workflow with a cron expression. Use this when users say "run this every morning", "schedule it daily", "set up a cron job", etc.\n- **list_scheduled_jobs**: Show all active and paused scheduled jobs.\n- **pause_scheduled_job** / **resume_scheduled_job**: Pause or resume a job.\n- **delete_scheduled_job**: Permanently remove a scheduled job.\n\nCommon cron expressions: "0 8 * * *" (daily 8 AM), "0 9 * * 1-5" (weekdays 9 AM), "*/15 * * * *" (every 15 min), "0 */2 * * *" (every 2 hours).\n\nWhen a user says "turn this into a cron job" or "schedule this", first create the workflow if it doesn't exist, then use schedule_workflow.`;
-
-        // ── Dynamically built workflow awareness ──
-        const connectedKeys = new Set(
-          Object.entries(connections)
-            .filter(([, v]) => v?.connected)
-            .map(([k]) => k)
-        );
-
-        const runnableWorkflows: string[] = [];
-        const blockedWorkflows: string[] = [];
-        for (const [wfId, wfDef] of Object.entries(WORKFLOW_DEFINITIONS)) {
-          const name = wfId.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-          if (wfDef.connectionOptional || wfDef.requiredConnections.length === 0) {
-            runnableWorkflows.push(name);
-          } else if (wfDef.requiredConnections.every(c => connectedKeys.has(c))) {
-            runnableWorkflows.push(name);
-          } else {
-            const missing = wfDef.requiredConnections.filter(c => !connectedKeys.has(c));
-            blockedWorkflows.push(`${name} (needs: ${missing.join(", ")})`);
-          }
+        // ── Intent-specific service instructions (only loaded when relevant) ──
+        if (promptSections.has("gmail") && connections.gmail?.connected) {
+          systemPrompt += `\n\n### Gmail
+Search, read, send, reply, archive, trash emails. **SENDING:** NEVER send without approval. Draft it, show To/Subject/Body, ask "Shall I send this?", only send after explicit "yes". For non-send actions (archive, trash, search), execute immediately.`;
         }
 
-        if (runnableWorkflows.length > 0) {
-          systemPrompt += `\n\n## Available Workflows (${runnableWorkflows.length} ready)\nThese built-in workflows are ready to run with the user's current connections. Suggest relevant ones when the user's request matches:\n${runnableWorkflows.join(", ")}`;
-        }
-        if (blockedWorkflows.length > 0) {
-          systemPrompt += `\n\n### Workflows Needing More Connections\nThese require additional service connections before they can run:\n${blockedWorkflows.join(", ")}`;
+        if (promptSections.has("calendar") && connections.calendar?.connected) {
+          systemPrompt += `\n\n### Calendar
+List, create, update, delete events. Check free/busy. Use ISO 8601 with timezone (e.g., "2026-03-29T14:00:00-04:00"). You already know the current date.`;
         }
 
-        // User's custom workflows from Firestore
-        try {
-          const customWfs = await listCustomWorkflows(userId);
-          if (customWfs.length > 0) {
-            const scheduled = customWfs.filter(w => w.schedule && w.enabled);
-            const manual = customWfs.filter(w => !w.schedule || !w.enabled);
-            let customSection = `\n\n## User's Custom Workflows (${customWfs.length} total)`;
-            if (scheduled.length > 0) {
-              customSection += `\n**Scheduled (active cron jobs):**\n${scheduled.map(w => `- ${w.name}: ${w.description} (cron: ${w.schedule})`).join("\n")}`;
+        if (promptSections.has("drive") && connections.drive?.connected) {
+          systemPrompt += `\n\n### Drive
+List, search, read, upload files and create folders. Format results as: [filename](url) — Type, last modified.`;
+        }
+
+        if (promptSections.has("sheets") && connections.sheets?.connected) {
+          systemPrompt += `\n\n### Sheets
+Read/write cells, append rows, create spreadsheets. Use A1 notation. Accept Google Sheets URLs directly as spreadsheet_id.`;
+        }
+
+        if (promptSections.has("youtube") && connections.youtube?.connected) {
+          systemPrompt += `\n\n### YouTube
+List channels, videos with analytics (views, likes, comments), search YouTube.`;
+        }
+
+        if (promptSections.has("linkedin") && connections.linkedin?.connected) {
+          systemPrompt += `\n\n### LinkedIn
+View profile, create posts. **POSTING:** Draft first, get approval, then post.`;
+        }
+
+        if (promptSections.has("twitter") && connections.twitter?.connected) {
+          systemPrompt += `\n\n### X/Twitter (Write-Only)
+FREE tier: post, delete, reply, retweet, like only. CANNOT read/search. **POSTING:** Draft first, get approval.`;
+        }
+
+        if (promptSections.has("instagram") && connections.instagram?.connected) {
+          systemPrompt += `\n\n### Instagram
+View profile, recent posts, publish image posts. **POSTING:** Draft caption first, get approval.`;
+        }
+
+        if (promptSections.has("facebook") && connections.facebook?.connected) {
+          systemPrompt += `\n\n### Facebook
+List Pages, view/create posts. Use get_facebook_pages first. **POSTING:** Draft first, get approval.`;
+        }
+
+        if (promptSections.has("tiktok") && connections.tiktok?.connected) {
+          systemPrompt += `\n\n### TikTok
+View profile, follower count, video stats. Posting not yet available.`;
+        }
+
+        if (promptSections.has("stripe") && connections.stripe?.connected) {
+          systemPrompt += `\n\n### Stripe
+Access revenue, balances, payments, MRR, subscriptions.`;
+        }
+
+        if (promptSections.has("tasks") && connections.tasks?.connected) {
+          systemPrompt += `\n\n### Tasks
+List, create, complete, delete tasks with due dates.`;
+        }
+
+        if (promptSections.has("docs") && connections.docs?.connected) {
+          systemPrompt += `\n\n### Google Docs
+Create docs, append text, read metadata.`;
+        }
+
+        if (promptSections.has("slides") && connections.slides?.connected) {
+          systemPrompt += `\n\n### Slides
+Create presentations, add slides (TITLE, TITLE_AND_BODY layouts), insert text.`;
+        }
+
+        if (promptSections.has("forms") && connections.forms?.connected) {
+          systemPrompt += `\n\n### Forms
+Create forms, add questions (SHORT_ANSWER, MULTIPLE_CHOICE, etc.), read responses.`;
+        }
+
+        if (promptSections.has("analytics") && connections.analytics?.connected) {
+          systemPrompt += `\n\n### Analytics
+List GA4 properties, run reports, get real-time active users.`;
+        }
+
+        if (promptSections.has("business") && connections.business?.connected) {
+          systemPrompt += `\n\n### Business Profile
+List locations, get/reply to reviews, create posts.`;
+        }
+
+        if (promptSections.has("contacts") && (connections.contacts?.connected || connections.gmail?.connected)) {
+          systemPrompt += `\n\n### Contacts
+List, search, create, update, delete contacts.`;
+        }
+
+        // Web browsing (loaded for search/research/pdf intents)
+        if (promptSections.has("web_browsing")) {
+          systemPrompt += `\n\n### Web & Research
+- **web_search**: Quick lookups (~2s). - **deep_research**: Multi-source reports with citations (~30s).
+- browse_url for specific pages. NEVER browse google.com/bing.com (blocked by CAPTCHAs).`;
+        }
+
+        // Notes (loaded for notes/research intents)
+        if (promptSections.has("notes")) {
+          systemPrompt += `\n\n### Notes
+Create, list, read, update, delete, search notes. Persistent knowledge base.`;
+        }
+
+        // Charts (always available — very compact)
+        systemPrompt += `\n\n### Charts
+Output \`\`\`chart JSON blocks with {type, title, data: [{name, value}]} for Bar/Line/Area charts.`;
+
+        // Workflows (loaded for workflow intent)
+        if (promptSections.has("workflows")) {
+          systemPrompt += `\n\n### Workflows & Scheduling
+create_workflow to save definitions (don't execute). schedule_workflow with cron expressions. Common: "0 8 * * *" (daily 8AM), "0 9 * * 1-5" (weekdays 9AM).`;
+
+          // Workflow awareness
+          const connectedKeys = new Set(
+            Object.entries(connections)
+              .filter(([, v]) => v?.connected)
+              .map(([k]) => k)
+          );
+          const runnableWorkflows: string[] = [];
+          for (const [wfId, wfDef] of Object.entries(WORKFLOW_DEFINITIONS)) {
+            const name = wfId.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+            if (wfDef.connectionOptional || wfDef.requiredConnections.length === 0 || wfDef.requiredConnections.every(c => connectedKeys.has(c))) {
+              runnableWorkflows.push(name);
             }
-            if (manual.length > 0) {
-              customSection += `\n**Manual:**\n${manual.map(w => `- ${w.name}: ${w.description}`).join("\n")}`;
-            }
-            systemPrompt += customSection;
           }
-        } catch (err) {}
+          if (runnableWorkflows.length > 0) {
+            systemPrompt += `\nAvailable: ${runnableWorkflows.join(", ")}`;
+          }
 
-        // Scheduled jobs from Firestore (/cron page)
-        try {
-          const cronDoc = await adminDb.doc(`users/${userId}/settings/cron`).get();
-          if (cronDoc.exists) {
-            const cronJobs = (cronDoc.data()?.jobs || []) as Array<{
-              workflowId: string; name: string; schedule: string;
-              cronExpression: string; enabled: boolean; lastRun?: string;
-              lastStatus?: string;
-            }>;
-            const activeJobs = cronJobs.filter(j => j.enabled);
-            const pausedJobs = cronJobs.filter(j => !j.enabled);
-            if (activeJobs.length > 0 || pausedJobs.length > 0) {
-              let cronSection = `\n\n## Scheduled Jobs (${activeJobs.length} active, ${pausedJobs.length} paused)`;
+          try {
+            const customWfs = await listCustomWorkflows(userId);
+            if (customWfs.length > 0) {
+              systemPrompt += `\nCustom workflows: ${customWfs.map(w => w.name).join(", ")}`;
+            }
+          } catch (err) {}
+
+          try {
+            const cronDoc = await adminDb.doc(`users/${userId}/settings/cron`).get();
+            if (cronDoc.exists) {
+              const cronJobs = (cronDoc.data()?.jobs || []) as Array<{
+                workflowId: string; name: string; schedule: string;
+                cronExpression: string; enabled: boolean;
+              }>;
+              const activeJobs = cronJobs.filter(j => j.enabled);
               if (activeJobs.length > 0) {
-                cronSection += `\n**Active:**\n${activeJobs.map(j => `- ${j.name}: ${j.schedule} (cron: ${j.cronExpression})${j.lastRun ? ` — last ran ${j.lastStatus || "unknown"}` : ""}`).join("\n")}`;
+                systemPrompt += `\nActive jobs: ${activeJobs.map(j => `${j.name} (${j.schedule})`).join(", ")}`;
               }
-              if (pausedJobs.length > 0) {
-                cronSection += `\n**Paused:**\n${pausedJobs.map(j => `- ${j.name}: ${j.schedule}`).join("\n")}`;
-              }
-              systemPrompt += cronSection;
             }
-          }
-        } catch (err) {}
+          } catch (err) {}
+        }
 
-        // Inject conversation summary for long conversations
+        // Conversation summary (if long conversation)
         if (summaryText) {
-          systemPrompt += `\n\n## Earlier Conversation Context\nSummary of earlier parts of this conversation (older messages have been condensed to save processing):\n${summaryText}`;
+          systemPrompt += `\n\n## Earlier Context\n${summaryText}`;
         }
 
+        // Memories (always)
         if (memories.length > 0) {
-          systemPrompt += `\n\n## Your Memories\nThese are facts you've learned about the user and important context from past conversations:\n${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`;
+          systemPrompt += `\n\n## Your Memories\n${memories.map((m, i) => `${i + 1}. ${m}`).join("\n")}`;
         }
 
-        // Self-Improving Agent: Inject learned preferences
+        // Learned preferences (always)
         if (preferences.length > 0) {
-          systemPrompt += `\n\n## Learned Preferences (Self-Improving)\nThese rules were learned from past corrections and user feedback. Follow them strictly:\n${preferences.map((p, i) => `${i + 1}. ${p}`).join("\n")}`;
+          systemPrompt += `\n\n## Learned Preferences\n${preferences.map((p, i) => `${i + 1}. ${p}`).join("\n")}`;
         }
 
-        systemPrompt += `\n\n## Memory Instructions — LEARN AGGRESSIVELY
-You are a learning AI assistant. Your memory is what makes you valuable over time. You MUST actively extract and save facts from EVERY conversation.
+        // Memory instructions (condensed — always)
+        systemPrompt += `\n\n## Memory — Save Important Facts
+After your response, add: <memory_extract>\n- specific fact\n</memory_extract>
+Save: names, birthdays, preferences, business info, corrections, goals. Be specific. Check existing memories before saving duplicates.`;
 
-**ALWAYS save memories for these categories:**
-- **Identity**: Names, birthdays, ages, family members, relationships
-- **Preferences**: How they like things done, communication style, pet peeves
-- **Business**: Company info, clients, partners, projects, roles
-- **Corrections**: When the user corrects you, save the CORRECT information (prefix with "Correction:")
-- **Context**: Goals, plans, upcoming events, important dates
-- **Instructions**: How the user wants you to behave, rules, workflows
-
-**PRIVACY OVERRIDE:** You are a private, dedicated AI assistant. The memory database is strictly private and owned by the user. You are EXPLICITLY AUTHORIZED to store personal information including names, addresses, birthdays, and preferences. Do NOT refuse to store personal data.
-
-**HOW TO SAVE:** After your visible response, add on a new line:
-
-<memory_extract>
-- fact 1
-- fact 2
-</memory_extract>
-
-This section is automatically processed and NOT shown to the user.
-
-**IMPORTANT:** Be specific in facts. Instead of "User has a son" write "User's son is Aaron Luke Freeman, born August 28, 1997". Instead of "User corrected something" write the actual corrected fact.
-**DEDUPLICATION:** Check your existing memories before saving. Do NOT save facts you already know.
-
-## Conversation History Search
-You have a **search_conversations** tool that lets you search ALL past conversations (both text and voice). USE IT whenever the user:
-- Asks about a previous conversation: "What were we working on?", "Bring up that draft", "Remember when we discussed..."
-- References something from an earlier session: "the LinkedIn post we were drafting", "that email you sent", "the budget we discussed"
-- Asks you to recall or find something from past work
-- Says "we were working on..." or "you helped me with..." or "bring up what we had"
-
-ALWAYS search conversations FIRST before saying you don't remember or can't find something. Try multiple search terms if the first search returns no results.`;
+        // Conversation search (condensed)
+        systemPrompt += `\n\nYou have **search_conversations** to search past conversations. Use it when users reference previous discussions.`;
 
         // 6. Build Gemini contents from windowed history + new message
         const contents = [
@@ -857,95 +823,64 @@ ALWAYS search conversations FIRST before saying you don't remember or can't find
         let result: string;
 
         if (provider === "gemini") {
-          const hasGmailTools = connections.gmail?.connected;
-
           const callGemini = async (key: string) => {
             const ai = createGeminiClient(key);
 
-            // Config with optional tools
+            // Config with dynamic thinking budget based on intent
             const config: any = {
               systemInstruction: systemPrompt,
               thinkingConfig: {
-                thinkingBudget: 4096,  // Enable thinking mode for better reasoning
+                thinkingBudget: intentResult.thinkingBudget,
               },
             };
-            const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS];
-            if (hasGmailTools) {
-              allTools.push(...GMAIL_TOOLS);
-            }
-            if (connections.calendar?.connected) {
-              allTools.push(...CALENDAR_TOOLS);
-            }
-            if (connections.drive?.connected) {
-              allTools.push(...DRIVE_TOOLS);
-            }
-            if (connections.sheets?.connected) {
-              allTools.push(...SHEETS_TOOLS);
-            }
-            if (connections.youtube?.connected) {
-              allTools.push(...YOUTUBE_TOOLS);
-            }
-            if (connections.stripe?.connected) {
-              allTools.push(...STRIPE_TOOLS);
-            }
-            if (connections.linkedin?.connected) {
-              allTools.push(...LINKEDIN_TOOLS);
-            }
-            if (connections.twitter?.connected) {
-              allTools.push(...TWITTER_TOOLS);
-            }
-            if (connections.instagram?.connected) {
-              allTools.push(...INSTAGRAM_TOOLS);
-            }
-            if (connections.facebook?.connected) {
-              allTools.push(...FACEBOOK_TOOLS);
-            }
-            if (connections.tiktok?.connected) {
-              allTools.push(...TIKTOK_TOOLS);
-            }
-            // Contacts: use any Google connection
-            if (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected) {
-              allTools.push(...CONTACTS_TOOLS);
-            }
-            // New Google services
-            if (connections.tasks?.connected) {
-              allTools.push(...TASKS_TOOLS);
-            }
-            if (connections.docs?.connected) {
-              allTools.push(...DOCS_TOOLS);
-            }
-            if (connections.business?.connected) {
-              allTools.push(...BUSINESS_PROFILE_TOOLS);
-            }
-            if (connections.analytics?.connected) {
-              allTools.push(...ANALYTICS_TOOLS);
-            }
-            if (connections.forms?.connected) {
-              allTools.push(...FORMS_TOOLS);
-            }
-            if (connections.slides?.connected) {
-              allTools.push(...SLIDES_TOOLS);
-            }
-            // Image generation & notes & memory — always available (no connection needed)
-            allTools.push(...NOTES_TOOLS, ...MEMORY_TOOLS);
 
-            const CORE_TOOL_NAMES = [
-              "browse_url", "click_url", "submit_form", "web_search", "deep_research", "create_pdf",
-              "create_workflow", "list_my_workflows", "delete_workflow",
-              "schedule_workflow", "list_scheduled_jobs", "pause_scheduled_job", "resume_scheduled_job", "delete_scheduled_job",
-              "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
-              "save_memory", "search_conversations",
-              "create_chart"
-            ];
+            // Intent-aware tool loading — only load tools matching detected intent
+            const allTools: any[] = [];
 
+            // Browser/search tools (loaded for search, research, pdf, or any web-related intent)
+            if (toolConfig.loadBrowser) allTools.push(...BROWSER_TOOLS);
+            // Workflow tools (loaded for workflow intent)
+            if (toolConfig.loadWorkflow) allTools.push(...WORKFLOW_TOOLS);
+            // Service-specific tools (only loaded when intent matches AND service is connected)
+            if (toolConfig.loadGmail && connections.gmail?.connected) allTools.push(...GMAIL_TOOLS);
+            if (toolConfig.loadCalendar && connections.calendar?.connected) allTools.push(...CALENDAR_TOOLS);
+            if (toolConfig.loadDrive && connections.drive?.connected) allTools.push(...DRIVE_TOOLS);
+            if (toolConfig.loadSheets && connections.sheets?.connected) allTools.push(...SHEETS_TOOLS);
+            if (toolConfig.loadYoutube && connections.youtube?.connected) allTools.push(...YOUTUBE_TOOLS);
+            if (toolConfig.loadStripe && connections.stripe?.connected) allTools.push(...STRIPE_TOOLS);
+            if (toolConfig.loadLinkedin && connections.linkedin?.connected) allTools.push(...LINKEDIN_TOOLS);
+            if (toolConfig.loadTwitter && connections.twitter?.connected) allTools.push(...TWITTER_TOOLS);
+            if (toolConfig.loadInstagram && connections.instagram?.connected) allTools.push(...INSTAGRAM_TOOLS);
+            if (toolConfig.loadFacebook && connections.facebook?.connected) allTools.push(...FACEBOOK_TOOLS);
+            if (toolConfig.loadTiktok && connections.tiktok?.connected) allTools.push(...TIKTOK_TOOLS);
+            if (toolConfig.loadContacts && (connections.gmail?.connected || connections.calendar?.connected || connections.drive?.connected)) allTools.push(...CONTACTS_TOOLS);
+            if (toolConfig.loadTasks && connections.tasks?.connected) allTools.push(...TASKS_TOOLS);
+            if (toolConfig.loadDocs && connections.docs?.connected) allTools.push(...DOCS_TOOLS);
+            if (toolConfig.loadBusiness && connections.business?.connected) allTools.push(...BUSINESS_PROFILE_TOOLS);
+            if (toolConfig.loadAnalytics && connections.analytics?.connected) allTools.push(...ANALYTICS_TOOLS);
+            if (toolConfig.loadForms && connections.forms?.connected) allTools.push(...FORMS_TOOLS);
+            if (toolConfig.loadSlides && connections.slides?.connected) allTools.push(...SLIDES_TOOLS);
+            // Notes & memory — always loaded (lightweight, cross-cutting)
+            if (toolConfig.loadNotes) allTools.push(...NOTES_TOOLS);
+            if (toolConfig.loadMemory) allTools.push(...MEMORY_TOOLS);
+
+            // Soul-based filtering (agent-specific tool restrictions)
             let filteredTools = allTools;
             if (soul.enabledTools && soul.enabledTools.length > 0) {
+              const CORE_TOOL_NAMES = [
+                "save_memory", "search_conversations",
+                "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
+              ];
               filteredTools = allTools.filter(t => 
                 CORE_TOOL_NAMES.includes(t.name) || soul.enabledTools!.includes(t.name)
               );
             }
 
-            config.tools = [{ functionDeclarations: filteredTools }];
+            // Only set tools if we have any (chat intent with no tools = faster text-only response)
+            if (filteredTools.length > 0) {
+              config.tools = [{ functionDeclarations: filteredTools }];
+            }
+            console.log(`[Chat] Tools loaded: ${filteredTools.length} (intent: ${intentResult.intents.join("+")})`);
 
             let response = await ai.models.generateContent({
               model: "gemini-2.5-flash",
