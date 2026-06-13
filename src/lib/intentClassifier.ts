@@ -108,7 +108,7 @@ const INTENT_KEYWORDS: Record<Intent, string[]> = {
 
 // Thinking budget per intent complexity
 const THINKING_BUDGETS: Record<Intent, number> = {
-  chat: 0,
+  chat: 256,
   email: 1024,
   calendar: 1024,
   drive: 1024,

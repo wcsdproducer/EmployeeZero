@@ -5,6 +5,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { FieldValue } from "firebase-admin/firestore";
 import { deepResearch } from "@/lib/research";
 import { createPDF } from "@/lib/pdf";
+import { embedText } from "@/lib/embeddings";
 import {
   listEmails,
   getEmail,
@@ -221,8 +222,23 @@ export async function executeTool(
     }
     case "web_search":
       return await webSearch(args.query);
-    case "deep_research":
-      return await deepResearch(args.topic);
+    case "deep_research": {
+      const researchResult = await deepResearch(args.topic);
+      // Auto-save research as a note for institutional knowledge
+      try {
+        const sourceList = researchResult.sources.map((s: any) => s.title || s.domain).filter(Boolean).join(", ");
+        await createNote(
+          userId,
+          `[Research] ${args.topic}`,
+          `${researchResult.report}\n\n---\nSources: ${sourceList}\nResearched: ${new Date().toISOString().split('T')[0]}`,
+          ["auto-research", ...args.topic.toLowerCase().split(/\s+/).slice(0, 3)]
+        );
+        console.log(`[Knowledge] Auto-saved research on "${args.topic}" as note`);
+      } catch (err) {
+        console.warn("[Knowledge] Failed to auto-save research:", err);
+      }
+      return researchResult;
+    }
     case "create_pdf":
       return await createPDF(userId, { title: args.title, content: args.content, author: args.author });
     // Stripe Tools
@@ -564,15 +580,31 @@ export async function executeTool(
     case "save_memory": {
       const facts: string[] = args.facts || [];
       if (facts.length === 0) return { status: "no_facts", message: "No facts provided to save." };
+      
+      // Generate embeddings for semantic search (get API key from user settings)
+      let apiKey = "";
+      try {
+        const settingsDoc = await adminDb.doc(`users/${userId}/settings/api`).get();
+        apiKey = settingsDoc.data()?.geminiKey || "";
+      } catch {}
+      
       const batch = adminDb.batch();
       for (const fact of facts) {
         const ref = adminDb.collection(`users/${userId}/memories`).doc();
-        batch.set(ref, {
+        const memoryData: any = {
           content: fact,
           agentId: "company",
           source: "voice",
           createdAt: FieldValue.serverTimestamp(),
-        });
+        };
+        // Generate embedding if API key available
+        if (apiKey) {
+          try {
+            const embedding = await embedText(apiKey, fact);
+            if (embedding.length > 0) memoryData.embedding = embedding;
+          } catch {}
+        }
+        batch.set(ref, memoryData);
       }
       await batch.commit();
       return { status: "saved", count: facts.length, facts };

@@ -204,15 +204,16 @@ interface ChatMessage {
 
 // ── Memory helpers ──────────────────────────────────────────────
 
-async function loadMemories(userId: string, agentId?: string): Promise<string[]> {
+async function loadMemories(userId: string, agentId?: string, query?: string, apiKey?: string): Promise<string[]> {
   try {
     const snap = await adminDb
       .collection(`users/${userId}/memories`)
-      .limit(100)
+      .limit(200)
       .get();
-    return snap.docs
-      .map((d) => d.data())
-      .filter((data) => {
+    
+    const allMemories = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((data: any) => {
         const docAgentId = data.agentId;
         if (!agentId) return true;
         return (
@@ -222,24 +223,61 @@ async function loadMemories(userId: string, agentId?: string): Promise<string[]>
           !docAgentId ||
           docAgentId === "primary"
         );
-      })
-      .slice(0, 50)
-      .map((data) => data.content as string);
+      });
+
+    // If we have a query and API key, try semantic search
+    if (query && apiKey) {
+      const withEmbeddings = allMemories.filter((m: any) => m.embedding && m.embedding.length > 0);
+      
+      if (withEmbeddings.length >= 5) {
+        // Use semantic search — import dynamically to avoid circular deps
+        const { semanticSearch } = await import("@/lib/embeddings");
+        const items = withEmbeddings.map((m: any) => ({
+          id: m.id,
+          content: m.content as string,
+          embedding: m.embedding as number[],
+        }));
+        const ranked = await semanticSearch(apiKey, query, items, 20, 0.25);
+        
+        // Also include knowledge summaries (always relevant)
+        const summaries = allMemories
+          .filter((m: any) => (m.content as string).startsWith("[Knowledge Summary]"))
+          .map((m: any) => m.content as string);
+        
+        const semanticResults = ranked.map(r => r.content);
+        // Merge: summaries first, then semantic results, deduplicated
+        const merged = [...new Set([...summaries, ...semanticResults])];
+        console.log(`[Memory] Semantic search: ${ranked.length} relevant (${withEmbeddings.length} embedded, ${allMemories.length} total)`);
+        return merged.slice(0, 30);
+      }
+    }
+    
+    // Fallback: return all memories (no embeddings available yet)
+    return allMemories.slice(0, 50).map((data: any) => data.content as string);
   } catch (err) {
     console.warn("Failed to load memories:", err);
     return [];
   }
 }
 
-async function storeMemories(userId: string, agentId: string, facts: string[]) {
+async function storeMemories(userId: string, agentId: string, facts: string[], apiKey?: string) {
   const batch = adminDb.batch();
   for (const fact of facts) {
     const ref = adminDb.collection(`users/${userId}/memories`).doc();
-    batch.set(ref, {
+    const memoryData: any = {
       agentId,
       content: fact,
       createdAt: new Date().toISOString(),
-    });
+    };
+    // Generate embedding for semantic search
+    if (apiKey) {
+      try {
+        const { embedText } = await import("@/lib/embeddings");
+        const embedding = await embedText(apiKey, fact);
+        if (embedding.length > 0) memoryData.embedding = embedding;
+      } catch {}
+    }
+    batch.set(ref, memoryData);
   }
   await batch.commit();
 }
@@ -548,7 +586,7 @@ export async function POST(request: Request) {
       try {
         // 4. Load memories + connections + preferences + learned behaviors
         const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext] = await Promise.all([
-          loadMemories(userId, agentId),
+          loadMemories(userId, agentId, message, apiKey),
           loadConnections(userId),
           loadUserTimezone(userId),
           loadPreferences(userId),
@@ -862,7 +900,7 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
             if (toolConfig.loadSlides && connections.slides?.connected) allTools.push(...SLIDES_TOOLS);
             // Notes & memory — always loaded (lightweight, cross-cutting)
             if (toolConfig.loadNotes) allTools.push(...NOTES_TOOLS);
-            if (toolConfig.loadMemory) allTools.push(...MEMORY_TOOLS);
+            allTools.push(...MEMORY_TOOLS); // Always load — ensures model always has tools
 
             // Soul-based filtering (agent-specific tool restrictions)
             let filteredTools = allTools;
@@ -876,10 +914,7 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
               );
             }
 
-            // Only set tools if we have any (chat intent with no tools = faster text-only response)
-            if (filteredTools.length > 0) {
-              config.tools = [{ functionDeclarations: filteredTools }];
-            }
+            config.tools = [{ functionDeclarations: filteredTools }];
             console.log(`[Chat] Tools loaded: ${filteredTools.length} (intent: ${intentResult.intents.join("+")})`);
 
             let response = await ai.models.generateContent({
@@ -1028,7 +1063,7 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
             .split("\n")
             .map((line) => line.replace(/^-\s*/, "").trim())
             .filter((line) => line.length > 0);
-          if (facts.length > 0) await storeMemories(userId, "company", facts);
+          if (facts.length > 0) await storeMemories(userId, "company", facts, apiKey);
           result = result.replace(/<memory_extract>[\s\S]*?<\/memory_extract>/, "").trim();
         }
 
