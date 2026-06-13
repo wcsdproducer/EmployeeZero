@@ -1150,10 +1150,15 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
       } catch (err: any) {
         console.error("Async Chat API error:", err);
         try {
+          // Add a visible error message so the user sees feedback
+          const errorMsg = (err.message?.includes("model output") || err.message?.includes("both be empty"))
+            ? "I had a brief processing hiccup. Could you try sending that again?"
+            : `Sorry, I encountered an issue: ${err.message || "Unknown error"}. Please try again.`;
           await convRef.update({
-            status: "error",
+            status: "idle",
             lastError: err.message || "Unknown error",
             currentAction: FieldValue.delete(),
+            messages: FieldValue.arrayUnion({ role: "assistant", content: errorMsg, timestamp: new Date().toISOString() }),
           });
         } catch {}
       }
