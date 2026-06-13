@@ -46,7 +46,7 @@ RULES:
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
-    const draft = response.text || "Unable to generate a draft. Please try again.";
+    let draft = "Unable to generate a draft. Please try again."; try { draft = response.text || draft; } catch {}
 
     return NextResponse.json({ draft });
   } catch (error: unknown) {

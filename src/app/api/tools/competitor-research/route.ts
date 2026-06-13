@@ -59,7 +59,8 @@ RULES:
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
-    return NextResponse.json({ report: response.text || "Unable to generate report." });
+    let report = "Unable to generate report."; try { report = response.text || report; } catch {}
+    return NextResponse.json({ report });
   } catch (error: unknown) {
     console.error("Competitor research error:", error);
     return NextResponse.json({ error: "Failed to generate report" }, { status: 500 });

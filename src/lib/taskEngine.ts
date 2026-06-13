@@ -1431,7 +1431,7 @@ When the goal is accomplished, call task_complete with a clean, beautifully form
 
     if (!fnCallPart?.functionCall) {
       // No function call — model gave a text response
-      const textResponse = response.text || "";
+      let textResponse = ""; try { textResponse = response.text || ""; } catch { textResponse = parts.filter((p: any) => p.text).map((p: any) => p.text).join(""); }
 
       // Determine if this is a genuine question requiring user input,
       // or just the model summarizing completed work
@@ -1791,7 +1791,7 @@ When the goal is accomplished, you MUST call task_complete with the FULL, DETAIL
     const fnCallPart = parts.find((p: any) => p.functionCall);
 
     if (!fnCallPart?.functionCall) {
-      const textResponse = response.text || "";
+      let textResponse = ""; try { textResponse = response.text || ""; } catch { textResponse = parts.filter((p: any) => p.text).map((p: any) => p.text).join(""); }
 
       // Check if the model is asking ANOTHER question
       if (textResponse && task.conversationId && !textResponse.includes("task_complete")) {

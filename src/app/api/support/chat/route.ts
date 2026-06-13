@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
       contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
     });
 
-    return NextResponse.json({ reply: response.text || "Sorry, I couldn't process that." });
+    let reply = "Sorry, I couldn't process that."; try { reply = response.text || reply; } catch {}
+    return NextResponse.json({ reply });
   } catch (err) {
     console.error("[EZ Support Chat] Error:", err);
     return NextResponse.json(

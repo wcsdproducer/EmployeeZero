@@ -270,7 +270,7 @@ async function summarizeOldMessages(
     contents: [{ role: "user", parts: [{ text: prompt }] }],
   });
 
-  return response.text || existingSummary || "";
+  try { return response.text || existingSummary || ""; } catch { return existingSummary || ""; }
 }
 
 // ── Tool declarations ───────────────────────────────────────────

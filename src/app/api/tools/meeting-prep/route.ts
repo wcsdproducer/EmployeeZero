@@ -64,7 +64,8 @@ RULES:
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
-    return NextResponse.json({ brief: response.text || "Unable to generate brief." });
+    let brief = "Unable to generate brief."; try { brief = response.text || brief; } catch {}
+    return NextResponse.json({ brief });
   } catch (error: unknown) {
     console.error("Meeting prep error:", error);
     return NextResponse.json({ error: "Failed to generate brief" }, { status: 500 });

@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         responseMimeType: "application/json"
       }
     });
-    const responseText = result.text;
+    let responseText = ""; try { responseText = result.text || ""; } catch { responseText = result.candidates?.[0]?.content?.parts?.filter((p: any) => p.text).map((p: any) => p.text).join("") || ""; }
     const cleanedJson = responseText.replace(/```json|```/g, "").trim();
     console.log("CLEANED JSON:", cleanedJson);
     const data = JSON.parse(cleanedJson);
