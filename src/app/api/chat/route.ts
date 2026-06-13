@@ -327,7 +327,7 @@ async function summarizeOldMessages(
     contents: [{ role: "user", parts: [{ text: prompt }] }],
   });
 
-  return response.text || existingSummary || "";
+  try { return response.text || existingSummary || ""; } catch { return existingSummary || ""; }
 }
 
 // ── Tool declarations ───────────────────────────────────────────
@@ -581,9 +581,8 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    // Run Gemini and tool calling loop in background
-    after(async () => {
-      try {
+    // Run Gemini and tool calling loop inline (NOT in after() — Cloud Run throttles CPU after response)
+    try {
         // 4. Load memories + connections + preferences + learned behaviors
         const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext] = await Promise.all([
           loadMemories(userId, agentId, message, apiKey),
@@ -1163,9 +1162,8 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
           });
         } catch {}
       }
-    });
 
-    return NextResponse.json({ status: "started" });
+    return NextResponse.json({ status: "completed" });
   } catch (err: any) {
     console.error("Chat API error:", err);
 
