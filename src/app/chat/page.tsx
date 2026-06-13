@@ -777,7 +777,7 @@ function ChatPageInner() {
           agentId: selectedAgent.id,
           title: message.slice(0, 80),
           messages: [{ role: "user", content: message, timestamp: new Date().toISOString() }],
-          status: "running",
+          status: "idle",
           createdAt: Timestamp.now(),
         });
         convId = docRef.id;

@@ -581,9 +581,7 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    // Run Gemini processing as fire-and-forget — response returns immediately
-    // DO NOT await — Cloud Run keeps instance alive while promises are pending
-    (async () => {
+    // Run Gemini and tool calling loop inline — keeps HTTP request alive
     try {
         // 4. Load memories + connections + preferences + learned behaviors
         console.log(`[Chat] Step 4: Loading data...`);
@@ -1166,9 +1164,8 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
           });
         } catch {}
       }
-    })().catch(err => console.error('[Chat] Background processing failed:', err));
 
-    return NextResponse.json({ status: "processing" });
+    return NextResponse.json({ status: "completed" });
   } catch (err: any) {
     console.error("Chat API error:", err);
 
