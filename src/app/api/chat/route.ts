@@ -584,14 +584,15 @@ export async function POST(request: Request) {
     // Run Gemini and tool calling loop inline (NOT in after() — Cloud Run throttles CPU after response)
     try {
         // 4. Load memories + connections + preferences + learned behaviors
+        console.log(`[Chat] Step 4: Loading data...`);
         const [memories, connections, userTimezone, preferences, soul, mcpData, teamContext] = await Promise.all([
-          loadMemories(userId, agentId, message, apiKey),
-          loadConnections(userId),
-          loadUserTimezone(userId),
-          loadPreferences(userId),
-          loadUserSOUL(userId, agentId),
-          getMcpToolDeclarations(userId).catch(() => ({ declarations: [] })),
-          loadTeamContext(userId, agentId)
+          withTimeout(loadMemories(userId, agentId, message, apiKey), 15000, "loadMemories"),
+          withTimeout(loadConnections(userId), 15000, "loadConnections"),
+          withTimeout(loadUserTimezone(userId), 15000, "loadUserTimezone"),
+          withTimeout(loadPreferences(userId), 15000, "loadPreferences"),
+          withTimeout(loadUserSOUL(userId, agentId), 15000, "loadUserSOUL"),
+          withTimeout(getMcpToolDeclarations(userId).catch(() => ({ declarations: [] })), 15000, "getMcpToolDeclarations"),
+          withTimeout(loadTeamContext(userId, agentId), 15000, "loadTeamContext"),
         ]);
         const mcpDecls = mcpData.declarations || [];
         console.log(`[Chat] Step 4 done: ${memories.length} memories, ${Object.keys(connections).length} connections`);
