@@ -26,6 +26,23 @@ export async function browseUrl(
     normalizedUrl = `https://${normalizedUrl}`;
   }
 
+  // Block search engine URLs — they will CAPTCHA. Agent should use web_search tool instead.
+  const searchEnginePatterns = [
+    /google\.com\/(search|sorry)/i,
+    /bing\.com\/search/i,
+    /duckduckgo\.com\/\?q=/i,
+    /yahoo\.com\/search/i,
+    /baidu\.com\/s\?/i,
+  ];
+  if (searchEnginePatterns.some(p => p.test(normalizedUrl))) {
+    return {
+      title: "Search Engine Blocked",
+      url: normalizedUrl,
+      text: "ERROR: Cannot browse search engines directly — they block automated requests with CAPTCHAs. Use the web_search tool instead to search for information. Example: web_search({query: 'your search query here'})",
+      statusCode: 403,
+    };
+  }
+
   const res = await fetch(normalizedUrl, {
     headers: {
       "User-Agent":

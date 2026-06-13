@@ -233,7 +233,7 @@ ACCURACY — DO NOT HALLUCINATE:
     }
 
     // Browser capabilities (always available)
-    systemPrompt += `\n\n### Web Browsing & Research\nYou have two search tools — choose the right one:\n- **web_search**: Quick factual lookups. Fast, ~2 seconds.\n- **deep_research**: Comprehensive multi-source research (budgets, cost of living, market analysis, comparisons, travel planning). Runs 5 parallel searches, browses source pages, and synthesizes a detailed report. Takes ~30 seconds but gives thorough results. **USE THIS for any question needing detailed data or analysis.**\n\nYou also have: browse_url, click_url, submit_form.`;
+    systemPrompt += `\n\n### Web Browsing & Research\nYou have two search tools — choose the right one:\n- **web_search**: Quick factual lookups. Fast, ~2 seconds.\n- **deep_research**: Comprehensive multi-source research (budgets, cost of living, market analysis, comparisons, travel planning). Runs 5 parallel searches, browses source pages, and synthesizes a detailed report. Takes ~30 seconds but gives thorough results. **USE THIS for any question needing detailed data or analysis.**\n\nYou also have: browse_url, click_url, submit_form.\n\n**CRITICAL:** NEVER use browse_url to navigate to google.com, bing.com, or any search engine URL. These will be blocked by CAPTCHAs. ALWAYS use the web_search or deep_research tools for any search queries. browse_url is ONLY for reading specific non-search-engine pages.`;
 
     // Notes (always available)
     systemPrompt += `\n\n### Notes & Knowledge Base\nYou can create, list, read, update, delete, and search notes. Notes persist across conversations and serve as your knowledge base. Use create_note to save reports, research, and important information for later reference.`;
