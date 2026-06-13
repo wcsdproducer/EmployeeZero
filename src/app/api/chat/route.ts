@@ -1035,7 +1035,8 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
 
             // If we got text, return it
             if (textParts) return textParts;
-            if (response.text) return response.text;
+            // response.text is a getter that THROWS if response is empty — must wrap in try/catch
+            try { if (response.text) return response.text; } catch {}
 
             // No text response — force a follow-up to get a verbal reply
             console.warn("[Chat] Empty model response — forcing verbal follow-up (no thinking, no tools)");
