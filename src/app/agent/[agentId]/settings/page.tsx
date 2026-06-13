@@ -97,6 +97,7 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
   const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
   const [showAvatarGen, setShowAvatarGen] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [generatingBackstory, setGeneratingBackstory] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -187,6 +188,34 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
       setAvatarError(err.message || "Unexpected error.");
     } finally {
       setGeneratingAvatars(false);
+    }
+  }
+
+  async function handleGenerateBackstory() {
+    if (!user) return;
+    setGeneratingBackstory(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/gemini/generate-backstory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          agentName: config.agentName,
+          jobTitle: config.jobTitle,
+          tone: config.tone,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.backstory) {
+        setConfig((p) => ({ ...p, personality: data.backstory }));
+      } else {
+        alert(data.error || "Failed to generate backstory.");
+      }
+    } catch (err: any) {
+      console.error("Backstory generation error:", err);
+      alert(err.message || "Unexpected error generating backstory.");
+    } finally {
+      setGeneratingBackstory(false);
     }
   }
 
@@ -603,9 +632,29 @@ export default function AgentSettingsPage({ params }: { params: Promise<{ agentI
 
                 {/* Personality */}
                 <div>
-                  <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block mb-2 font-mono">
-                    Core Personality Description
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest block font-mono">
+                      Core Personality Description
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateBackstory}
+                      disabled={generatingBackstory}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/30 hover:border-purple-500/50 text-xs font-semibold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {generatingBackstory ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Giving Life...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={12} />
+                          Give a Life (AI)
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <textarea
                     value={config.personality}
                     onChange={(e) => setConfig((p) => ({ ...p, personality: e.target.value }))}
