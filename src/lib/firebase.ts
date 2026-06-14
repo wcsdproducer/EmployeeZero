@@ -31,30 +31,30 @@ export const functions = getFunctions(app);
 const googleProvider = new GoogleAuthProvider();
 
 export async function signInWithGoogle(): Promise<{ user: User | null; isNewUser: boolean }> {
-  // Detect mobile — go straight to redirect (popup is unreliable on mobile browsers)
-  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android|webOS|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent);
-
-  if (isMobile) {
-    await signInWithRedirect(auth, googleProvider);
-    return { user: null, isNewUser: false }; // redirect will reload the page
-  }
-
   try {
-    // Desktop: try popup first
+    // Use signInWithPopup universally — works on all modern browsers including mobile Safari.
+    // Firebase SDK v9.6+ stores auth state in indexedDB (not localStorage), so Safari ITP
+    // no longer blocks the result. Popup is faster (no full page reload) and more reliable.
+    googleProvider.addScope("email");
+    googleProvider.addScope("profile");
     const result = await signInWithPopup(auth, googleProvider);
     const { getAdditionalUserInfo } = await import("firebase/auth");
     const additionalInfo = getAdditionalUserInfo(result);
     return { user: result.user, isNewUser: !!additionalInfo?.isNewUser };
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
-    // If popup is blocked by COOP or browser policy, fall back to redirect
+    // Only fall back to redirect if popup was explicitly blocked by the browser.
+    // This can happen if the sign-in button isn't triggered by a direct user tap.
     if (
       code === "auth/popup-blocked" ||
-      code === "auth/popup-closed-by-user" ||
       code === "auth/cancelled-popup-request" ||
       code === "auth/internal-error"
     ) {
       await signInWithRedirect(auth, googleProvider);
+      return { user: null, isNewUser: false };
+    }
+    // auth/popup-closed-by-user is normal user behaviour — do not throw
+    if (code === "auth/popup-closed-by-user") {
       return { user: null, isNewUser: false };
     }
     throw err;
