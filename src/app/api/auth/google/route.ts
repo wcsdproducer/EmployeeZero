@@ -53,9 +53,11 @@ const SCOPE_MAP: Record<string, string[]> = {
   ],
 };
 
-function getRedirectUri() {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
-  return `${base}/api/auth/google/callback`;
+function getRedirectUri(request: Request) {
+  const url = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") || url.host;
+  return `${proto}://${host}/api/auth/google/callback`;
 }
 
 export async function GET(request: Request) {
@@ -88,7 +90,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, getRedirectUri());
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, getRedirectUri(request));
 
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: "offline",       // Get refresh token

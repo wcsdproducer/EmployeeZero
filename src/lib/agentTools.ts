@@ -807,6 +807,155 @@ export const SHEETS_TOOLS = [
       required: ["title"],
     },
   },
+
+  // ── Formatting Tools ────────────────────────────────────────────────────
+  {
+    name: "format_cells",
+    description: "Apply formatting to a range of cells in a Google Sheet using the Sheets API batchUpdate/repeatCell request. Use this for: bold, italic, underline, strikethrough, font size, font family, text color (foreground), background color, alignment, text wrap, and number format. IMPORTANT: You must know the exact spreadsheet URL or ID, the exact tab name (case-insensitive), and the range in A1 notation (e.g. 'A1:Z1' for row 1, '1:1' for entire row 1, 'B2:D10' for a block). Colors can be hex '#FF0000' or named: white, black, red, green, blue, yellow, orange, gray, lightgray, purple, pink, cyan, navy, gold. Always call get_spreadsheet_info first to confirm tab names.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name (e.g. 'Sheet1', 'Properties')" },
+        range: { type: Type.STRING, description: "A1 notation range. '1:1' = entire row 1, 'A1:Z1' = row 1 cols A-Z, 'A:A' = entire column A, 'B2:D10' = block. For multiple tabs, call this tool once per tab." },
+        bold: { type: Type.BOOLEAN, description: "true to bold, false to remove bold" },
+        italic: { type: Type.BOOLEAN, description: "true to italicize" },
+        underline: { type: Type.BOOLEAN, description: "true to underline" },
+        strikethrough: { type: Type.BOOLEAN, description: "true to strikethrough" },
+        font_size: { type: Type.NUMBER, description: "Font size in points (e.g. 11, 12, 14)" },
+        font_family: { type: Type.STRING, description: "Font name e.g. 'Arial', 'Roboto', 'Comic Sans MS'" },
+        foreground_color: { type: Type.STRING, description: "Text color: hex '#FF0000' or named (white, black, red, green, blue, yellow, orange, gray, purple, navy, gold)" },
+        background_color: { type: Type.STRING, description: "Cell background color: hex '#FF0000' or named color" },
+        horizontal_alignment: { type: Type.STRING, description: "LEFT, CENTER, or RIGHT" },
+        vertical_alignment: { type: Type.STRING, description: "TOP, MIDDLE, or BOTTOM" },
+        wrap_strategy: { type: Type.STRING, description: "OVERFLOW_CELL (default), CLIP, or WRAP" },
+        number_format_type: { type: Type.STRING, description: "Number format type: TEXT, NUMBER, PERCENT, CURRENCY, DATE, TIME, DATE_TIME, SCIENTIFIC" },
+        number_format_pattern: { type: Type.STRING, description: "Number format pattern e.g. '$#,##0.00' for currency, 'MM/DD/YYYY' for date" },
+      },
+      required: ["spreadsheet_id", "tab_name", "range"],
+    },
+  },
+  {
+    name: "format_row",
+    description: "Format an entire row by its row number (1-indexed) in a Google Sheet. Convenience shortcut for format_cells that targets the whole row. Use when the user says 'bold the first row', 'make row 1 bold', 'format the header row'. Always call get_spreadsheet_info first to get the exact tab name.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name" },
+        row_number: { type: Type.NUMBER, description: "Row number to format (1-indexed, so row 1 = the first row)" },
+        bold: { type: Type.BOOLEAN, description: "true to bold" },
+        italic: { type: Type.BOOLEAN, description: "true to italicize" },
+        underline: { type: Type.BOOLEAN, description: "true to underline" },
+        font_size: { type: Type.NUMBER, description: "Font size in points" },
+        font_family: { type: Type.STRING, description: "Font family name" },
+        foreground_color: { type: Type.STRING, description: "Text color: hex or named" },
+        background_color: { type: Type.STRING, description: "Background color: hex or named" },
+        horizontal_alignment: { type: Type.STRING, description: "LEFT, CENTER, or RIGHT" },
+      },
+      required: ["spreadsheet_id", "tab_name", "row_number"],
+    },
+  },
+  {
+    name: "freeze_rows",
+    description: "Freeze the top N rows of a tab so they stay visible when scrolling. Use row_count=1 to freeze just the header row (most common). Use row_count=0 to unfreeze all rows. IMPORTANT: 'freeze row 1' means freeze just 1 row (row_count=1), NOT row index 0.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name" },
+        row_count: { type: Type.NUMBER, description: "Number of rows to freeze from the top (1 = freeze just row 1, 2 = freeze rows 1 and 2, 0 = unfreeze)" },
+      },
+      required: ["spreadsheet_id", "tab_name", "row_count"],
+    },
+  },
+  {
+    name: "freeze_columns",
+    description: "Freeze the left N columns of a tab so they stay visible when scrolling horizontally. column_count=1 freezes column A. column_count=0 unfreezes.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name" },
+        column_count: { type: Type.NUMBER, description: "Number of columns to freeze from the left (1=col A, 2=cols A&B, 0=unfreeze)" },
+      },
+      required: ["spreadsheet_id", "tab_name", "column_count"],
+    },
+  },
+  {
+    name: "set_column_width",
+    description: "Set the width (in pixels) of one or more columns. Columns are 0-indexed (A=0, B=1, C=2...). end_column_index is exclusive (to set only col A, use start=0 end=1). Typical widths: narrow=80, normal=120, wide=200, extra-wide=300.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name" },
+        start_column_index: { type: Type.NUMBER, description: "0-indexed start column (A=0, B=1, C=2, etc.)" },
+        end_column_index: { type: Type.NUMBER, description: "0-indexed end column exclusive (to set A only: start=0, end=1)" },
+        pixel_size: { type: Type.NUMBER, description: "Width in pixels (typical: 80=narrow, 120=normal, 200=wide, 300=extra-wide)" },
+      },
+      required: ["spreadsheet_id", "tab_name", "start_column_index", "end_column_index", "pixel_size"],
+    },
+  },
+  {
+    name: "set_row_height",
+    description: "Set the height (in pixels) of one or more rows. Rows are 0-indexed (row 1 = index 0). end_row_index is exclusive. Typical heights: normal=21, medium=30, tall=50.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name" },
+        start_row_index: { type: Type.NUMBER, description: "0-indexed start row (row 1 = index 0)" },
+        end_row_index: { type: Type.NUMBER, description: "0-indexed end row exclusive (to set row 1 only: start=0, end=1)" },
+        pixel_size: { type: Type.NUMBER, description: "Height in pixels (21=normal, 30=medium, 50=tall)" },
+      },
+      required: ["spreadsheet_id", "tab_name", "start_row_index", "end_row_index", "pixel_size"],
+    },
+  },
+  {
+    name: "auto_resize_columns",
+    description: "Auto-resize one or more columns to fit their content width. Use this after writing data to make the spreadsheet readable. start_column_index=0, end_column_index=26 resizes all A-Z columns.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name" },
+        start_column_index: { type: Type.NUMBER, description: "0-indexed start column (default 0 = column A)" },
+        end_column_index: { type: Type.NUMBER, description: "0-indexed end column exclusive (default 26 = columns A through Z)" },
+      },
+      required: ["spreadsheet_id", "tab_name"],
+    },
+  },
+  {
+    name: "merge_cells",
+    description: "Merge a range of cells in a Google Sheet. merge_type: MERGE_ALL (merge everything into one cell), MERGE_COLUMNS (merge within each column), MERGE_ROWS (merge within each row). Set unmerge=true to unmerge previously merged cells.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name" },
+        range: { type: Type.STRING, description: "A1 notation range to merge, e.g. 'A1:D1'" },
+        merge_type: { type: Type.STRING, description: "MERGE_ALL (default), MERGE_COLUMNS, or MERGE_ROWS" },
+        unmerge: { type: Type.BOOLEAN, description: "Set true to unmerge cells instead" },
+      },
+      required: ["spreadsheet_id", "tab_name", "range"],
+    },
+  },
+  {
+    name: "sort_sheet_range",
+    description: "Sort rows in a range by one or more columns. sort_column is 0-indexed (A=0). sort_order is ASCENDING or DESCENDING. The range should include the data rows but NOT the header row.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "Spreadsheet URL or ID" },
+        tab_name: { type: Type.STRING, description: "Exact tab name" },
+        range: { type: Type.STRING, description: "A1 notation range to sort (e.g. 'A2:Z100' to sort data below a header)" },
+        sort_column: { type: Type.NUMBER, description: "0-indexed column to sort by (A=0, B=1, C=2, etc.)" },
+        sort_order: { type: Type.STRING, description: "ASCENDING (A→Z, 1→9) or DESCENDING (Z→A, 9→1)" },
+      },
+      required: ["spreadsheet_id", "tab_name", "range", "sort_column", "sort_order"],
+    },
+  },
 ];
 
 

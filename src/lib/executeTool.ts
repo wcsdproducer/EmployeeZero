@@ -73,6 +73,15 @@ import {
   renameSheet,
   clearSheet,
   duplicateSheet,
+  formatCells,
+  formatRow,
+  freezeRows,
+  freezeColumns,
+  setColumnWidth,
+  setRowHeight,
+  autoResizeColumns,
+  mergeCells,
+  sortRange,
 } from "@/lib/sheets";
 import {
   listChannels,
@@ -357,6 +366,49 @@ export async function executeTool(
       return await clearSheet(userId, args.spreadsheet_id, args.sheet_title);
     case "duplicate_sheet_tab":
       return await duplicateSheet(userId, args.spreadsheet_id, args.source_title, args.new_title, args.insert_index);
+    // ── Formatting tools ──────────────────────────────────────────────────
+    case "format_cells": {
+      const fmtOpts: any = {};
+      if (args.bold !== undefined) fmtOpts.bold = args.bold;
+      if (args.italic !== undefined) fmtOpts.italic = args.italic;
+      if (args.underline !== undefined) fmtOpts.underline = args.underline;
+      if (args.strikethrough !== undefined) fmtOpts.strikethrough = args.strikethrough;
+      if (args.font_size !== undefined) fmtOpts.fontSize = args.font_size;
+      if (args.font_family !== undefined) fmtOpts.fontFamily = args.font_family;
+      if (args.foreground_color !== undefined) fmtOpts.foregroundColor = args.foreground_color;
+      if (args.background_color !== undefined) fmtOpts.backgroundColor = args.background_color;
+      if (args.horizontal_alignment !== undefined) fmtOpts.horizontalAlignment = args.horizontal_alignment;
+      if (args.vertical_alignment !== undefined) fmtOpts.verticalAlignment = args.vertical_alignment;
+      if (args.wrap_strategy !== undefined) fmtOpts.wrapStrategy = args.wrap_strategy;
+      if (args.number_format_type !== undefined) fmtOpts.numberFormat = { type: args.number_format_type, pattern: args.number_format_pattern || "" };
+      return await formatCells(userId, args.spreadsheet_id, args.tab_name, args.range, fmtOpts);
+    }
+    case "format_row": {
+      const rowFmtOpts: any = {};
+      if (args.bold !== undefined) rowFmtOpts.bold = args.bold;
+      if (args.italic !== undefined) rowFmtOpts.italic = args.italic;
+      if (args.underline !== undefined) rowFmtOpts.underline = args.underline;
+      if (args.font_size !== undefined) rowFmtOpts.fontSize = args.font_size;
+      if (args.font_family !== undefined) rowFmtOpts.fontFamily = args.font_family;
+      if (args.foreground_color !== undefined) rowFmtOpts.foregroundColor = args.foreground_color;
+      if (args.background_color !== undefined) rowFmtOpts.backgroundColor = args.background_color;
+      if (args.horizontal_alignment !== undefined) rowFmtOpts.horizontalAlignment = args.horizontal_alignment;
+      return await formatRow(userId, args.spreadsheet_id, args.tab_name, args.row_number, rowFmtOpts);
+    }
+    case "freeze_rows":
+      return await freezeRows(userId, args.spreadsheet_id, args.tab_name, args.row_count);
+    case "freeze_columns":
+      return await freezeColumns(userId, args.spreadsheet_id, args.tab_name, args.column_count);
+    case "set_column_width":
+      return await setColumnWidth(userId, args.spreadsheet_id, args.tab_name, args.start_column_index, args.end_column_index, args.pixel_size);
+    case "set_row_height":
+      return await setRowHeight(userId, args.spreadsheet_id, args.tab_name, args.start_row_index, args.end_row_index, args.pixel_size);
+    case "auto_resize_columns":
+      return await autoResizeColumns(userId, args.spreadsheet_id, args.tab_name, args.start_column_index ?? 0, args.end_column_index ?? 26);
+    case "merge_cells":
+      return await mergeCells(userId, args.spreadsheet_id, args.tab_name, args.range, args.merge_type || "MERGE_ALL", args.unmerge || false);
+    case "sort_sheet_range":
+      return await sortRange(userId, args.spreadsheet_id, args.tab_name, args.range, [{ dimensionIndex: args.sort_column, sortOrder: args.sort_order || "ASCENDING" }]);
     // YouTube tools
     case "list_youtube_channels":
       return await listChannels(userId);
