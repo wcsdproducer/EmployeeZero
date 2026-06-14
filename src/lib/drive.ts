@@ -267,3 +267,58 @@ export async function createFolder(userId: string, name: string, parentId?: stri
     link: res.data.webViewLink,
   };
 }
+
+export async function copyFile(
+  userId: string,
+  fileId: string,
+  name?: string,
+  folderId?: string
+): Promise<any> {
+  const driveClient = await getAuthenticatedDrive(userId);
+
+  const requestBody: any = {};
+  if (name) requestBody.name = name;
+  if (folderId) requestBody.parents = [folderId];
+
+  const res = await driveClient.files.copy({
+    fileId,
+    requestBody,
+    fields: "id, name, webViewLink",
+  });
+
+  return {
+    id: res.data.id,
+    name: res.data.name,
+    link: res.data.webViewLink,
+  };
+}
+
+export async function moveFile(
+  userId: string,
+  fileId: string,
+  folderId: string
+): Promise<any> {
+  const driveClient = await getAuthenticatedDrive(userId);
+
+  // Retrieve the existing parents to remove them
+  const file = await driveClient.files.get({
+    fileId,
+    fields: "parents",
+  });
+
+  const previousParents = (file.data.parents || []).join(",");
+
+  // Move the file to the new folder
+  const res = await driveClient.files.update({
+    fileId,
+    addParents: folderId,
+    removeParents: previousParents || undefined,
+    fields: "id, name, parents",
+  });
+
+  return {
+    id: res.data.id,
+    name: res.data.name,
+    parents: res.data.parents,
+  };
+}

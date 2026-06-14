@@ -42,6 +42,8 @@ import {
   readFileContent,
   uploadFile,
   createFolder,
+  copyFile,
+  moveFile,
 } from "@/lib/drive";
 import {
   listSpreadsheets,
@@ -294,6 +296,10 @@ export async function executeTool(
       return await uploadFile(userId, args.name, args.content, args.mime_type, args.folder_id, args.source_url);
     case "create_drive_folder":
       return await createFolder(userId, args.name, args.parent_id);
+    case "copy_drive_file":
+      return await copyFile(userId, args.file_id, args.name, args.folder_id);
+    case "move_drive_file":
+      return await moveFile(userId, args.file_id, args.folder_id);
     // Sheets tools
     case "list_spreadsheets":
       return await listSpreadsheets(userId, args.max_results || 10);

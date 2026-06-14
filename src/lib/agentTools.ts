@@ -495,6 +495,31 @@ export const DRIVE_TOOLS = [
       required: ["name"],
     },
   },
+  {
+    name: "copy_drive_file",
+    description: "Copy a file in Google Drive, optionally placing it in a new folder or renaming it",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        file_id: { type: Type.STRING, description: "The Drive file ID to copy" },
+        name: { type: Type.STRING, description: "Optional new name for the copy" },
+        folder_id: { type: Type.STRING, description: "Optional destination folder ID" },
+      },
+      required: ["file_id"],
+    },
+  },
+  {
+    name: "move_drive_file",
+    description: "Move a file to a new folder in Google Drive",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        file_id: { type: Type.STRING, description: "The Drive file ID to move" },
+        folder_id: { type: Type.STRING, description: "The destination folder ID" },
+      },
+      required: ["file_id", "folder_id"],
+    },
+  },
 ];
 
 export const SHEETS_TOOLS = [

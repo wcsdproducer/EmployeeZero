@@ -22,6 +22,7 @@ import {
 } from "@/lib/calendar";
 import {
   listFiles, getFile, readFileContent, uploadFile, createFolder,
+  copyFile, moveFile,
 } from "@/lib/drive";
 import {
   listSpreadsheets, readSheet, writeSheet, appendRows, createSpreadsheet,
@@ -466,6 +467,8 @@ const DRIVE_TOOLS = [
   { name: "read_drive_file", description: "Read file content.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING } }, required: ["file_id"] } },
   { name: "upload_drive_file", description: "Upload/create a file. Pass 'source_url' to download from a web url directly.", parameters: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, content: { type: Type.STRING }, source_url: { type: Type.STRING }, mime_type: { type: Type.STRING }, folder_id: { type: Type.STRING } }, required: ["name"] } },
   { name: "create_drive_folder", description: "Create a folder.", parameters: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, parent_id: { type: Type.STRING } }, required: ["name"] } },
+  { name: "copy_drive_file", description: "Copy a file in Google Drive, optionally placing it in a new folder or renaming it.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING }, name: { type: Type.STRING }, folder_id: { type: Type.STRING } }, required: ["file_id"] } },
+  { name: "move_drive_file", description: "Move a file to a new folder in Google Drive.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING }, folder_id: { type: Type.STRING } }, required: ["file_id", "folder_id"] } },
 ];
 
 const SHEETS_TOOLS = [
@@ -655,6 +658,10 @@ async function executeTool(
       return await uploadFile(userId, args.name, args.content, args.mime_type, args.folder_id, args.source_url);
     case "create_drive_folder":
       return await createFolder(userId, args.name, args.parent_id);
+    case "copy_drive_file":
+      return await copyFile(userId, args.file_id, args.name, args.folder_id);
+    case "move_drive_file":
+      return await moveFile(userId, args.file_id, args.folder_id);
     // Sheets
     case "list_spreadsheets":
       return await listSpreadsheets(userId, args.max_results || 10);
