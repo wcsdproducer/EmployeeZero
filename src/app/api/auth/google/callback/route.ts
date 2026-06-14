@@ -4,12 +4,19 @@ import { adminDb } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
-function getRedirectUri() {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
-  return `${base}/api/auth/google/callback`;
+function getRedirectUri(request: Request) {
+  const url = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") || url.host;
+  return `${proto}://${host}/api/auth/google/callback`;
 }
 
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") || url.host;
+  const base = `${proto}://${host}`;
+
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
@@ -27,7 +34,6 @@ export async function GET(request: Request) {
 
   // Handle user denying access
   if (error) {
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
     return NextResponse.redirect(`${base}/connections?error=${encodeURIComponent(error)}`);
   }
 
@@ -51,7 +57,7 @@ export async function GET(request: Request) {
   }
 
   // Exchange auth code for tokens
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, getRedirectUri());
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, getRedirectUri(request));
 
   let tokens: { access_token?: string | null; refresh_token?: string | null; expiry_date?: number | null };
   try {
@@ -59,7 +65,6 @@ export async function GET(request: Request) {
     tokens = response.tokens;
   } catch (err: any) {
     console.error("Token exchange failed:", err.message);
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
     return NextResponse.redirect(`${base}/connections?error=token_exchange_failed`);
   }
 
@@ -83,10 +88,8 @@ export async function GET(request: Request) {
     console.log(`OAuth tokens stored for user ${userId}, service ${service}`);
   } catch (err: any) {
     console.error("Firestore write failed:", err.message);
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
     return NextResponse.redirect(`${base}/connections?error=storage_failed`);
   }
 
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
   return NextResponse.redirect(`${base}/chat?onboarding=${service}`);
 }

@@ -53,34 +53,38 @@ const PLATFORM_CONFIGS: Record<string, OAuthConfig> = {
   },
 };
 
-function getRedirectUri() {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
-  return `${base}/api/auth/social/callback`;
+function getRedirectUri(request: Request) {
+  const url = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") || url.host;
+  return `${proto}://${host}/api/auth/social/callback`;
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+  const url = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") || url.host;
+  const base = `${proto}://${host}`;
+
+  const { searchParams } = url;
   const platform = searchParams.get("platform");
   const userId = searchParams.get("userId");
 
   if (!platform || !userId) {
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
     return NextResponse.redirect(`${base}/connections?error=missing_params`);
   }
 
   const config = PLATFORM_CONFIGS[platform];
   if (!config) {
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
     return NextResponse.redirect(`${base}/connections?error=unknown_platform`);
   }
 
   const clientId = process.env[config.clientIdEnv]?.trim();
   if (!clientId) {
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
     return NextResponse.redirect(`${base}/connections?setup=${platform}`);
   }
 
-  const redirectUri = getRedirectUri();
+  const redirectUri = getRedirectUri(request);
 
   // Base64url-encode state to prevent platforms mangling JSON on redirect
   const encodeState = (obj: Record<string, string>) =>

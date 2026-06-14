@@ -46,7 +46,9 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
+  Lock,
 } from "lucide-react";
+import { BUILTIN_TOOLS, BUILTIN_SKILLS, BUILTIN_WORKFLOWS } from "@/lib/builtinCatalog";
 
 /* ─── Workflow Data ─── */
 
@@ -913,9 +915,9 @@ export default function WorkflowsPage() {
           {/* Tabs */}
           <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-white/[0.03] border border-white/5 w-fit">
             {([
-              { key: "tools", label: "🔧 Tools", count: customTools.length },
-              { key: "skills", label: "⚡ Skills", count: customSkills.length },
-              { key: "workflows", label: "🔄 Workflows", count: customWorkflows.length },
+              { key: "tools", label: "🔧 Tools", count: BUILTIN_TOOLS.length + customTools.length },
+              { key: "skills", label: "⚡ Skills", count: BUILTIN_SKILLS.length + customSkills.length },
+              { key: "workflows", label: "🔄 Workflows", count: BUILTIN_WORKFLOWS.length + customWorkflows.length },
             ] as { key: "tools" | "skills" | "workflows"; label: string; count: number }[]).map(tab => (
               <button
                 key={tab.key}
@@ -937,151 +939,287 @@ export default function WorkflowsPage() {
 
           {/* ── Tools Tab ── */}
           {activeTab === "tools" && (
-            toolsLoading ? (
-              <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
-            ) : customTools.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
-                <Wrench size={28} className="mx-auto mb-3 text-amber-400/40" />
-                <p className="text-sm font-medium text-neutral-400">No tools yet</p>
-                <p className="text-xs text-neutral-600 mt-1">Create a Tool — an atomic instruction step your agents can execute. Skills and Workflows are built from Tools.</p>
-                <button onClick={() => setIsCreateToolOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all">+ Create First Tool</button>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {customTools.map((t) => (
-                  <div key={t.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-start gap-4 group">
-                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex-shrink-0 mt-0.5">
-                      <Wrench size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{t.name}</p>
-                      {t.description && <p className="text-xs text-neutral-500 mt-0.5">{t.description}</p>}
-                      <p className="text-xs text-neutral-600 mt-1.5 line-clamp-2 italic">&ldquo;{t.instruction}&rdquo;</p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {(t.requiredConnections || []).map((c: string) => (
-                          <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-500">{CONNECTION_ICONS[c] || "🔗"} {c}</span>
-                        ))}
+            <div className="space-y-6">
+              {/* Pre-installed section */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Lock size={12} className="text-neutral-500" />
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Pre-installed</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-neutral-600">{BUILTIN_TOOLS.length}</span>
+                </div>
+                <div className="grid gap-2">
+                  {BUILTIN_TOOLS.map((t) => (
+                    <div key={t.id} className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-4 flex items-start gap-4">
+                      <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-lg flex-shrink-0">{t.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm text-neutral-300">{t.name}</p>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-600 flex items-center gap-0.5"><Lock size={8} /> Built-in</span>
+                        </div>
+                        <p className="text-xs text-neutral-600 mt-0.5">{t.description}</p>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {t.requiredConnections.length === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/10 text-emerald-600">No connection needed</span>}
+                          {t.requiredConnections.map(c => <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-600">{CONNECTION_ICONS[c] || "🔗"} {c}</span>)}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEditTool(t)} title="Edit tool" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
-                      <button onClick={() => handleDeleteTool(t)} disabled={deletingToolId === t.id} title="Delete tool" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
-                        {deletingToolId === t.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            )
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/5" />
+                <span className="text-[10px] text-neutral-700 uppercase tracking-wider font-semibold">Your Custom Tools</span>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+
+              {/* Custom section */}
+              {toolsLoading ? (
+                <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+              ) : customTools.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+                  <Wrench size={28} className="mx-auto mb-3 text-amber-400/40" />
+                  <p className="text-sm font-medium text-neutral-400">No custom tools yet</p>
+                  <p className="text-xs text-neutral-600 mt-1">Ask the agent to build a custom Tool — an atomic instruction step exclusive to you.</p>
+                  <button onClick={() => setIsCreateToolOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all">+ Create First Tool</button>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {customTools.map((t) => (
+                    <div key={t.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-start gap-4 group">
+                      <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex-shrink-0 mt-0.5"><Wrench size={16} /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm">{t.name}</p>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/10 text-amber-600">✨ Custom</span>
+                        </div>
+                        {t.description && <p className="text-xs text-neutral-500 mt-0.5">{t.description}</p>}
+                        <p className="text-xs text-neutral-600 mt-1.5 line-clamp-2 italic">&ldquo;{t.instruction}&rdquo;</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {(t.requiredConnections || []).map((c: string) => (
+                            <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-500">{CONNECTION_ICONS[c] || "🔗"} {c}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditTool(t)} title="Edit tool" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
+                        <button onClick={() => handleDeleteTool(t)} disabled={deletingToolId === t.id} title="Delete tool" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
+                          {deletingToolId === t.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* ── Skills Tab ── */}
           {activeTab === "skills" && (
-            skillsLoading ? (
-              <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
-            ) : customSkills.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
-                <Layers size={28} className="mx-auto mb-3 text-emerald-400/40" />
-                <p className="text-sm font-medium text-neutral-400">No skills yet</p>
-                <p className="text-xs text-neutral-600 mt-1">Create a Skill — an ordered set of Tools that gives an agent a reusable capability.</p>
-                <button onClick={() => setIsCreateSkillOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all">+ Create First Skill</button>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {customSkills.map((s) => {
-                  const skillTools = (s.toolIds || []).map((id: string) => customTools.find((t: any) => t.id === id)).filter(Boolean);
-                  return (
-                    <div key={s.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-start gap-4 group">
-                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex-shrink-0 mt-0.5">
-                        <Layers size={16} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm">{s.name}</p>
-                        {s.description && <p className="text-xs text-neutral-500 mt-0.5">{s.description}</p>}
-                        {skillTools.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {skillTools.map((t: any, i: number) => (
-                              <span key={t.id} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center gap-1">
-                                <span className="font-bold text-amber-600/70">{i + 1}.</span> {t.name}
-                              </span>
-                            ))}
+            <div className="space-y-6">
+              {/* Pre-installed section */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Lock size={12} className="text-neutral-500" />
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Pre-installed</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-neutral-600">{BUILTIN_SKILLS.length}</span>
+                </div>
+                <div className="grid gap-2">
+                  {BUILTIN_SKILLS.map((s) => {
+                    const tools = s.toolIds.map(tid => BUILTIN_TOOLS.find(t => t.id === tid)).filter(Boolean);
+                    return (
+                      <div key={s.id} className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-4 flex items-start gap-4">
+                        <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-lg flex-shrink-0">{s.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-sm text-neutral-300">{s.name}</p>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-600 flex items-center gap-0.5"><Lock size={8} /> Built-in</span>
                           </div>
-                        )}
-                        {skillTools.length === 0 && s.toolIds?.length > 0 && (
-                          <p className="text-[10px] text-neutral-600 mt-1.5">{s.toolIds.length} tool(s) assigned</p>
-                        )}
+                          <p className="text-xs text-neutral-600 mt-0.5">{s.description}</p>
+                          {tools.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {tools.map((t: any, i) => (
+                                <span key={t.id} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-600 flex items-center gap-1">
+                                  <span className="text-neutral-700 font-bold">{i + 1}.</span> {t.icon} {t.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {s.requiredConnections.length === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/10 text-emerald-600">No connection needed</span>}
+                            {s.requiredConnections.map(c => <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-600">{CONNECTION_ICONS[c] || "🔗"} {c}</span>)}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEditSkill(s)} title="Edit skill" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
-                        <button onClick={() => handleDeleteSkill(s)} disabled={deletingSkillId === s.id} title="Delete skill" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
-                          {deletingSkillId === s.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            )
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/5" />
+                <span className="text-[10px] text-neutral-700 uppercase tracking-wider font-semibold">Your Custom Skills</span>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+
+              {/* Custom section */}
+              {skillsLoading ? (
+                <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+              ) : customSkills.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+                  <Layers size={28} className="mx-auto mb-3 text-emerald-400/40" />
+                  <p className="text-sm font-medium text-neutral-400">No custom skills yet</p>
+                  <p className="text-xs text-neutral-600 mt-1">Ask the agent to build a custom Skill — an ordered set of Tools exclusive to you.</p>
+                  <button onClick={() => setIsCreateSkillOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all">+ Create First Skill</button>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {customSkills.map((s) => {
+                    const skillTools = (s.toolIds || []).map((id: string) => customTools.find((t: any) => t.id === id)).filter(Boolean);
+                    return (
+                      <div key={s.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-start gap-4 group">
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex-shrink-0 mt-0.5">
+                          <Layers size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-sm">{s.name}</p>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/10 text-emerald-600">✨ Custom</span>
+                          </div>
+                          {s.description && <p className="text-xs text-neutral-500 mt-0.5">{s.description}</p>}
+                          {skillTools.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {skillTools.map((t: any, i: number) => (
+                                <span key={t.id} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center gap-1">
+                                  <span className="font-bold text-amber-600/70">{i + 1}.</span> {t.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {skillTools.length === 0 && s.toolIds?.length > 0 && (
+                            <p className="text-[10px] text-neutral-600 mt-1.5">{s.toolIds.length} tool(s) assigned</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEditSkill(s)} title="Edit skill" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
+                          <button onClick={() => handleDeleteSkill(s)} disabled={deletingSkillId === s.id} title="Delete skill" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
+                            {deletingSkillId === s.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
+
 
           {/* ── Workflows Tab ── */}
           {activeTab === "workflows" && (
-            customLoading ? (
-              <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
-            ) : customWorkflows.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
-                <GitBranch size={28} className="mx-auto mb-3 text-purple-400/40" />
-                <p className="text-sm font-medium text-neutral-400">No workflows yet</p>
-                <p className="text-xs text-neutral-600 mt-1">Create a Workflow — combine Skills into an automation that runs once or on a schedule.</p>
-                <button onClick={() => setIsCreateOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-all">+ Create First Workflow</button>
-              </div>
-            ) : (
-              <div className="grid gap-3">
-                {customWorkflows.map((cw) => {
-                  const assignedAgent = cw.agentId === "company" || !cw.agentId
-                    ? null : purchasedAgents.find((a: any) => a.id === cw.agentId);
-                  const wfSkills = (cw.skillIds || []).map((id: string) => customSkills.find((s: any) => s.id === id)).filter(Boolean);
-                  return (
-                    <div key={cw.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-center gap-4">
-                      <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 text-purple-400 flex-shrink-0">
-                        <GitBranch size={16} />
-                      </div>
+            <div className="space-y-6">
+              {/* Pre-installed section */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Lock size={12} className="text-neutral-500" />
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Pre-installed</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-neutral-600">{BUILTIN_WORKFLOWS.length}</span>
+                </div>
+                <div className="grid gap-2">
+                  {BUILTIN_WORKFLOWS.map((wf) => (
+                    <div key={wf.id} className="rounded-2xl border border-white/[0.04] bg-white/[0.015] p-4 flex items-center gap-4">
+                      <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-lg flex-shrink-0">{wf.icon}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm">{cw.name}</p>
-                        {cw.description && <p className="text-xs text-neutral-500 truncate">{cw.description}</p>}
-                        {wfSkills.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-1.5">
-                            {wfSkills.map((s: any, i: number) => (
-                              <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1">
-                                <span className="font-bold text-emerald-600/70">{i + 1}.</span> {s.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          {assignedAgent ? (
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400">👤 {assignedAgent.soul?.agentName || assignedAgent.name || assignedAgent.id}</span>
-                          ) : (
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-neutral-500/10 border border-neutral-500/20 text-neutral-400">🏢 Company-Wide</span>
-                          )}
-                          {cw.schedule && <span className="text-[10px] text-neutral-600 flex items-center gap-1"><Clock size={9} /> {cw.schedule}</span>}
-                          {cw.lastRunAt && <span className="text-[10px] text-neutral-600">Last run: {new Date(cw.lastRunAt).toLocaleDateString()}</span>}
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm text-neutral-300">{wf.name}</p>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-600 flex items-center gap-0.5"><Lock size={8} /> Built-in</span>
+                        </div>
+                        <p className="text-xs text-neutral-600 mt-0.5">{wf.description}</p>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {wf.requiredConnections.length === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/10 text-emerald-600">No connection needed</span>}
+                          {wf.requiredConnections.map(c => <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-600">{CONNECTION_ICONS[c] || "🔗"} {c}</span>)}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button onClick={() => router.push(`/chat?runCustomWorkflow=${cw.id}&workflowName=${encodeURIComponent(cw.name)}`)}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 text-purple-400 transition-all">Run</button>
-                        <button onClick={() => openEditModal(cw)} title="Edit workflow" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
-                        <button onClick={() => handleDeleteWorkflow(cw)} disabled={deletingId === cw.id} title="Delete workflow" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
-                          {deletingId === cw.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => router.push(`/chat?runWorkflow=${wf.workflowDefinitionId}&workflowName=${encodeURIComponent(wf.name)}`)}
+                        className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/[0.08] hover:bg-white/10 text-neutral-400 hover:text-white transition-all"
+                      >Run</button>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            )
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/5" />
+                <span className="text-[10px] text-neutral-700 uppercase tracking-wider font-semibold">Your Custom Workflows</span>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+
+              {/* Custom section */}
+              {customLoading ? (
+                <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+              ) : customWorkflows.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+                  <GitBranch size={28} className="mx-auto mb-3 text-purple-400/40" />
+                  <p className="text-sm font-medium text-neutral-400">No custom workflows yet</p>
+                  <p className="text-xs text-neutral-600 mt-1">Ask the agent to build a custom Workflow — an automation exclusive to you.</p>
+                  <button onClick={() => setIsCreateOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-all">+ Create First Workflow</button>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {customWorkflows.map((cw) => {
+                    const assignedAgent = cw.agentId === "company" || !cw.agentId
+                      ? null : purchasedAgents.find((a: any) => a.id === cw.agentId);
+                    const wfSkills = (cw.skillIds || []).map((id: string) => customSkills.find((s: any) => s.id === id)).filter(Boolean);
+                    return (
+                      <div key={cw.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-center gap-4">
+                        <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 text-purple-400 flex-shrink-0">
+                          <GitBranch size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-sm">{cw.name}</p>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/10 text-purple-400">✨ Custom</span>
+                          </div>
+                          {cw.description && <p className="text-xs text-neutral-500 truncate">{cw.description}</p>}
+                          {wfSkills.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              {wfSkills.map((s: any, i: number) => (
+                                <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1">
+                                  <span className="font-bold text-emerald-600/70">{i + 1}.</span> {s.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            {assignedAgent ? (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400">👤 {assignedAgent.soul?.agentName || assignedAgent.name || assignedAgent.id}</span>
+                            ) : (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-neutral-500/10 border border-neutral-500/20 text-neutral-400">🏢 Company-Wide</span>
+                            )}
+                            {cw.schedule && <span className="text-[10px] text-neutral-600 flex items-center gap-1"><Clock size={9} /> {cw.schedule}</span>}
+                            {cw.lastRunAt && <span className="text-[10px] text-neutral-600">Last run: {new Date(cw.lastRunAt).toLocaleDateString()}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button onClick={() => router.push(`/chat?runCustomWorkflow=${cw.id}&workflowName=${encodeURIComponent(cw.name)}`)}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 text-purple-400 transition-all">Run</button>
+                          <button onClick={() => openEditModal(cw)} title="Edit workflow" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
+                          <button onClick={() => handleDeleteWorkflow(cw)} disabled={deletingId === cw.id} title="Delete workflow" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
+                            {deletingId === cw.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
+
         </div>
 
         {/* Filters */}

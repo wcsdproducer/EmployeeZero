@@ -43,18 +43,23 @@ const TOKEN_CONFIGS: Record<string, TokenConfig> = {
   },
 };
 
-function getRedirectUri() {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
-  return `${base}/api/auth/social/callback`;
+function getRedirectUri(request: Request) {
+  const url = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") || url.host;
+  return `${proto}://${host}/api/auth/social/callback`;
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+  const url = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "");
+  const host = request.headers.get("x-forwarded-host") || url.host;
+  const base = `${proto}://${host}`;
+
+  const { searchParams } = url;
   const code = searchParams.get("code");
   const stateRaw = searchParams.get("state");
   const error = searchParams.get("error");
-
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003";
 
   // Handle user denying access
   if (error) {
@@ -123,7 +128,7 @@ export async function GET(request: Request) {
           client_secret: clientSecret,
           code,
           grant_type: "authorization_code",
-          redirect_uri: getRedirectUri(),
+          redirect_uri: getRedirectUri(request),
         }),
       });
       tokenData = await res.json();
@@ -133,7 +138,7 @@ export async function GET(request: Request) {
       const body: Record<string, string> = {
         code,
         grant_type: "authorization_code",
-        redirect_uri: getRedirectUri(),
+        redirect_uri: getRedirectUri(request),
       };
       if (codeVerifier) body.code_verifier = codeVerifier;
 
@@ -154,7 +159,7 @@ export async function GET(request: Request) {
         client_secret: clientSecret,
         code,
         grant_type: "authorization_code",
-        redirect_uri: getRedirectUri(),
+        redirect_uri: getRedirectUri(request),
       });
 
       const res = await fetch(config.tokenUrl, {

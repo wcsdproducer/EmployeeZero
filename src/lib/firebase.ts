@@ -31,20 +31,24 @@ export const functions = getFunctions(app);
 const googleProvider = new GoogleAuthProvider();
 
 export async function signInWithGoogle(): Promise<{ user: User | null; isNewUser: boolean }> {
+  googleProvider.addScope("email");
+  googleProvider.addScope("profile");
+
+  const isMobile = typeof window !== "undefined" &&
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(window.navigator.userAgent);
+
+  if (isMobile) {
+    await signInWithRedirect(auth, googleProvider);
+    return { user: null, isNewUser: false };
+  }
+
   try {
-    // Use signInWithPopup universally — works on all modern browsers including mobile Safari.
-    // Firebase SDK v9.6+ stores auth state in indexedDB (not localStorage), so Safari ITP
-    // no longer blocks the result. Popup is faster (no full page reload) and more reliable.
-    googleProvider.addScope("email");
-    googleProvider.addScope("profile");
     const result = await signInWithPopup(auth, googleProvider);
     const { getAdditionalUserInfo } = await import("firebase/auth");
     const additionalInfo = getAdditionalUserInfo(result);
     return { user: result.user, isNewUser: !!additionalInfo?.isNewUser };
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
-    // Only fall back to redirect if popup was explicitly blocked by the browser.
-    // This can happen if the sign-in button isn't triggered by a direct user tap.
     if (
       code === "auth/popup-blocked" ||
       code === "auth/cancelled-popup-request" ||
@@ -53,7 +57,6 @@ export async function signInWithGoogle(): Promise<{ user: User | null; isNewUser
       await signInWithRedirect(auth, googleProvider);
       return { user: null, isNewUser: false };
     }
-    // auth/popup-closed-by-user is normal user behaviour — do not throw
     if (code === "auth/popup-closed-by-user") {
       return { user: null, isNewUser: false };
     }
@@ -65,8 +68,24 @@ export async function signInWithGoogle(): Promise<{ user: User | null; isNewUser
 export async function handleRedirectResult(): Promise<User | null> {
   try {
     const result = await getRedirectResult(auth);
+    if (result?.user) {
+      const { getAdditionalUserInfo } = await import("firebase/auth");
+      const additionalInfo = getAdditionalUserInfo(result);
+      if (additionalInfo?.isNewUser) {
+        const token = await result.user.getIdToken();
+        await fetch("/api/webhooks/auth/signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ email: result.user.email }),
+        }).catch(console.error);
+      }
+    }
     return result?.user ?? null;
-  } catch {
+  } catch (err) {
+    console.error("Error handling redirect result:", err);
     return null;
   }
 }
