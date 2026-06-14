@@ -1,5 +1,5 @@
 import { NextResponse, after } from "next/server";
-export const maxDuration = 60; // 60 seconds
+export const maxDuration = 300; // 5 minutes — required for deep_research + multi-tool workflows
 import { adminDb } from "@/lib/admin";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -460,8 +460,8 @@ export async function POST(request: Request) {
     const complexPatterns = [
       /\b(clean up|organize|triage|sort through|go through)\b.*\b(inbox|emails|mail|gmail)\b/i,
       /\b(archive|delete|trash)\b.*\b(all|every|older than|from last)\b/i,
-      /\b(all|every)\b.*\b(archive|delete|trash|mark as read)\b/i,  // catches "mark them all... archive"
-      /\b(all|every)\b.*\b(emails?|messages?)\b.*\b(from|by|sent by)\b/i,  // catches "all emails from X"
+      /\b(all|every)\b.*\b(archive|delete|trash|mark as read)\b/i,
+      /\b(all|every)\b.*\b(emails?|messages?)\b.*\b(from|by|sent by)\b/i,
       /\b(draft|write|compose)\b.*\b(replies|responses)\b.*\b(all|each|every)\b/i,
       /\b(morning briefing|daily summary|end.of.day|weekly report)\b/i,
       /\b(run|execute|start|trigger)\b.*\b(workflow|automation|briefing)\b/i,
@@ -470,7 +470,13 @@ export async function POST(request: Request) {
       /\b(build|create|make|set up)\b.*\b(workflow|automation|process|routine)\b/i,
       /\b(scan|check|review|audit)\b.*\b(inbox|emails|gmail|mail)\b.*\b(and|then|,)\b/i,
       /\b(clean|purge|clear)\b.*\b(spam|junk|gmail|inbox|promotions)\b/i,
+      // Research patterns — route to task engine to avoid serverless timeout
+      /\b(deep.?research|comprehensive research|detailed research|full report|research report)\b/i,
+      /\b(look up|research|find|review|read)\b.*\b(the documentation|the docs|the api|the whitepaper|the guide|the manual)\b/i,
+      /\b(research|analyze|investigate|study)\b.*\b(and|then)\b.*\b(give|create|write|build|make)\b/i,
+      /\b(go (through|over|into)|read (through|over))\b.*\b(documentation|docs|material|content|article|page)\b/i,
     ];
+
     const isComplexTask = complexPatterns.some((p) => p.test(message));
 
     if (isComplexTask) {

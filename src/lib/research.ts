@@ -24,28 +24,26 @@ async function generateSearchQueries(topic: string): Promise<string[]> {
     const data = await vertexGenerateContent(
       SYNTH_MODEL,
       {
-        contents: [{ role: "user", parts: [{ text: `You are a research strategist. Given this research topic, generate exactly 5 specific, diverse search queries that would find comprehensive data from different angles. Cover: factual data/statistics, expert analysis, recent updates (2025-2026), practical/real-world examples, and comparison/context.
+        contents: [{ role: "user", parts: [{ text: `You are a research strategist. Given this research topic, generate exactly 3 specific, diverse search queries that would find comprehensive data from different angles. Cover: official documentation/factual data, recent updates (2025-2026), and practical examples.
 
 Topic: "${topic}"
 
-Return ONLY the 5 queries, one per line, no numbering or bullets. Each query should be a specific Google search query.` }] }],
-        generationConfig: { maxOutputTokens: 300, temperature: 0.3 },
+Return ONLY the 3 queries, one per line, no numbering or bullets. Each query should be a specific Google search query.` }] }],
+        generationConfig: { maxOutputTokens: 150, temperature: 0.3 },
       },
-      8000
+      6000
     );
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const queries = text.split("\n").map((q: string) => q.trim()).filter((q: string) => q.length > 5 && q.length < 200);
-    if (queries.length >= 3) return queries.slice(0, 5);
+    if (queries.length >= 2) return queries.slice(0, 3);
   } catch (err) {
     console.warn("[Research] Query generation failed:", err);
   }
   // Fallback: manual query variations
   return [
     topic,
-    `${topic} statistics data 2025 2026`,
-    `${topic} detailed breakdown`,
-    `${topic} expert analysis`,
-    `${topic} real examples cost`,
+    `${topic} documentation tutorial guide 2025`,
+    `${topic} examples best practices`,
   ];
 }
 
@@ -96,9 +94,9 @@ INSTRUCTIONS:
 10. The report should be thorough enough that the user doesn't need to do additional research
 
 Write the report now:` }] }],
-        generationConfig: { maxOutputTokens: 4096, temperature: 0.2 },
+        generationConfig: { maxOutputTokens: 2048, temperature: 0.2 },
       },
-      30000
+      25000
     );
     return data.candidates?.[0]?.content?.parts?.[0]?.text || "Research synthesis failed — raw data available in sources.";
   } catch (err) {
@@ -137,14 +135,14 @@ export async function deepResearch(topic: string): Promise<ResearchResult> {
   // Step 3: Browse top source URLs for deeper content (max 6 pages, in parallel)
   const topUrls = Array.from(sourceMap.values())
     .filter(s => s.url && !s.url.includes("youtube.com") && !s.url.includes("reddit.com"))
-    .slice(0, 6)
+    .slice(0, 3)  // Only browse 3 pages to stay fast
     .map(s => s.url);
 
   console.log(`[Research] Browsing ${topUrls.length} source pages...`);
   const pagePromises = topUrls.map(url => 
     Promise.race([
       fetchPageContent(url),
-      new Promise<string>(resolve => setTimeout(() => resolve(""), 8000)), // 8s timeout per page
+      new Promise<string>(resolve => setTimeout(() => resolve(""), 5000)), // 5s timeout per page
     ])
   );
   const pageContents = await Promise.all(pagePromises);
