@@ -291,7 +291,7 @@ export async function executeTool(
     case "read_drive_file":
       return await readFileContent(userId, args.file_id);
     case "upload_drive_file":
-      return await uploadFile(userId, args.name, args.content, args.mime_type, args.folder_id);
+      return await uploadFile(userId, args.name, args.content, args.mime_type, args.folder_id, args.source_url);
     case "create_drive_folder":
       return await createFolder(userId, args.name, args.parent_id);
     // Sheets tools

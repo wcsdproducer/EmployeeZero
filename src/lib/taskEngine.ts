@@ -464,7 +464,7 @@ const DRIVE_TOOLS = [
   { name: "list_drive_files", description: "List/search files in Google Drive.", parameters: { type: Type.OBJECT, properties: { query: { type: Type.STRING }, max_results: { type: Type.NUMBER } } } },
   { name: "get_drive_file", description: "Get file metadata.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING } }, required: ["file_id"] } },
   { name: "read_drive_file", description: "Read file content.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING } }, required: ["file_id"] } },
-  { name: "upload_drive_file", description: "Upload/create a file.", parameters: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, content: { type: Type.STRING }, mime_type: { type: Type.STRING }, folder_id: { type: Type.STRING } }, required: ["name", "content"] } },
+  { name: "upload_drive_file", description: "Upload/create a file. Pass 'source_url' to download from a web url directly.", parameters: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, content: { type: Type.STRING }, source_url: { type: Type.STRING }, mime_type: { type: Type.STRING }, folder_id: { type: Type.STRING } }, required: ["name"] } },
   { name: "create_drive_folder", description: "Create a folder.", parameters: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, parent_id: { type: Type.STRING } }, required: ["name"] } },
 ];
 
@@ -652,7 +652,7 @@ async function executeTool(
     case "read_drive_file":
       return await readFileContent(userId, args.file_id);
     case "upload_drive_file":
-      return await uploadFile(userId, args.name, args.content, args.mime_type, args.folder_id);
+      return await uploadFile(userId, args.name, args.content, args.mime_type, args.folder_id, args.source_url);
     case "create_drive_folder":
       return await createFolder(userId, args.name, args.parent_id);
     // Sheets

@@ -1,5 +1,6 @@
 import { google, drive_v3 } from "googleapis";
 import { adminDb } from "@/lib/admin";
+import axios from "axios";
 
 /* ─── Auth helper (same pattern as gmail.ts) ─── */
 
@@ -199,19 +200,39 @@ export async function readFileContent(userId: string, fileId: string): Promise<s
 export async function uploadFile(
   userId: string,
   name: string,
-  content: string,
-  mimeType = "text/plain",
-  folderId?: string
+  content?: string,
+  mimeType?: string,
+  folderId?: string,
+  sourceUrl?: string
 ): Promise<any> {
   const driveClient = await getAuthenticatedDrive(userId);
 
   const fileMetadata: any = { name };
   if (folderId) fileMetadata.parents = [folderId];
 
-  const media = {
-    mimeType,
-    body: require("stream").Readable.from([content]),
-  };
+  let media: any;
+
+  if (sourceUrl) {
+    // Download the binary stream from the URL
+    const response = await axios({
+      method: "get",
+      url: sourceUrl,
+      responseType: "stream",
+    });
+    
+    const detectedMimeType = mimeType || response.headers["content-type"] || "application/octet-stream";
+    media = {
+      mimeType: detectedMimeType,
+      body: response.data,
+    };
+  } else if (content !== undefined) {
+    media = {
+      mimeType: mimeType || "text/plain",
+      body: require("stream").Readable.from([content]),
+    };
+  } else {
+    throw new Error("Either 'content' or 'source_url' must be provided to upload a file.");
+  }
 
   const res = await driveClient.files.create({
     requestBody: fileMetadata,

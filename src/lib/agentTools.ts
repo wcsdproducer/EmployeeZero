@@ -470,16 +470,17 @@ export const DRIVE_TOOLS = [
   },
   {
     name: "upload_drive_file",
-    description: "Upload/create a new file in Google Drive",
+    description: "Upload/create a new file in Google Drive. To upload/save a file from a web URL (like an image, pdf, or doc), pass the url as the 'source_url' parameter instead of 'content'.",
     parameters: {
       type: Type.OBJECT,
       properties: {
-        name: { type: Type.STRING, description: "File name (e.g. 'meeting-notes.txt')" },
-        content: { type: Type.STRING, description: "File content (text)" },
-        mime_type: { type: Type.STRING, description: "MIME type (default 'text/plain')" },
+        name: { type: Type.STRING, description: "File name (e.g. 'meeting-notes.txt' or 'image.png')" },
+        content: { type: Type.STRING, description: "File content (text). Leave empty if using source_url." },
+        source_url: { type: Type.STRING, description: "Optional web URL to download and upload directly (e.g. an image url or document url)." },
+        mime_type: { type: Type.STRING, description: "MIME type (e.g. 'text/plain', 'image/png'). Optional if using source_url." },
         folder_id: { type: Type.STRING, description: "Optional folder ID to upload into" },
       },
-      required: ["name", "content"],
+      required: ["name"],
     },
   },
   {
