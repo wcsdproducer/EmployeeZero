@@ -196,18 +196,15 @@ function ChatPageInner() {
     onMessage: async (msg: any) => {
       const role = msg.source === 'ai' ? 'model' : 'user';
       
-      // Deduplicate consecutive model messages (prevents "5x completion" bug)
-      // The voice model often generates multiple turns after task completion
+      // Deduplicate truly identical consecutive model messages (prevents loop bug)
+      // Only block exact duplicates arriving within 3 seconds — anything longer is a legit new message
       if (role === 'model') {
         const now = Date.now();
         const timeSinceLast = now - (lastModelMsgTimeRef.current || 0);
-        const lastLen = lastModelMsgRef.current?.length || 0;
-        const thisLen = msg.message?.length || 0;
         
-        // If two model messages arrive within 30s, both are short (completion summaries),
-        // and the text content is identical, skip the duplicate to prevent the repetition loop
-        if (timeSinceLast < 30000 && lastLen > 0 && lastLen < 300 && thisLen < 300 && msg.message === lastModelMsgRef.current) {
-          console.log("[Voice] Skipping duplicate model completion message");
+        // Block only exact duplicates within a 3s window
+        if (timeSinceLast < 3000 && msg.message && msg.message === lastModelMsgRef.current) {
+          console.log("[Voice] Skipping exact duplicate model message within 3s window");
           return;
         }
         lastModelMsgRef.current = msg.message || "";

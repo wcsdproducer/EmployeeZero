@@ -56,6 +56,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const modelTextRef = useRef<string>("");
   const transcriptionRef = useRef<string>("");
   const agentIdRef = useRef<string>("primary");
+  const turnIndexRef = useRef<number>(0); // Increments each turnComplete — guards against duplicate flushes
   const callbacksRef = useRef(options);
   const chunksSentRef = useRef<number>(0);
   const chunksReceivedRef = useRef<number>(0);
@@ -492,33 +493,61 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             if (part.text) modelTextRef.current += part.text;
           }
 
-          // Handle AI speech transcription
-          const aiTranscript = msg.outputTranscription?.text || msg.serverContent?.outputTranscription?.text;
+          // Handle AI speech transcription — accumulate spoken text
+          // outputTranscription is the most reliable source of what Veronica actually says
+          const aiTranscript =
+            msg.outputTranscription?.text ||
+            msg.serverContent?.outputTranscription?.text;
           if (aiTranscript) {
             transcriptionRef.current += aiTranscript;
           }
 
           // Handle user speech transcription
-          const userTranscript = msg.inputTranscription?.text || msg.serverContent?.inputTranscription?.text;
+          const userTranscript =
+            msg.inputTranscription?.text ||
+            msg.serverContent?.inputTranscription?.text;
           if (userTranscript) {
-            callbacksRef.current.onMessage?.({ source: "user", message: userTranscript });
+            // Filter out internal prompts the system injects (greeting triggers, etc.)
+            const isInternalPrompt =
+              userTranscript.includes("voice session just connected") ||
+              userTranscript.includes("voice session reconnected") ||
+              userTranscript.includes("say ONE brief") ||
+              userTranscript.includes("say ONE short");
+            if (!isInternalPrompt) {
+              callbacksRef.current.onMessage?.({ source: "user", message: userTranscript });
+            }
           }
 
-          // Legacy userTurn
+          // Legacy userTurn fallback
           const userParts = (msg.serverContent?.userTurn?.parts || [])
             .map((p: any) => p.text).filter(Boolean).join("");
           if (userParts && !userTranscript) {
-            callbacksRef.current.onMessage?.({ source: "user", message: userParts });
+            const isInternalPrompt =
+              userParts.includes("voice session just connected") ||
+              userParts.includes("voice session reconnected") ||
+              userParts.includes("say ONE brief") ||
+              userParts.includes("say ONE short");
+            if (!isInternalPrompt) {
+              callbacksRef.current.onMessage?.({ source: "user", message: userParts });
+            }
           }
 
-          // Turn complete
+          // Turn complete — flush accumulated AI text to chat log
           if (msg.serverContent?.turnComplete) {
-            const t = (modelTextRef.current.trim() || transcriptionRef.current.trim());
-            if (t) {
-              callbacksRef.current.onMessage?.({ source: "ai", message: t });
-            }
+            const thisTurn = ++turnIndexRef.current;
+            // Prefer modelText (inline text parts), fall back to transcription (speech-to-text)
+            const textToSave = modelTextRef.current.trim() || transcriptionRef.current.trim();
             modelTextRef.current = "";
             transcriptionRef.current = "";
+
+            if (textToSave && thisTurn === turnIndexRef.current) {
+              // Small debounce: some models fire turnComplete twice in quick succession
+              setTimeout(() => {
+                if (thisTurn === turnIndexRef.current) {
+                  callbacksRef.current.onMessage?.({ source: "ai", message: textToSave });
+                }
+              }, 80);
+            }
           }
         } catch (err) {
           console.error("[GeminiLive] message processing error:", err);
