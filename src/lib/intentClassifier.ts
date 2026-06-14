@@ -17,6 +17,7 @@ export type Intent =
   | "research"
   | "social"
   | "workflow"
+  | "skills"
   | "notes"
   | "finance"
   | "media"
@@ -67,7 +68,13 @@ const INTENT_KEYWORDS: Record<Intent, string[]> = {
   ],
   workflow: [
     "workflow", "automate", "automation", "cron", "schedule job", "recurring",
-    "run every", "daily", "weekly", "routine",
+    "run every", "daily", "weekly", "routine", "run workflow", "run the",
+  ],
+  skills: [
+    "skill", "skills", "tool", "tools", "automation catalog", "what can you do",
+    "your capabilities", "show me what", "available automations", "what automations",
+    "run skill", "use skill", "lead research", "email campaign", "content publishing",
+    "morning briefing prep", "meeting preparation", "competitor intelligence",
   ],
   notes: [
     "note", "notes", "save this", "write down", "knowledge base", "remember this",
@@ -127,6 +134,7 @@ const THINKING_BUDGETS: Record<Intent, number> = {
   slides: 1024,
   analytics: 2048,
   business: 1024,
+  skills: 1024,
 };
 
 /**
@@ -197,6 +205,7 @@ const INTENT_TO_TOOLS: Record<Intent, (keyof ToolLoadConfig)[]> = {
   research: ["loadBrowser", "loadMemory", "loadNotes"],
   social: ["loadLinkedin", "loadTwitter", "loadInstagram", "loadFacebook", "loadTiktok", "loadMemory"],
   workflow: ["loadWorkflow", "loadMemory"],
+  skills: ["loadWorkflow", "loadMemory"],
   notes: ["loadNotes", "loadMemory"],
   finance: ["loadStripe", "loadMemory"],
   media: ["loadYoutube", "loadAnalytics", "loadMemory"],
@@ -269,6 +278,7 @@ export function getPromptSections(intents: Intent[]): Set<string> {
     research: ["web_browsing", "notes"],
     social: ["linkedin", "twitter", "instagram", "facebook", "tiktok"],
     workflow: ["workflows"],
+    skills: ["workflows"],
     notes: ["notes"],
     finance: ["stripe"],
     media: ["youtube", "analytics"],

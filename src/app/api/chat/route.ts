@@ -782,35 +782,72 @@ Create, list, read, update, delete, search notes. Persistent knowledge base.`;
         systemPrompt += `\n\n### Charts
 Output \`\`\`chart JSON blocks with {type, title, data: [{name, value}]} for Bar/Line/Area charts.`;
 
-        // Workflows (loaded for workflow intent)
+        // Workflows + Skills/Tools (loaded for workflow/skills intent)
         if (promptSections.has("workflows")) {
-          systemPrompt += `\n\n### Workflows & Scheduling
-create_workflow to save definitions (don't execute). schedule_workflow with cron expressions. Common: "0 8 * * *" (daily 8AM), "0 9 * * 1-5" (weekdays 9AM).`;
-
-          // Workflow awareness
           const connectedKeys = new Set(
             Object.entries(connections)
               .filter(([, v]) => v?.connected)
               .map(([k]) => k)
           );
-          const runnableWorkflows: string[] = [];
+
+          // Lean built-in workflow catalog — names only, grouped by category
+          const wfByCategory: Record<string, string[]> = {};
           for (const [wfId, wfDef] of Object.entries(WORKFLOW_DEFINITIONS)) {
-            const name = wfId.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
             if (wfDef.connectionOptional || wfDef.requiredConnections.length === 0 || wfDef.requiredConnections.every(c => connectedKeys.has(c))) {
-              runnableWorkflows.push(name);
+              const name = wfId.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              const cat = (wfDef as any).category || "general";
+              if (!wfByCategory[cat]) wfByCategory[cat] = [];
+              wfByCategory[cat].push(name);
             }
           }
-          if (runnableWorkflows.length > 0) {
-            systemPrompt += `\nAvailable: ${runnableWorkflows.join(", ")}`;
-          }
+          const wfCatalog = Object.entries(wfByCategory)
+            .map(([, names]) => names.slice(0, 6).join(", "))
+            .join(" | ");
 
+          systemPrompt += `\n\n### Automations (Tools · Skills · Workflows)
+You have a two-tier automation system:
+- **Pre-installed** (built-in, always available): 18 Tools · 8 Skills · 12 Workflows
+- **Custom** (user-created, exclusive to this user): fetched on demand
+
+**IMPORTANT — Lazy Loading Rule**: You do NOT have all automation details pre-loaded. To keep responses fast and token-efficient:
+1. When user asks to run/explain/build on a Skill or Workflow → FIRST call \`get_automation_details(type, id)\` to get the full step-by-step instructions
+2. When user asks "what can you do?" or about capabilities → list available names, then offer to detail any specific one
+3. NEVER guess the steps of a Skill or Workflow — always fetch first
+
+Available built-in workflows (names only — use get_automation_details for full goal):
+${wfCatalog || "Morning Briefing, Inbox Commander, Meeting Prep, Weekly Report, Lead Tracker, Competitor Intel, Social Autopilot, Content Calendar"}
+
+Available built-in skills (names only):
+Lead Research · Email Campaign · Content Publishing · Morning Briefing Prep · Spreadsheet Reporter · Competitor Intelligence · Meeting Preparation · Data Entry & Logging
+
+Available built-in tools (names only):
+Search Gmail · Send Email · Read Sheet · Write Sheet · Format Sheet · Create Spreadsheet · Web Search · Deep Research · Browse URL · Search Calendar · Create Event · Create Doc · Post LinkedIn · Post Twitter · Post Instagram · Search Drive · Create PDF
+
+Workflow scheduling: schedule_workflow with cron. Common: "0 8 * * *" (daily 8AM), "0 9 * * 1-5" (weekdays 9AM).`;
+
+          // Custom workflows (names only)
           try {
             const customWfs = await listCustomWorkflows(userId);
             if (customWfs.length > 0) {
-              systemPrompt += `\nCustom workflows: ${customWfs.map(w => w.name).join(", ")}`;
+              systemPrompt += `\nUser's custom workflows: ${customWfs.map(w => w.name).join(", ")}`;
             }
           } catch (err) {}
 
+          // Custom skills/tools (names only)
+          try {
+            const [customSkills, customTools] = await Promise.all([
+              listCustomSkills(userId),
+              listCustomTools(userId),
+            ]);
+            if (customSkills.length > 0) {
+              systemPrompt += `\nUser's custom skills: ${customSkills.map((s: any) => s.name).join(", ")}`;
+            }
+            if (customTools.length > 0) {
+              systemPrompt += `\nUser's custom tools: ${customTools.map((t: any) => t.name).join(", ")}`;
+            }
+          } catch (err) {}
+
+          // Active cron jobs
           try {
             const cronDoc = await adminDb.doc(`users/${userId}/settings/cron`).get();
             if (cronDoc.exists) {
@@ -820,11 +857,12 @@ create_workflow to save definitions (don't execute). schedule_workflow with cron
               }>;
               const activeJobs = cronJobs.filter(j => j.enabled);
               if (activeJobs.length > 0) {
-                systemPrompt += `\nActive jobs: ${activeJobs.map(j => `${j.name} (${j.schedule})`).join(", ")}`;
+                systemPrompt += `\nActive scheduled jobs: ${activeJobs.map(j => `${j.name} (${j.schedule})`).join(", ")}`;
               }
             }
           } catch (err) {}
         }
+
 
         // Conversation summary (if long conversation)
         if (summaryText) {

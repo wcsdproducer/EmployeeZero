@@ -544,6 +544,24 @@ export const WORKFLOW_TOOLS = [
       required: ["job_id"],
     },
   },
+  {
+    name: "get_automation_details",
+    description: "Fetch full details for a built-in or custom Tool, Skill, or Workflow by ID or name before executing it. Use this when the user asks to run, explain, or build on a specific automation. Returns the full description, step-by-step instructions, required connections, and tool chain. Call this BEFORE executing any Skill or Workflow — don't guess the steps.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        type: {
+          type: Type.STRING,
+          description: "The type of automation to look up. Must be one of: 'tool', 'skill', 'workflow'",
+        },
+        id: {
+          type: Type.STRING,
+          description: "The ID or name of the automation (e.g. 'builtin-skill-lead-research', 'morning-briefing', or a custom workflow name). Partial name matching is supported.",
+        },
+      },
+      required: ["type", "id"],
+    },
+  },
 ];
 
 export const DRIVE_TOOLS = [

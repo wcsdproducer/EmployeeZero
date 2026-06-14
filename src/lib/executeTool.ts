@@ -21,6 +21,7 @@ import {
 } from "@/lib/gmail";
 import { createTask, executeTask, resumeTask } from "@/lib/taskEngine";
 import { getWorkflowGoal, WORKFLOW_DEFINITIONS } from "@/lib/workflowDefinitions";
+import { BUILTIN_TOOLS, BUILTIN_SKILLS, BUILTIN_WORKFLOWS } from "@/lib/builtinCatalog";
 import { browseUrl, clickUrl, submitForm, webSearch } from "@/lib/browser";
 import {
   listEvents,
@@ -594,6 +595,125 @@ export async function executeTool(
       await cronRef5.update({ jobs: after });
       const deleted = before.find((j: any) => j.id === args.job_id);
       return { success: true, message: `Deleted scheduled job "${deleted?.name || args.job_id}".` };
+    }
+    case "get_automation_details": {
+      const q = (args.id || "").toLowerCase().replace(/-/g, " ");
+      if (args.type === "tool" || args.type === "skill" || args.type === "workflow") {
+        // Search built-in catalog first
+        if (args.type === "tool") {
+          const found = BUILTIN_TOOLS.find(t =>
+            t.id.toLowerCase().includes(q) ||
+            t.name.toLowerCase().includes(q) ||
+            q.includes(t.name.toLowerCase())
+          );
+          if (found) return {
+            id: found.id, name: found.name, type: "tool", source: "built-in",
+            description: found.description,
+            toolFunctions: found.toolNames,
+            requiredConnections: found.requiredConnections,
+            category: found.category,
+          };
+          // Fall through to custom tools
+          try {
+            const customTools = await listCustomTools(userId);
+            const ct = customTools.find((t: any) =>
+              (t.id || "").toLowerCase().includes(q) ||
+              (t.name || "").toLowerCase().includes(q)
+            );
+            if (ct) return {
+              id: ct.id, name: ct.name, type: "tool", source: "custom",
+              description: ct.description,
+              instruction: ct.instruction,
+              requiredConnections: ct.requiredConnections || [],
+            };
+          } catch {}
+          return { error: `No tool found matching '${args.id}'.` };
+        }
+        if (args.type === "skill") {
+          const found = BUILTIN_SKILLS.find(s =>
+            s.id.toLowerCase().includes(q) ||
+            s.name.toLowerCase().includes(q) ||
+            q.includes(s.name.toLowerCase())
+          );
+          if (found) {
+            const toolDetails = found.toolIds.map((tid, i) => {
+              const t = BUILTIN_TOOLS.find(bt => bt.id === tid);
+              return t ? `${i + 1}. ${t.icon} ${t.name} — ${t.description}` : `${i + 1}. ${tid}`;
+            });
+            return {
+              id: found.id, name: found.name, type: "skill", source: "built-in",
+              description: found.description,
+              requiredConnections: found.requiredConnections,
+              category: found.category,
+              steps: toolDetails,
+              toolIds: found.toolIds,
+            };
+          }
+          // Fall through to custom skills
+          try {
+            const customSkills = await listCustomSkills(userId);
+            const cs = customSkills.find((s: any) =>
+              (s.id || "").toLowerCase().includes(q) ||
+              (s.name || "").toLowerCase().includes(q)
+            );
+            if (cs) return {
+              id: cs.id, name: cs.name, type: "skill", source: "custom",
+              description: cs.description,
+              toolIds: cs.toolIds || [],
+              requiredConnections: cs.requiredConnections || [],
+            };
+          } catch {}
+          return { error: `No skill found matching '${args.id}'.` };
+        }
+        if (args.type === "workflow") {
+          // Check built-in workflows first
+          const found = BUILTIN_WORKFLOWS.find(w =>
+            w.id.toLowerCase().includes(q) ||
+            w.name.toLowerCase().includes(q) ||
+            w.workflowDefinitionId.toLowerCase().replace(/-/g, " ").includes(q)
+          );
+          if (found) {
+            const wfDef = WORKFLOW_DEFINITIONS[found.workflowDefinitionId];
+            return {
+              id: found.id, name: found.name, type: "workflow", source: "built-in",
+              description: found.description,
+              requiredConnections: found.requiredConnections,
+              category: found.category,
+              goal: wfDef?.goal || "No goal defined.",
+              workflowDefinitionId: found.workflowDefinitionId,
+            };
+          }
+          // Also check WORKFLOW_DEFINITIONS directly by key
+          for (const [wfId, wfDef] of Object.entries(WORKFLOW_DEFINITIONS)) {
+            const normalized = wfId.replace(/-/g, " ");
+            if (wfId.includes(q.replace(/ /g, "-")) || normalized.includes(q)) {
+              return {
+                id: wfId, name: normalized.replace(/\b\w/g, c => c.toUpperCase()),
+                type: "workflow", source: "built-in",
+                goal: wfDef.goal,
+                requiredConnections: wfDef.requiredConnections,
+              };
+            }
+          }
+          // Fall through to custom workflows
+          try {
+            const customWfs = await listCustomWorkflows(userId);
+            const cw = customWfs.find((w: any) =>
+              (w.id || "").toLowerCase().includes(q) ||
+              (w.name || "").toLowerCase().includes(q)
+            );
+            if (cw) return {
+              id: cw.id, name: cw.name, type: "workflow", source: "custom",
+              description: cw.description,
+              goal: cw.goal,
+              requiredConnections: cw.requiredConnections || [],
+              schedule: cw.schedule || null,
+            };
+          } catch {}
+          return { error: `No workflow found matching '${args.id}'.` };
+        }
+      }
+      return { error: "Invalid type. Must be 'tool', 'skill', or 'workflow'." };
     }
     // LinkedIn tools
     case "get_linkedin_profile":
