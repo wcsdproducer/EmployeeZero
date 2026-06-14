@@ -75,7 +75,20 @@ const INTENT_KEYWORDS: Record<Intent, string[]> = {
     "your capabilities", "show me what", "available automations", "what automations",
     "run skill", "use skill", "lead research", "email campaign", "content publishing",
     "morning briefing prep", "meeting preparation", "competitor intelligence",
+    // Creation intents — load CRUD tools
+    "create a skill", "create a tool", "create a workflow", "create an automation",
+    "build a skill", "build a tool", "build a workflow", "build an automation",
+    "make a skill", "make a tool", "make a workflow", "make an automation",
+    "design a skill", "design a tool", "design a workflow",
+    "new skill", "new tool", "new workflow", "new automation",
+    "set up a skill", "set up a tool", "set up a workflow",
+    "add a skill", "add a tool", "add a workflow",
+    "delete the skill", "delete the tool", "delete the workflow",
+    "edit the skill", "edit the tool", "edit the workflow",
+    "update the skill", "update the tool", "update the workflow",
+    "assign a toolset", "assign tools",
   ],
+
   notes: [
     "note", "notes", "save this", "write down", "knowledge base", "remember this",
     "jot down",
