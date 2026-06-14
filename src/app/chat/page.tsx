@@ -204,9 +204,9 @@ function ChatPageInner() {
         const lastLen = lastModelMsgRef.current?.length || 0;
         const thisLen = msg.message?.length || 0;
         
-        // If two model messages arrive within 30s and both are short (completion summaries),
-        // skip the duplicate to prevent the repetition loop
-        if (timeSinceLast < 30000 && lastLen > 0 && lastLen < 300 && thisLen < 300) {
+        // If two model messages arrive within 30s, both are short (completion summaries),
+        // and the text content is identical, skip the duplicate to prevent the repetition loop
+        if (timeSinceLast < 30000 && lastLen > 0 && lastLen < 300 && thisLen < 300 && msg.message === lastModelMsgRef.current) {
           console.log("[Voice] Skipping duplicate model completion message");
           return;
         }

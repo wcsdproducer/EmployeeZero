@@ -213,17 +213,64 @@ export async function uploadFile(
   let media: any;
 
   if (sourceUrl) {
-    // Download the binary stream from the URL
-    const response = await axios({
-      method: "get",
-      url: sourceUrl,
-      responseType: "stream",
-    });
-    
-    const detectedMimeType = mimeType || response.headers["content-type"] || "application/octet-stream";
+    // Browser-like headers so CDNs and image hosts don't block the request
+    const browserHeaders = {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Accept-Language": "en-US,en;q=0.9",
+      Referer: new URL(sourceUrl).origin + "/",
+      "sec-fetch-dest": "image",
+      "sec-fetch-mode": "no-cors",
+      "sec-fetch-site": "cross-site",
+    };
+
+    let imageBuffer: Buffer;
+    let detectedMimeType: string;
+
+    try {
+      // Try as arraybuffer first — more reliable for binary/image data
+      const response = await axios({
+        method: "get",
+        url: sourceUrl,
+        responseType: "arraybuffer",
+        headers: browserHeaders,
+        timeout: 30000,
+        maxRedirects: 5,
+      });
+
+      const contentType: string = response.headers["content-type"] || "";
+      detectedMimeType = mimeType || contentType.split(";")[0].trim() || "application/octet-stream";
+
+      // Reject HTML error pages masquerading as images
+      if (contentType.includes("text/html") || contentType.includes("application/xhtml")) {
+        throw new Error(`URL returned an HTML page instead of an image (${response.status}). The image may require authentication or the URL may have expired.`);
+      }
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(`Failed to download image: HTTP ${response.status} from ${sourceUrl}`);
+      }
+
+      imageBuffer = Buffer.from(response.data);
+    } catch (downloadErr: any) {
+      // If we got a specific error about HTML or status codes, rethrow
+      if (downloadErr.message?.includes("HTML page") || downloadErr.message?.includes("HTTP ")) {
+        throw downloadErr;
+      }
+      // Otherwise surface the axios error clearly
+      const status = downloadErr?.response?.status;
+      const statusText = downloadErr?.response?.statusText;
+      throw new Error(
+        `Could not download the image from that URL${status ? ` (HTTP ${status} ${statusText})` : ""}. ` +
+        `The website may be blocking direct downloads. Try right-clicking the image, opening it in a new tab to get the direct image URL (ending in .jpg, .png, .webp, etc.), and use that URL instead.`
+      );
+    }
+
+    const { Readable } = require("stream");
     media = {
       mimeType: detectedMimeType,
-      body: response.data,
+      body: Readable.from(imageBuffer),
     };
   } else if (content !== undefined) {
     media = {
