@@ -974,14 +974,26 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
             // Soul-based filtering (agent-specific tool restrictions)
             let filteredTools = allTools;
             if (soul.enabledTools && soul.enabledTools.length > 0) {
+              // Core tools always pass through — memory, notes, and automation management.
+              // Automation CRUD tools are meta-tools (create/edit/delete own Tools, Skills, Workflows)
+              // and must always be available regardless of an agent's role/soul configuration.
               const CORE_TOOL_NAMES = [
+                // Memory + notes (cross-cutting, always needed)
                 "save_memory", "search_conversations",
                 "create_note", "list_notes", "get_note", "update_note", "delete_note", "search_notes",
+                // Automation management — meta tools, always available
+                "create_tool", "edit_tool", "delete_tool", "list_my_tools",
+                "create_skill", "edit_skill", "delete_skill", "list_my_skills",
+                "create_workflow", "edit_workflow", "delete_workflow", "list_my_workflows",
+                "get_automation_details",
+                "schedule_workflow", "list_scheduled_jobs", "pause_scheduled_job",
+                "resume_scheduled_job", "delete_scheduled_job",
               ];
               filteredTools = allTools.filter(t => 
                 CORE_TOOL_NAMES.includes(t.name) || soul.enabledTools!.includes(t.name)
               );
             }
+
 
             config.tools = [{ functionDeclarations: filteredTools }];
             console.log(`[Chat] Tools loaded: ${filteredTools.length} (intent: ${intentResult.intents.join("+")})`);
