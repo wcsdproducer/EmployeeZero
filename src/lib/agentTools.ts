@@ -520,6 +520,43 @@ export const DRIVE_TOOLS = [
       required: ["file_id", "folder_id"],
     },
   },
+  {
+    name: "share_drive_file",
+    description: "Share a Google Drive file, making it link-shareable (anyone can view/edit) or sharing it with a specific email address.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        file_id: { type: Type.STRING, description: "The Drive file ID to share" },
+        role: { type: Type.STRING, description: "Role: 'reader' (view only, default) or 'writer' (can edit)" },
+        type: { type: Type.STRING, description: "Type: 'anyone' (link sharing, default) or 'user' (specific email)" },
+        email_address: { type: Type.STRING, description: "Optional email address if type is 'user'" },
+      },
+      required: ["file_id"],
+    },
+  },
+  {
+    name: "rename_drive_file",
+    description: "Rename a file or folder in Google Drive",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        file_id: { type: Type.STRING, description: "The Drive file/folder ID to rename" },
+        new_name: { type: Type.STRING, description: "The new name" },
+      },
+      required: ["file_id", "new_name"],
+    },
+  },
+  {
+    name: "trash_drive_file",
+    description: "Trash (soft-delete) a file or folder in Google Drive",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        file_id: { type: Type.STRING, description: "The Drive file/folder ID to trash" },
+      },
+      required: ["file_id"],
+    },
+  },
 ];
 
 export const SHEETS_TOOLS = [

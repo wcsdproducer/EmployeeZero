@@ -44,6 +44,9 @@ import {
   createFolder,
   copyFile,
   moveFile,
+  shareFile,
+  renameFile,
+  trashFile,
 } from "@/lib/drive";
 import {
   listSpreadsheets,
@@ -300,6 +303,12 @@ export async function executeTool(
       return await copyFile(userId, args.file_id, args.name, args.folder_id);
     case "move_drive_file":
       return await moveFile(userId, args.file_id, args.folder_id);
+    case "share_drive_file":
+      return await shareFile(userId, args.file_id, args.role, args.type, args.email_address);
+    case "rename_drive_file":
+      return await renameFile(userId, args.file_id, args.new_name);
+    case "trash_drive_file":
+      return await trashFile(userId, args.file_id);
     // Sheets tools
     case "list_spreadsheets":
       return await listSpreadsheets(userId, args.max_results || 10);

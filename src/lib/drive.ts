@@ -322,3 +322,72 @@ export async function moveFile(
     parents: res.data.parents,
   };
 }
+
+export async function shareFile(
+  userId: string,
+  fileId: string,
+  role: "reader" | "writer" = "reader",
+  type: "anyone" | "user" = "anyone",
+  emailAddress?: string
+): Promise<any> {
+  const driveClient = await getAuthenticatedDrive(userId);
+
+  const permission: any = { role, type };
+  if (emailAddress) permission.emailAddress = emailAddress;
+
+  await driveClient.permissions.create({
+    fileId,
+    requestBody: permission,
+  });
+
+  const file = await driveClient.files.get({
+    fileId,
+    fields: "webViewLink, name",
+  });
+
+  return {
+    id: fileId,
+    name: file.data.name,
+    link: file.data.webViewLink,
+    shared: true,
+  };
+}
+
+export async function renameFile(
+  userId: string,
+  fileId: string,
+  newName: string
+): Promise<any> {
+  const driveClient = await getAuthenticatedDrive(userId);
+
+  const res = await driveClient.files.update({
+    fileId,
+    requestBody: { name: newName },
+    fields: "id, name, webViewLink",
+  });
+
+  return {
+    id: res.data.id,
+    name: res.data.name,
+    link: res.data.webViewLink,
+  };
+}
+
+export async function trashFile(
+  userId: string,
+  fileId: string
+): Promise<any> {
+  const driveClient = await getAuthenticatedDrive(userId);
+
+  const res = await driveClient.files.update({
+    fileId,
+    requestBody: { trashed: true },
+    fields: "id, name, trashed",
+  });
+
+  return {
+    id: res.data.id,
+    name: res.data.name,
+    trashed: res.data.trashed,
+  };
+}

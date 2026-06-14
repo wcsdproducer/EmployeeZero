@@ -22,7 +22,7 @@ import {
 } from "@/lib/calendar";
 import {
   listFiles, getFile, readFileContent, uploadFile, createFolder,
-  copyFile, moveFile,
+  copyFile, moveFile, shareFile, renameFile, trashFile,
 } from "@/lib/drive";
 import {
   listSpreadsheets, readSheet, writeSheet, appendRows, createSpreadsheet,
@@ -469,6 +469,9 @@ const DRIVE_TOOLS = [
   { name: "create_drive_folder", description: "Create a folder.", parameters: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, parent_id: { type: Type.STRING } }, required: ["name"] } },
   { name: "copy_drive_file", description: "Copy a file in Google Drive, optionally placing it in a new folder or renaming it.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING }, name: { type: Type.STRING }, folder_id: { type: Type.STRING } }, required: ["file_id"] } },
   { name: "move_drive_file", description: "Move a file to a new folder in Google Drive.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING }, folder_id: { type: Type.STRING } }, required: ["file_id", "folder_id"] } },
+  { name: "share_drive_file", description: "Share a Google Drive file, making it link-shareable or sharing it with a specific email address.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING }, role: { type: Type.STRING }, type: { type: Type.STRING }, email_address: { type: Type.STRING } }, required: ["file_id"] } },
+  { name: "rename_drive_file", description: "Rename a file or folder in Google Drive.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING }, new_name: { type: Type.STRING } }, required: ["file_id", "new_name"] } },
+  { name: "trash_drive_file", description: "Trash a file or folder in Google Drive.", parameters: { type: Type.OBJECT, properties: { file_id: { type: Type.STRING } }, required: ["file_id"] } },
 ];
 
 const SHEETS_TOOLS = [
@@ -662,6 +665,12 @@ async function executeTool(
       return await copyFile(userId, args.file_id, args.name, args.folder_id);
     case "move_drive_file":
       return await moveFile(userId, args.file_id, args.folder_id);
+    case "share_drive_file":
+      return await shareFile(userId, args.file_id, args.role, args.type, args.email_address);
+    case "rename_drive_file":
+      return await renameFile(userId, args.file_id, args.new_name);
+    case "trash_drive_file":
+      return await trashFile(userId, args.file_id);
     // Sheets
     case "list_spreadsheets":
       return await listSpreadsheets(userId, args.max_results || 10);
