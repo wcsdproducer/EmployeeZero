@@ -57,6 +57,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   const transcriptionRef = useRef<string>("");
   const agentIdRef = useRef<string>("primary");
   const turnIndexRef = useRef<number>(0); // Increments each turnComplete — guards against duplicate flushes
+  const turnFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Trailing-edge debounce for transcription flush
   const callbacksRef = useRef(options);
   const chunksSentRef = useRef<number>(0);
   const chunksReceivedRef = useRef<number>(0);
@@ -117,6 +118,11 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
   // ── Cleanup ───────────────────────────────────────────────────────
 
   const cleanUp = () => {
+    // Cancel any pending turn flush
+    if (turnFlushTimerRef.current) {
+      clearTimeout(turnFlushTimerRef.current);
+      turnFlushTimerRef.current = null;
+    }
     if (scriptProcessorRef.current) {
       scriptProcessorRef.current.onaudioprocess = null;
       scriptProcessorRef.current.disconnect();
@@ -494,12 +500,29 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
           }
 
           // Handle AI speech transcription — accumulate spoken text
-          // outputTranscription is the most reliable source of what Veronica actually says
+          // outputTranscription is the most reliable source of what Veronica actually says.
+          // IMPORTANT: outputTranscription chunks can arrive AFTER turnComplete fires.
+          // We use a trailing-edge debounce: reset the flush timer every time a new chunk
+          // arrives, so we always wait for the last chunk before saving to chat.
           const aiTranscript =
             msg.outputTranscription?.text ||
             msg.serverContent?.outputTranscription?.text;
           if (aiTranscript) {
             transcriptionRef.current += aiTranscript;
+            // If a flush is already scheduled, reset its timer so we wait for more chunks
+            if (turnFlushTimerRef.current) {
+              clearTimeout(turnFlushTimerRef.current);
+              turnFlushTimerRef.current = null;
+              const currentTurn = turnIndexRef.current;
+              turnFlushTimerRef.current = setTimeout(() => {
+                turnFlushTimerRef.current = null;
+                if (currentTurn !== turnIndexRef.current) return; // stale
+                const text = modelTextRef.current.trim() || transcriptionRef.current.trim();
+                modelTextRef.current = "";
+                transcriptionRef.current = "";
+                if (text) callbacksRef.current.onMessage?.({ source: "ai", message: text });
+              }, 700);
+            }
           }
 
           // Handle user speech transcription
@@ -532,22 +555,26 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
             }
           }
 
-          // Turn complete — flush accumulated AI text to chat log
+          // turnComplete — schedule the flush with a 700ms trailing-edge debounce.
+          // This gives any in-flight outputTranscription chunks time to arrive.
+          // If transcription resets the timer above, this scheduled flush will be
+          // cancelled and rescheduled — ensuring we always wait for the LAST chunk.
           if (msg.serverContent?.turnComplete) {
             const thisTurn = ++turnIndexRef.current;
-            // Prefer modelText (inline text parts), fall back to transcription (speech-to-text)
-            const textToSave = modelTextRef.current.trim() || transcriptionRef.current.trim();
-            modelTextRef.current = "";
-            transcriptionRef.current = "";
-
-            if (textToSave && thisTurn === turnIndexRef.current) {
-              // Small debounce: some models fire turnComplete twice in quick succession
-              setTimeout(() => {
-                if (thisTurn === turnIndexRef.current) {
-                  callbacksRef.current.onMessage?.({ source: "ai", message: textToSave });
-                }
-              }, 80);
+            // Cancel any existing timer (e.g. double-turnComplete from model)
+            if (turnFlushTimerRef.current) {
+              clearTimeout(turnFlushTimerRef.current);
+              turnFlushTimerRef.current = null;
             }
+            turnFlushTimerRef.current = setTimeout(() => {
+              turnFlushTimerRef.current = null;
+              if (thisTurn !== turnIndexRef.current) return; // newer turn superseded this one
+              // Prefer inline text parts; fall back to outputTranscription STT
+              const text = modelTextRef.current.trim() || transcriptionRef.current.trim();
+              modelTextRef.current = "";
+              transcriptionRef.current = "";
+              if (text) callbacksRef.current.onMessage?.({ source: "ai", message: text });
+            }, 700);
           }
         } catch (err) {
           console.error("[GeminiLive] message processing error:", err);
