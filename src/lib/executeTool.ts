@@ -35,7 +35,20 @@ import {
   createCustomWorkflow,
   listCustomWorkflows,
   deleteCustomWorkflow,
+  updateCustomWorkflow,
 } from "@/lib/customWorkflows";
+import {
+  createCustomTool,
+  listCustomTools,
+  updateCustomTool,
+  deleteCustomTool,
+} from "@/lib/customTools";
+import {
+  createCustomSkill,
+  listCustomSkills,
+  updateCustomSkill,
+  deleteCustomSkill,
+} from "@/lib/customSkills";
 import {
   listFiles,
   getFile,
@@ -372,6 +385,82 @@ export async function executeTool(
     }
     case "delete_workflow":
       return await deleteCustomWorkflow(userId, args.workflow_id);
+    case "edit_workflow": {
+      const updates: Record<string, any> = {};
+      if (args.name) updates.name = args.name;
+      if (args.description !== undefined) updates.description = args.description;
+      if (args.goal) updates.goal = args.goal;
+      if (args.schedule !== undefined) updates.schedule = args.schedule || null;
+      if (args.required_connections !== undefined) {
+        updates.requiredConnections = args.required_connections
+          ? args.required_connections.split(",").map((c: string) => c.trim()).filter(Boolean)
+          : [];
+      }
+      const ok = await updateCustomWorkflow(userId, args.workflow_id, updates);
+      return ok ? { success: true, message: "Workflow updated successfully." } : { success: false, message: "Workflow not found." };
+    }
+    // Tool management
+    case "create_tool": {
+      const toolConns = args.required_connections
+        ? args.required_connections.split(",").map((c: string) => c.trim()).filter(Boolean)
+        : [];
+      return await createCustomTool(userId, {
+        name: args.name,
+        description: args.description || "",
+        instruction: args.instruction,
+        requiredConnections: toolConns,
+        agentId: args.agent_id || agentId || "company",
+      });
+    }
+    case "list_my_tools":
+      return await listCustomTools(userId);
+    case "edit_tool": {
+      const toolUpdates: Record<string, any> = {};
+      if (args.name) toolUpdates.name = args.name;
+      if (args.description !== undefined) toolUpdates.description = args.description;
+      if (args.instruction) toolUpdates.instruction = args.instruction;
+      if (args.required_connections !== undefined) {
+        toolUpdates.requiredConnections = args.required_connections
+          ? args.required_connections.split(",").map((c: string) => c.trim()).filter(Boolean)
+          : [];
+      }
+      const toolOk = await updateCustomTool(userId, args.tool_id, toolUpdates);
+      return toolOk ? { success: true, message: "Tool updated." } : { success: false, message: "Tool not found." };
+    }
+    case "delete_tool": {
+      const toolDel = await deleteCustomTool(userId, args.tool_id);
+      return toolDel ? { success: true, message: "Tool deleted." } : { success: false, message: "Tool not found." };
+    }
+    // Skill management
+    case "create_skill": {
+      const toolIds = args.tool_ids
+        ? args.tool_ids.split(",").map((id: string) => id.trim()).filter(Boolean)
+        : [];
+      return await createCustomSkill(userId, {
+        name: args.name,
+        description: args.description || "",
+        toolIds,
+        agentId: args.agent_id || agentId || "company",
+      });
+    }
+    case "list_my_skills":
+      return await listCustomSkills(userId);
+    case "edit_skill": {
+      const skillUpdates: Record<string, any> = {};
+      if (args.name) skillUpdates.name = args.name;
+      if (args.description !== undefined) skillUpdates.description = args.description;
+      if (args.tool_ids !== undefined) {
+        skillUpdates.toolIds = args.tool_ids
+          ? args.tool_ids.split(",").map((id: string) => id.trim()).filter(Boolean)
+          : [];
+      }
+      const skillOk = await updateCustomSkill(userId, args.skill_id, skillUpdates);
+      return skillOk ? { success: true, message: "Skill updated." } : { success: false, message: "Skill not found." };
+    }
+    case "delete_skill": {
+      const skillDel = await deleteCustomSkill(userId, args.skill_id);
+      return skillDel ? { success: true, message: "Skill deleted." } : { success: false, message: "Skill not found." };
+    }
     // Scheduled job / cron tools
     case "schedule_workflow": {
       const { workflow_id, schedule, name: jobName } = args;

@@ -38,6 +38,14 @@ import {
   Store,
   ClipboardList,
   Presentation,
+  Pencil,
+  Trash2,
+  Wrench,
+  Layers,
+  GitBranch,
+  Plus,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 /* ─── Workflow Data ─── */
@@ -401,6 +409,66 @@ export default function WorkflowsPage() {
   const [selectedAgentId, setSelectedAgentId] = useState("company");
   const [creatingWorkflow, setCreatingWorkflow] = useState(false);
 
+  // Edit modal state
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingWorkflow, setEditingWorkflow] = useState<any>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editGoal, setEditGoal] = useState("");
+  const [editSchedule, setEditSchedule] = useState("");
+  const [editConnections, setEditConnections] = useState<string[]>([]);
+  const [editAgentId, setEditAgentId] = useState("company");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // ─── 3-Tab state ───
+  const [activeTab, setActiveTab] = useState<"tools" | "skills" | "workflows">("workflows");
+
+  // ─── Tools state ───
+  const [customTools, setCustomTools] = useState<any[]>([]);
+  const [toolsLoading, setToolsLoading] = useState(false);
+  const [deletingToolId, setDeletingToolId] = useState<string | null>(null);
+  // Create Tool
+  const [isCreateToolOpen, setIsCreateToolOpen] = useState(false);
+  const [newToolName, setNewToolName] = useState("");
+  const [newToolDesc, setNewToolDesc] = useState("");
+  const [newToolInstruction, setNewToolInstruction] = useState("");
+  const [newToolConnections, setNewToolConnections] = useState<string[]>([]);
+  const [newToolAgentId, setNewToolAgentId] = useState("company");
+  const [creatingTool, setCreatingTool] = useState(false);
+  // Edit Tool
+  const [isEditToolOpen, setIsEditToolOpen] = useState(false);
+  const [editingTool, setEditingTool] = useState<any>(null);
+  const [editToolName, setEditToolName] = useState("");
+  const [editToolDesc, setEditToolDesc] = useState("");
+  const [editToolInstruction, setEditToolInstruction] = useState("");
+  const [editToolConnections, setEditToolConnections] = useState<string[]>([]);
+  const [editToolAgentId, setEditToolAgentId] = useState("company");
+  const [savingToolEdit, setSavingToolEdit] = useState(false);
+
+  // ─── Skills state ───
+  const [customSkills, setCustomSkills] = useState<any[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [deletingSkillId, setDeletingSkillId] = useState<string | null>(null);
+  // Create Skill
+  const [isCreateSkillOpen, setIsCreateSkillOpen] = useState(false);
+  const [newSkillName, setNewSkillName] = useState("");
+  const [newSkillDesc, setNewSkillDesc] = useState("");
+  const [newSkillToolIds, setNewSkillToolIds] = useState<string[]>([]);
+  const [newSkillAgentId, setNewSkillAgentId] = useState("company");
+  const [creatingSkill, setCreatingSkill] = useState(false);
+  // Edit Skill
+  const [isEditSkillOpen, setIsEditSkillOpen] = useState(false);
+  const [editingSkill, setEditingSkill] = useState<any>(null);
+  const [editSkillName, setEditSkillName] = useState("");
+  const [editSkillDesc, setEditSkillDesc] = useState("");
+  const [editSkillToolIds, setEditSkillToolIds] = useState<string[]>([]);
+  const [editSkillAgentId, setEditSkillAgentId] = useState("company");
+  const [savingSkillEdit, setSavingSkillEdit] = useState(false);
+
+  // Workflow skill selector (for create/edit workflow modals)
+  const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
+  const [editWorkflowSkillIds, setEditWorkflowSkillIds] = useState<string[]>([]);
+
   // Listen for purchased agents in subcollection
   useEffect(() => {
     if (!user?.uid) return;
@@ -446,17 +514,12 @@ export default function WorkflowsPage() {
           agentId: selectedAgentId,
         }),
       });
-      if (!res.ok) throw new Error("Failed to create workflow");
+      if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setCustomWorkflows(prev => [data.workflow, ...prev]);
       setToast({ message: `Workflow "${newName}" created!`, type: "success" });
-      // Reset form
-      setNewName("");
-      setNewDesc("");
-      setNewGoal("");
-      setNewSchedule("");
-      setSelectedConnections([]);
-      setSelectedAgentId("company");
+      setNewName(""); setNewDesc(""); setNewGoal(""); setNewSchedule("");
+      setSelectedConnections([]); setSelectedAgentId("company");
       setIsCreateOpen(false);
     } catch (err) {
       setToast({ message: "Failed to create workflow.", type: "error" });
@@ -464,6 +527,80 @@ export default function WorkflowsPage() {
       setCreatingWorkflow(false);
     }
   };
+
+  const openEditModal = (cw: any) => {
+    setEditingWorkflow(cw);
+    setEditName(cw.name || "");
+    setEditDesc(cw.description || "");
+    setEditGoal(cw.goal || "");
+    setEditSchedule(cw.schedule || "");
+    setEditConnections(cw.requiredConnections || []);
+    setEditAgentId(cw.agentId || "company");
+    setIsEditOpen(true);
+  };
+
+  const handleEditWorkflow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingWorkflow || !editName || !editGoal) {
+      setToast({ message: "Name and Goal are required.", type: "error" });
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const res = await authFetch("/api/workflows", {
+        method: "PATCH",
+        body: JSON.stringify({
+          workflowId: editingWorkflow.id,
+          name: editName,
+          description: editDesc,
+          goal: editGoal,
+          requiredConnections: editConnections,
+          schedule: editSchedule || null,
+          agentId: editAgentId,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setCustomWorkflows(prev =>
+        prev.map(w =>
+          w.id === editingWorkflow.id
+            ? { ...w, name: editName, description: editDesc, goal: editGoal, schedule: editSchedule || null, requiredConnections: editConnections, agentId: editAgentId }
+            : w
+        )
+      );
+      setToast({ message: `Workflow "${editName}" updated!`, type: "success" });
+      setIsEditOpen(false);
+      setEditingWorkflow(null);
+    } catch {
+      setToast({ message: "Failed to update workflow.", type: "error" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteWorkflow = async (cw: any) => {
+    if (!confirm(`Delete "${cw.name}"? This cannot be undone.`)) return;
+    setDeletingId(cw.id);
+    try {
+      const res = await authFetch("/api/workflows", {
+        method: "DELETE",
+        body: JSON.stringify({ workflowId: cw.id }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setCustomWorkflows(prev => prev.filter(w => w.id !== cw.id));
+      setToast({ message: `"${cw.name}" deleted.`, type: "success" });
+    } catch {
+      setToast({ message: "Failed to delete workflow.", type: "error" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const toggleEditConnection = (conn: string) => {
+    setEditConnections(prev =>
+      prev.includes(conn) ? prev.filter(c => c !== conn) : [...prev, conn]
+    );
+  };
+
 
   // Load installed workflows
   useEffect(() => {
@@ -501,6 +638,29 @@ export default function WorkflowsPage() {
       .then((data) => setCustomWorkflows(data.workflows || []))
       .catch(() => {})
       .finally(() => setCustomLoading(false));
+
+  // Load custom tools
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    setToolsLoading(true);
+    authFetch("/api/tools")
+      .then((r) => r.json())
+      .then((d) => setCustomTools(d.tools || []))
+      .catch(() => {})
+      .finally(() => setToolsLoading(false));
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    setSkillsLoading(true);
+    authFetch("/api/skills")
+      .then((r) => r.json())
+      .then((d) => setCustomSkills(d.skills || []))
+      .catch(() => {})
+      .finally(() => setSkillsLoading(false));
   }, [user?.uid]);
 
   // Auto-dismiss toast
@@ -531,6 +691,108 @@ export default function WorkflowsPage() {
       setInstallingId(null);
     }
   };
+
+  /* ─── Tool CRUD handlers ─── */
+  const handleCreateTool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newToolName || !newToolInstruction) { setToast({ message: "Name and Instruction are required.", type: "error" }); return; }
+    setCreatingTool(true);
+    try {
+      const res = await authFetch("/api/tools", { method: "POST", body: JSON.stringify({ name: newToolName, description: newToolDesc, instruction: newToolInstruction, requiredConnections: newToolConnections, agentId: newToolAgentId }) });
+      if (!res.ok) throw new Error(await res.text());
+      const { tool } = await res.json();
+      setCustomTools(prev => [tool, ...prev]);
+      setToast({ message: `Tool "${newToolName}" created!`, type: "success" });
+      setNewToolName(""); setNewToolDesc(""); setNewToolInstruction(""); setNewToolConnections([]); setNewToolAgentId("company");
+      setIsCreateToolOpen(false);
+    } catch { setToast({ message: "Failed to create tool.", type: "error" }); }
+    finally { setCreatingTool(false); }
+  };
+
+  const openEditTool = (t: any) => {
+    setEditingTool(t); setEditToolName(t.name || ""); setEditToolDesc(t.description || "");
+    setEditToolInstruction(t.instruction || ""); setEditToolConnections(t.requiredConnections || []);
+    setEditToolAgentId(t.agentId || "company"); setIsEditToolOpen(true);
+  };
+
+  const handleEditTool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTool) return;
+    setSavingToolEdit(true);
+    try {
+      const res = await authFetch("/api/tools", { method: "PATCH", body: JSON.stringify({ toolId: editingTool.id, name: editToolName, description: editToolDesc, instruction: editToolInstruction, requiredConnections: editToolConnections, agentId: editToolAgentId }) });
+      if (!res.ok) throw new Error(await res.text());
+      setCustomTools(prev => prev.map(t => t.id === editingTool.id ? { ...t, name: editToolName, description: editToolDesc, instruction: editToolInstruction, requiredConnections: editToolConnections, agentId: editToolAgentId } : t));
+      setToast({ message: `Tool "${editToolName}" updated!`, type: "success" }); setIsEditToolOpen(false);
+    } catch { setToast({ message: "Failed to update tool.", type: "error" }); }
+    finally { setSavingToolEdit(false); }
+  };
+
+  const handleDeleteTool = async (t: any) => {
+    if (!confirm(`Delete tool "${t.name}"? This cannot be undone.`)) return;
+    setDeletingToolId(t.id);
+    try {
+      const res = await authFetch("/api/tools", { method: "DELETE", body: JSON.stringify({ toolId: t.id }) });
+      if (!res.ok) throw new Error(await res.text());
+      setCustomTools(prev => prev.filter(x => x.id !== t.id));
+      setToast({ message: `Tool "${t.name}" deleted.`, type: "success" });
+    } catch { setToast({ message: "Failed to delete tool.", type: "error" }); }
+    finally { setDeletingToolId(null); }
+  };
+
+  /* ─── Skill CRUD handlers ─── */
+  const handleCreateSkill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSkillName) { setToast({ message: "Name is required.", type: "error" }); return; }
+    setCreatingSkill(true);
+    try {
+      const res = await authFetch("/api/skills", { method: "POST", body: JSON.stringify({ name: newSkillName, description: newSkillDesc, toolIds: newSkillToolIds, agentId: newSkillAgentId }) });
+      if (!res.ok) throw new Error(await res.text());
+      const { skill } = await res.json();
+      setCustomSkills(prev => [skill, ...prev]);
+      setToast({ message: `Skill "${newSkillName}" created!`, type: "success" });
+      setNewSkillName(""); setNewSkillDesc(""); setNewSkillToolIds([]); setNewSkillAgentId("company");
+      setIsCreateSkillOpen(false);
+    } catch { setToast({ message: "Failed to create skill.", type: "error" }); }
+    finally { setCreatingSkill(false); }
+  };
+
+  const openEditSkill = (s: any) => {
+    setEditingSkill(s); setEditSkillName(s.name || ""); setEditSkillDesc(s.description || "");
+    setEditSkillToolIds(s.toolIds || []); setEditSkillAgentId(s.agentId || "company"); setIsEditSkillOpen(true);
+  };
+
+  const handleEditSkill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSkill) return;
+    setSavingSkillEdit(true);
+    try {
+      const res = await authFetch("/api/skills", { method: "PATCH", body: JSON.stringify({ skillId: editingSkill.id, name: editSkillName, description: editSkillDesc, toolIds: editSkillToolIds, agentId: editSkillAgentId }) });
+      if (!res.ok) throw new Error(await res.text());
+      setCustomSkills(prev => prev.map(s => s.id === editingSkill.id ? { ...s, name: editSkillName, description: editSkillDesc, toolIds: editSkillToolIds, agentId: editSkillAgentId } : s));
+      setToast({ message: `Skill "${editSkillName}" updated!`, type: "success" }); setIsEditSkillOpen(false);
+    } catch { setToast({ message: "Failed to update skill.", type: "error" }); }
+    finally { setSavingSkillEdit(false); }
+  };
+
+  const handleDeleteSkill = async (s: any) => {
+    if (!confirm(`Delete skill "${s.name}"? This cannot be undone.`)) return;
+    setDeletingSkillId(s.id);
+    try {
+      const res = await authFetch("/api/skills", { method: "DELETE", body: JSON.stringify({ skillId: s.id }) });
+      if (!res.ok) throw new Error(await res.text());
+      setCustomSkills(prev => prev.filter(x => x.id !== s.id));
+      setToast({ message: `Skill "${s.name}" deleted.`, type: "success" });
+    } catch { setToast({ message: "Failed to delete skill.", type: "error" }); }
+    finally { setDeletingSkillId(null); }
+  };
+
+  const toggleToolSelection = (id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) =>
+    setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const toggleSkillSelection = (id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) =>
+    setter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
 
   const uninstallWorkflow = async (workflowId: string) => {
     if (!user?.uid) return;
@@ -623,100 +885,202 @@ export default function WorkflowsPage() {
       </header>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* ─── My Custom Workflows ─── */}
+        {/* ─── My Automations — 3-Tab Panel ─── */}
         <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
+          {/* Tab header */}
+          <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
               <Sparkles size={18} className="text-purple-400" />
-              My Custom Workflows
+              My Automations
             </h2>
-            <button
-              onClick={() => setIsCreateOpen(true)}
-              className="text-xs font-semibold px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-600 text-white transition-all shadow-md flex items-center gap-1.5"
-            >
-              + Create Custom Workflow
-            </button>
+            {activeTab === "tools" && (
+              <button onClick={() => setIsCreateToolOpen(true)} className="text-xs font-semibold px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-md flex items-center gap-1.5">
+                <Plus size={12} /> New Tool
+              </button>
+            )}
+            {activeTab === "skills" && (
+              <button onClick={() => setIsCreateSkillOpen(true)} className="text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-md flex items-center gap-1.5">
+                <Plus size={12} /> New Skill
+              </button>
+            )}
+            {activeTab === "workflows" && (
+              <button onClick={() => setIsCreateOpen(true)} className="text-xs font-semibold px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-600 text-white transition-all shadow-md flex items-center gap-1.5">
+                <Plus size={12} /> New Workflow
+              </button>
+            )}
           </div>
 
-          {customLoading ? (
-            <div className="flex items-center gap-2 text-neutral-500 text-sm py-4">
-              <Loader2 size={14} className="animate-spin" /> Loading...
-            </div>
-          ) : customWorkflows.length === 0 ? (
-            <div className="rounded-2xl border border-white/5 bg-white/[0.01] p-6 text-center text-neutral-500 text-sm">
-              No custom workflows created yet. Click "+ Create Custom Workflow" or talk to your agent in Chat to build one.
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {customWorkflows.map((cw) => {
-                const assignedAgent = cw.agentId === "company" || !cw.agentId
-                  ? null
-                  : purchasedAgents.find((a) => a.id === cw.agentId);
-                return (
-                  <div
-                    key={cw.id}
-                    className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-center gap-4"
-                  >
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 text-purple-400">
-                      <Zap size={18} />
+          {/* Tabs */}
+          <div className="flex items-center gap-1 mb-5 p-1 rounded-2xl bg-white/[0.03] border border-white/5 w-fit">
+            {([
+              { key: "tools", label: "🔧 Tools", count: customTools.length },
+              { key: "skills", label: "⚡ Skills", count: customSkills.length },
+              { key: "workflows", label: "🔄 Workflows", count: customWorkflows.length },
+            ] as { key: "tools" | "skills" | "workflows"; label: string; count: number }[]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2",
+                  activeTab === tab.key
+                    ? "bg-white/10 text-white shadow"
+                    : "text-neutral-500 hover:text-neutral-300"
+                )}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded-full", activeTab === tab.key ? "bg-white/20" : "bg-white/5")}>{tab.count}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Tools Tab ── */}
+          {activeTab === "tools" && (
+            toolsLoading ? (
+              <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+            ) : customTools.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+                <Wrench size={28} className="mx-auto mb-3 text-amber-400/40" />
+                <p className="text-sm font-medium text-neutral-400">No tools yet</p>
+                <p className="text-xs text-neutral-600 mt-1">Create a Tool — an atomic instruction step your agents can execute. Skills and Workflows are built from Tools.</p>
+                <button onClick={() => setIsCreateToolOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all">+ Create First Tool</button>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {customTools.map((t) => (
+                  <div key={t.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-start gap-4 group">
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex-shrink-0 mt-0.5">
+                      <Wrench size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{cw.name}</p>
-                      <p className="text-xs text-neutral-500 truncate">{cw.description}</p>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        {assignedAgent ? (
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center gap-1">
-                            👤 {assignedAgent.soul?.agentName || assignedAgent.name || assignedAgent.id}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-neutral-500/10 border border-neutral-500/20 text-neutral-400 flex items-center gap-1">
-                            🏢 Company-Wide
-                          </span>
-                        )}
-                        {cw.lastRunAt && (
-                          <span className="text-[10px] text-neutral-600">
-                            Last run: {new Date(cw.lastRunAt).toLocaleDateString()}
-                          </span>
-                        )}
+                      <p className="font-semibold text-sm">{t.name}</p>
+                      {t.description && <p className="text-xs text-neutral-500 mt-0.5">{t.description}</p>}
+                      <p className="text-xs text-neutral-600 mt-1.5 line-clamp-2 italic">&ldquo;{t.instruction}&rdquo;</p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {(t.requiredConnections || []).map((c: string) => (
+                          <span key={c} className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/5 text-neutral-500">{CONNECTION_ICONS[c] || "🔗"} {c}</span>
+                        ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => {
-                          // Navigate to chat and trigger workflow execution
-                          router.push(`/chat?runCustomWorkflow=${cw.id}&workflowName=${encodeURIComponent(cw.name)}`);
-                        }}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 text-purple-400 transition-all"
-                      >
-                        Run
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (!user?.uid) return;
-                          setDeletingId(cw.id);
-                          try {
-                            await authFetch("/api/workflows", {
-                              method: "DELETE",
-                              body: JSON.stringify({ workflowId: cw.id }),
-                            });
-                            setCustomWorkflows((prev) => prev.filter((w) => w.id !== cw.id));
-                            setToast({ message: `"${cw.name}" deleted.`, type: "success" });
-                          } catch {
-                            setToast({ message: "Failed to delete.", type: "error" });
-                          } finally {
-                            setDeletingId(null);
-                          }
-                        }}
-                        disabled={deletingId === cw.id}
-                        className="text-[11px] text-red-400/70 hover:text-red-400 font-medium transition-colors"
-                      >
-                        {deletingId === cw.id ? "..." : "Delete"}
+                    <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEditTool(t)} title="Edit tool" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
+                      <button onClick={() => handleDeleteTool(t)} disabled={deletingToolId === t.id} title="Delete tool" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
+                        {deletingToolId === t.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                       </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {/* ── Skills Tab ── */}
+          {activeTab === "skills" && (
+            skillsLoading ? (
+              <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+            ) : customSkills.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+                <Layers size={28} className="mx-auto mb-3 text-emerald-400/40" />
+                <p className="text-sm font-medium text-neutral-400">No skills yet</p>
+                <p className="text-xs text-neutral-600 mt-1">Create a Skill — an ordered set of Tools that gives an agent a reusable capability.</p>
+                <button onClick={() => setIsCreateSkillOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all">+ Create First Skill</button>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {customSkills.map((s) => {
+                  const skillTools = (s.toolIds || []).map((id: string) => customTools.find((t: any) => t.id === id)).filter(Boolean);
+                  return (
+                    <div key={s.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-start gap-4 group">
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex-shrink-0 mt-0.5">
+                        <Layers size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm">{s.name}</p>
+                        {s.description && <p className="text-xs text-neutral-500 mt-0.5">{s.description}</p>}
+                        {skillTools.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {skillTools.map((t: any, i: number) => (
+                              <span key={t.id} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center gap-1">
+                                <span className="font-bold text-amber-600/70">{i + 1}.</span> {t.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {skillTools.length === 0 && s.toolIds?.length > 0 && (
+                          <p className="text-[10px] text-neutral-600 mt-1.5">{s.toolIds.length} tool(s) assigned</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditSkill(s)} title="Edit skill" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
+                        <button onClick={() => handleDeleteSkill(s)} disabled={deletingSkillId === s.id} title="Delete skill" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
+                          {deletingSkillId === s.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          )}
+
+          {/* ── Workflows Tab ── */}
+          {activeTab === "workflows" && (
+            customLoading ? (
+              <div className="flex items-center gap-2 text-neutral-500 text-sm py-4"><Loader2 size={14} className="animate-spin" /> Loading...</div>
+            ) : customWorkflows.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+                <GitBranch size={28} className="mx-auto mb-3 text-purple-400/40" />
+                <p className="text-sm font-medium text-neutral-400">No workflows yet</p>
+                <p className="text-xs text-neutral-600 mt-1">Create a Workflow — combine Skills into an automation that runs once or on a schedule.</p>
+                <button onClick={() => setIsCreateOpen(true)} className="mt-4 text-xs font-semibold px-4 py-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-all">+ Create First Workflow</button>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {customWorkflows.map((cw) => {
+                  const assignedAgent = cw.agentId === "company" || !cw.agentId
+                    ? null : purchasedAgents.find((a: any) => a.id === cw.agentId);
+                  const wfSkills = (cw.skillIds || []).map((id: string) => customSkills.find((s: any) => s.id === id)).filter(Boolean);
+                  return (
+                    <div key={cw.id} className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 flex items-center gap-4">
+                      <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 text-purple-400 flex-shrink-0">
+                        <GitBranch size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm">{cw.name}</p>
+                        {cw.description && <p className="text-xs text-neutral-500 truncate">{cw.description}</p>}
+                        {wfSkills.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {wfSkills.map((s: any, i: number) => (
+                              <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1">
+                                <span className="font-bold text-emerald-600/70">{i + 1}.</span> {s.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          {assignedAgent ? (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400">👤 {assignedAgent.soul?.agentName || assignedAgent.name || assignedAgent.id}</span>
+                          ) : (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-neutral-500/10 border border-neutral-500/20 text-neutral-400">🏢 Company-Wide</span>
+                          )}
+                          {cw.schedule && <span className="text-[10px] text-neutral-600 flex items-center gap-1"><Clock size={9} /> {cw.schedule}</span>}
+                          {cw.lastRunAt && <span className="text-[10px] text-neutral-600">Last run: {new Date(cw.lastRunAt).toLocaleDateString()}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button onClick={() => router.push(`/chat?runCustomWorkflow=${cw.id}&workflowName=${encodeURIComponent(cw.name)}`)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 text-purple-400 transition-all">Run</button>
+                        <button onClick={() => openEditModal(cw)} title="Edit workflow" className="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all"><Pencil size={13} /></button>
+                        <button onClick={() => handleDeleteWorkflow(cw)} disabled={deletingId === cw.id} title="Delete workflow" className="p-1.5 rounded-lg text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40">
+                          {deletingId === cw.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
 
@@ -1138,6 +1502,313 @@ export default function WorkflowsPage() {
                     ) : (
                       "Create Workflow"
                     )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Custom Workflow Modal */}
+      <AnimatePresence>
+        {isEditOpen && editingWorkflow && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#121212]/90 backdrop-blur-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] z-10 text-white"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                    <Pencil size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold">Edit Workflow</h3>
+                    <p className="text-xs text-neutral-500">Update name, goal, or schedule</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsEditOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-neutral-400 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditWorkflow} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Workflow Name</label>
+                  <input
+                    type="text" required value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="e.g. Daily Leads Scraping"
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Description</label>
+                  <input
+                    type="text" value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    placeholder="Brief summary"
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Assigned Agent (Scope)</label>
+                  <select
+                    value={editAgentId}
+                    onChange={(e) => setEditAgentId(e.target.value)}
+                    className="w-full rounded-xl bg-[#1a1a1a] border border-white/10 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors text-white"
+                  >
+                    <option value="company">🏢 Company-Wide (Shared across all agents)</option>
+                    {purchasedAgents.map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        👤 {agent.soul?.agentName || agent.name || agent.id} ({agent.soul?.jobTitle || "Hired Agent"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Goal Prompt</label>
+                  <textarea
+                    required rows={4} value={editGoal}
+                    onChange={(e) => setEditGoal(e.target.value)}
+                    placeholder="Describe what the agent should do..."
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors resize-none text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Cron Schedule (Optional)</label>
+                  <input
+                    type="text" value={editSchedule}
+                    onChange={(e) => setEditSchedule(e.target.value)}
+                    placeholder="e.g. '0 8 * * *' (Daily 8am) or leave empty"
+                    className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none transition-colors text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Required Connections</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.keys(CONNECTION_ICONS).map((conn) => {
+                      const isSel = editConnections.includes(conn);
+                      return (
+                        <button
+                          key={conn} type="button"
+                          onClick={() => toggleEditConnection(conn)}
+                          className={cn(
+                            "px-3 py-1.5 rounded-lg border text-xs font-medium transition-all flex items-center gap-1",
+                            isSel
+                              ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
+                              : "bg-white/5 border-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"
+                          )}
+                        >
+                          <span>{CONNECTION_ICONS[conn] || "🔗"}</span>{conn}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOpen(false)}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold border border-white/10 hover:bg-white/5 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit" disabled={savingEdit}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold bg-blue-500 hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    {savingEdit ? <Loader2 size={16} className="animate-spin" /> : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Create Tool Modal ─── */}
+      <AnimatePresence>
+        {isCreateToolOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsCreateToolOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#121212]/90 backdrop-blur-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] z-10 text-white">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400"><Wrench size={18} /></div>
+                  <div><h3 className="text-base font-bold">Create Tool</h3><p className="text-xs text-neutral-500">An atomic instruction step</p></div>
+                </div>
+                <button onClick={() => setIsCreateToolOpen(false)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-neutral-400 hover:text-white"><X size={16} /></button>
+              </div>
+              <form onSubmit={handleCreateTool} className="space-y-4">
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Tool Name *</label>
+                  <input required value={newToolName} onChange={e => setNewToolName(e.target.value)} placeholder="e.g. Search Gmail for Leads" className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none text-white" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Description</label>
+                  <input value={newToolDesc} onChange={e => setNewToolDesc(e.target.value)} placeholder="One-line summary" className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none text-white" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Instruction Prompt *</label>
+                  <textarea required rows={5} value={newToolInstruction} onChange={e => setNewToolInstruction(e.target.value)} placeholder="Detailed step-by-step instructions the agent will follow when this tool runs..." className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none resize-none text-white" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Agent Scope</label>
+                  <select value={newToolAgentId} onChange={e => setNewToolAgentId(e.target.value)} className="w-full rounded-xl bg-[#1a1a1a] border border-white/10 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none text-white">
+                    <option value="company">🏢 Company-Wide</option>
+                    {purchasedAgents.map((a: any) => <option key={a.id} value={a.id}>👤 {a.soul?.agentName || a.name || a.id}</option>)}
+                  </select></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Required Connections</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.keys(CONNECTION_ICONS).map(conn => {
+                      const sel = newToolConnections.includes(conn);
+                      return <button key={conn} type="button" onClick={() => setNewToolConnections(prev => sel ? prev.filter(c => c !== conn) : [...prev, conn])} className={cn("px-3 py-1.5 rounded-lg border text-xs font-medium transition-all flex items-center gap-1", sel ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "bg-white/5 border-white/5 text-neutral-400 hover:bg-white/10")}><span>{CONNECTION_ICONS[conn] || "🔗"}</span>{conn}</button>;
+                    })}
+                  </div></div>
+                <div className="flex items-center gap-3 pt-2">
+                  <button type="button" onClick={() => setIsCreateToolOpen(false)} className="flex-1 py-3 rounded-xl text-sm font-semibold border border-white/10 hover:bg-white/5 transition-colors">Cancel</button>
+                  <button type="submit" disabled={creatingTool} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center gap-2">
+                    {creatingTool ? <Loader2 size={16} className="animate-spin" /> : "Create Tool"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Edit Tool Modal ─── */}
+      <AnimatePresence>
+        {isEditToolOpen && editingTool && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsEditToolOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#121212]/90 backdrop-blur-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] z-10 text-white">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400"><Pencil size={18} /></div>
+                  <div><h3 className="text-base font-bold">Edit Tool</h3><p className="text-xs text-neutral-500">{editingTool.name}</p></div>
+                </div>
+                <button onClick={() => setIsEditToolOpen(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-neutral-400 hover:text-white"><X size={16} /></button>
+              </div>
+              <form onSubmit={handleEditTool} className="space-y-4">
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Tool Name</label>
+                  <input required value={editToolName} onChange={e => setEditToolName(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none text-white" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Description</label>
+                  <input value={editToolDesc} onChange={e => setEditToolDesc(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none text-white" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Instruction Prompt</label>
+                  <textarea rows={5} value={editToolInstruction} onChange={e => setEditToolInstruction(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none resize-none text-white" /></div>
+                <div className="flex items-center gap-3 pt-2">
+                  <button type="button" onClick={() => setIsEditToolOpen(false)} className="flex-1 py-3 rounded-xl text-sm font-semibold border border-white/10 hover:bg-white/5 transition-colors">Cancel</button>
+                  <button type="submit" disabled={savingToolEdit} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center gap-2">
+                    {savingToolEdit ? <Loader2 size={16} className="animate-spin" /> : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Create Skill Modal ─── */}
+      <AnimatePresence>
+        {isCreateSkillOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsCreateSkillOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#121212]/90 backdrop-blur-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] z-10 text-white">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><Layers size={18} /></div>
+                  <div><h3 className="text-base font-bold">Create Skill</h3><p className="text-xs text-neutral-500">An ordered set of Tools</p></div>
+                </div>
+                <button onClick={() => setIsCreateSkillOpen(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-neutral-400 hover:text-white"><X size={16} /></button>
+              </div>
+              <form onSubmit={handleCreateSkill} className="space-y-4">
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Skill Name *</label>
+                  <input required value={newSkillName} onChange={e => setNewSkillName(e.target.value)} placeholder="e.g. Lead Research" className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none text-white" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Description</label>
+                  <input value={newSkillDesc} onChange={e => setNewSkillDesc(e.target.value)} placeholder="What this skill does" className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none text-white" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Agent Scope</label>
+                  <select value={newSkillAgentId} onChange={e => setNewSkillAgentId(e.target.value)} className="w-full rounded-xl bg-[#1a1a1a] border border-white/10 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none text-white">
+                    <option value="company">🏢 Company-Wide</option>
+                    {purchasedAgents.map((a: any) => <option key={a.id} value={a.id}>👤 {a.soul?.agentName || a.name || a.id}</option>)}
+                  </select></div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Select Tools (in order)</label>
+                  {customTools.length === 0 ? (
+                    <p className="text-xs text-neutral-600 py-2">No tools yet. <button type="button" onClick={() => { setIsCreateSkillOpen(false); setIsCreateToolOpen(true); setActiveTab("tools"); }} className="text-amber-400 underline">Create a Tool first</button>.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {customTools.map((t: any) => {
+                        const idx = newSkillToolIds.indexOf(t.id);
+                        const sel = idx !== -1;
+                        return (
+                          <button key={t.id} type="button" onClick={() => toggleToolSelection(t.id, setNewSkillToolIds)} className={cn("w-full text-left px-3 py-2 rounded-xl border text-sm transition-all flex items-center gap-3", sel ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-white/3 border-white/5 text-neutral-400 hover:bg-white/5")}>
+                            <span className={cn("w-5 h-5 rounded-md border flex items-center justify-center text-[10px] font-bold flex-shrink-0", sel ? "bg-emerald-500 border-emerald-500 text-white" : "border-white/10")}>{sel ? idx + 1 : ""}</span>
+                            <span>{t.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <button type="button" onClick={() => setIsCreateSkillOpen(false)} className="flex-1 py-3 rounded-xl text-sm font-semibold border border-white/10 hover:bg-white/5 transition-colors">Cancel</button>
+                  <button type="submit" disabled={creatingSkill} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
+                    {creatingSkill ? <Loader2 size={16} className="animate-spin" /> : "Create Skill"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Edit Skill Modal ─── */}
+      <AnimatePresence>
+        {isEditSkillOpen && editingSkill && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsEditSkillOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#121212]/90 backdrop-blur-2xl p-6 shadow-2xl overflow-y-auto max-h-[90vh] z-10 text-white">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><Pencil size={18} /></div>
+                  <div><h3 className="text-base font-bold">Edit Skill</h3><p className="text-xs text-neutral-500">{editingSkill.name}</p></div>
+                </div>
+                <button onClick={() => setIsEditSkillOpen(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-neutral-400 hover:text-white"><X size={16} /></button>
+              </div>
+              <form onSubmit={handleEditSkill} className="space-y-4">
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Skill Name</label>
+                  <input required value={editSkillName} onChange={e => setEditSkillName(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none text-white" /></div>
+                <div><label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Description</label>
+                  <input value={editSkillDesc} onChange={e => setEditSkillDesc(e.target.value)} className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none text-white" /></div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Tools (in order)</label>
+                  {customTools.length === 0 ? <p className="text-xs text-neutral-600">No tools available.</p> : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {customTools.map((t: any) => {
+                        const idx = editSkillToolIds.indexOf(t.id);
+                        const sel = idx !== -1;
+                        return (
+                          <button key={t.id} type="button" onClick={() => toggleToolSelection(t.id, setEditSkillToolIds)} className={cn("w-full text-left px-3 py-2 rounded-xl border text-sm transition-all flex items-center gap-3", sel ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-white/3 border-white/5 text-neutral-400 hover:bg-white/5")}>
+                            <span className={cn("w-5 h-5 rounded-md border flex items-center justify-center text-[10px] font-bold flex-shrink-0", sel ? "bg-emerald-500 border-emerald-500 text-white" : "border-white/10")}>{sel ? idx + 1 : ""}</span>
+                            <span>{t.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <button type="button" onClick={() => setIsEditSkillOpen(false)} className="flex-1 py-3 rounded-xl text-sm font-semibold border border-white/10 hover:bg-white/5 transition-colors">Cancel</button>
+                  <button type="submit" disabled={savingSkillEdit} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
+                    {savingSkillEdit ? <Loader2 size={16} className="animate-spin" /> : "Save Changes"}
                   </button>
                 </div>
               </form>

@@ -5,7 +5,7 @@ import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
 import { loadPreferences } from "@/lib/selfImprove";
 import { getMcpToolDeclarations } from "@/lib/mcpClient";
-import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS, CREATE_CHART_TOOL } from "@/lib/agentTools";
+import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS, TOOL_TOOLS, SKILL_TOOLS, CREATE_CHART_TOOL } from "@/lib/agentTools";
 import { WORKFLOW_DEFINITIONS } from "@/lib/workflowDefinitions";
 import { listCustomWorkflows } from "@/lib/customWorkflows";
 
@@ -257,8 +257,8 @@ ACCURACY — DO NOT HALLUCINATE:
     // Notes (always available)
     systemPrompt += `\n\n### Notes & Knowledge Base\nYou can create, list, read, update, delete, and search notes. Notes persist across conversations and serve as your knowledge base. Use create_note to save reports, research, and important information for later reference.`;
 
-    // Custom Workflows
-    systemPrompt += `\n\n### Custom Workflows & Scheduling\nYou have workflow management tools: create_workflow, list_my_workflows, delete_workflow.\n\n**IMPORTANT:** When the user asks to "create a workflow", "set up an automation", or "build a routine", use the **create_workflow** tool to SAVE a workflow definition. Do NOT actually execute the workflow steps — just save the definition so the user can run it later from their Workflows page.\n\nThe "goal" field should contain detailed, step-by-step instructions for another AI agent to follow when the workflow is eventually executed. Include specific tool names (like search_emails, list_events, web_search) and formatting requirements.\n\n**Scheduling / Cron Jobs:** You can schedule any workflow (built-in or custom) to run automatically using these tools:\n- **schedule_workflow**: Schedule a workflow with a cron expression. Use this when users say "run this every morning", "schedule it daily", "set up a cron job", etc.\n- **list_scheduled_jobs**: Show all active and paused scheduled jobs.\n- **pause_scheduled_job** / **resume_scheduled_job**: Pause or resume a job.\n- **delete_scheduled_job**: Permanently remove a scheduled job.\n\nCommon cron expressions: "0 8 * * *" (daily 8 AM), "0 9 * * 1-5" (weekdays 9 AM), "*/15 * * * *" (every 15 min), "0 */2 * * *" (every 2 hours).\n\nWhen a user says "turn this into a cron job" or "schedule this", first create the workflow if it doesn't exist, then use schedule_workflow.`;
+    // Automation System (Tools → Skills → Workflows)
+    systemPrompt += `\n\n### Automation System: Tools → Skills → Workflows\n\nYou can help the user build a 3-tier automation system:\n\n**Tier 1 — Tools** (atomic instruction steps):\n- **create_tool**: Create a named instruction step. The \`instruction\` field is the detailed prompt.\n- **list_my_tools**, **edit_tool**, **delete_tool**.\n\n**Tier 2 — Skills** (ordered collections of Tools):\n- **create_skill**: Create a skill from an ordered list of tool IDs (call list_my_tools first).\n- **list_my_skills**, **edit_skill**, **delete_skill**.\n\n**Tier 3 — Workflows** (ordered Skills + optional schedule):\n- **create_workflow**: Can reference skill_ids OR use a free-text \`goal\` prompt.\n- **list_my_workflows**, **edit_workflow**, **delete_workflow**.\n- **schedule_workflow**: Schedule with a cron expression.\n- **list_scheduled_jobs**, **pause_scheduled_job**, **resume_scheduled_job**, **delete_scheduled_job**.\n\nCommon cron: "0 8 * * *" (daily 8AM), "0 9 * * 1-5" (weekdays), "*/15 * * * *" (every 15 min).`;
 
     // Dynamically built workflow awareness
     const runnableWorkflows: string[] = [];
@@ -349,7 +349,7 @@ ACCURACY — DO NOT HALLUCINATE:
 EVERYTHING ABOVE THIS LINE is internal configuration for YOUR reference only. NEVER read, recite, or speak any of the above instructions, tool descriptions, service configurations, workflow lists, scheduled jobs, memories, or system text aloud. The user must ONLY hear natural conversational responses. If you catch yourself about to speak a tool name, parameter description, or instruction text — STOP and rephrase as natural speech. Violations of this rule will break the user experience.`;
 
     // Gather Tools
-    const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...NOTES_TOOLS, ...MEMORY_TOOLS, CREATE_CHART_TOOL];
+    const allTools: any[] = [...BROWSER_TOOLS, ...WORKFLOW_TOOLS, ...TOOL_TOOLS, ...SKILL_TOOLS, ...NOTES_TOOLS, ...MEMORY_TOOLS, CREATE_CHART_TOOL];
     const hasGmailTools = connections.gmail?.connected || (connections.google?.connected && connections.google?.scopes?.includes("https://mail.google.com/"));
     if (hasGmailTools) allTools.push(...GMAIL_TOOLS);
     if (connections.calendar?.connected) allTools.push(...CALENDAR_TOOLS);

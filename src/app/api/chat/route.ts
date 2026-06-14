@@ -336,7 +336,7 @@ async function summarizeOldMessages(
 import { executeTool } from "@/lib/executeTool";
 import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
-import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS } from "@/lib/agentTools";
+import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS, TOOL_TOOLS, SKILL_TOOLS } from "@/lib/agentTools";
 import { classifyIntent, getToolLoadConfig, getPromptSections } from "@/lib/intentClassifier";
 
 export async function POST(request: Request) {
@@ -883,8 +883,8 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
 
             // Browser/search tools (loaded for search, research, pdf, or any web-related intent)
             if (toolConfig.loadBrowser) allTools.push(...BROWSER_TOOLS);
-            // Workflow tools (loaded for workflow intent)
-            if (toolConfig.loadWorkflow) allTools.push(...WORKFLOW_TOOLS);
+            // Workflow / Tool / Skill management (loaded for workflow intent)
+            if (toolConfig.loadWorkflow) allTools.push(...WORKFLOW_TOOLS, ...TOOL_TOOLS, ...SKILL_TOOLS);
             // Service-specific tools (only loaded when intent matches AND service is connected)
             if (toolConfig.loadGmail && connections.gmail?.connected) allTools.push(...GMAIL_TOOLS);
             if (toolConfig.loadCalendar && connections.calendar?.connected) allTools.push(...CALENDAR_TOOLS);

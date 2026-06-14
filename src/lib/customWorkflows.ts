@@ -1,4 +1,5 @@
 import { adminDb } from "@/lib/admin";
+import { composeSkillPrompt } from "@/lib/customSkills";
 
 /* ─── Types ─── */
 
@@ -21,6 +22,8 @@ export interface CustomWorkflow {
   runCount: number;
   /** Scopes workflow to a specific agent (e.g. "atlas", "sam") or "company" (shared) */
   agentId?: string;
+  /** Ordered list of Skill IDs to compose the goal from (optional — overrides free-text goal at runtime) */
+  skillIds?: string[];
 }
 
 /* ─── CRUD Operations ─── */
@@ -62,6 +65,26 @@ export async function createCustomWorkflow(
 }
 
 /**
+ * Compose the execution goal for a workflow.
+ * If the workflow has skillIds, builds a structured prompt from each skill's tools.
+ * Otherwise returns the stored free-text goal (backward compat).
+ */
+export async function composeWorkflowGoal(
+  userId: string,
+  workflow: CustomWorkflow
+): Promise<string> {
+  if (!workflow.skillIds || workflow.skillIds.length === 0) {
+    return workflow.goal;
+  }
+
+  const sections = await Promise.all(
+    workflow.skillIds.map((id) => composeSkillPrompt(userId, id))
+  );
+
+  return sections.filter(Boolean).join("\n\n") || workflow.goal;
+}
+
+/**
  * List all custom workflows for a user.
  */
 export async function listCustomWorkflows(
@@ -94,7 +117,7 @@ export async function getCustomWorkflow(
 export async function updateCustomWorkflow(
   userId: string,
   workflowId: string,
-  updates: Partial<Pick<CustomWorkflow, "name" | "description" | "goal" | "schedule" | "enabled" | "requiredConnections" | "agentId">>
+  updates: Partial<Pick<CustomWorkflow, "name" | "description" | "goal" | "schedule" | "enabled" | "requiredConnections" | "agentId" | "skillIds">>
 ): Promise<boolean> {
   const ref = adminDb.doc(`users/${userId}/workflows/${workflowId}`);
   const doc = await ref.get();

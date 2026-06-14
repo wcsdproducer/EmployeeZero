@@ -350,6 +350,102 @@ export const STRIPE_TOOLS = [
   },
 ];
 
+export const TOOL_TOOLS = [
+  {
+    name: "create_tool",
+    description: "Create a new custom Tool — an atomic, named instruction step. Tools are the base building block. They can be grouped into Skills, which are then grouped into Workflows.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING, description: "Short name for the tool (e.g., 'Search Gmail for Leads')" },
+        description: { type: Type.STRING, description: "One-line description of what this tool does" },
+        instruction: { type: Type.STRING, description: "Detailed step-by-step prompt the agent will follow when this tool runs. Be specific and actionable." },
+        required_connections: { type: Type.STRING, description: "Comma-separated required connections (e.g., 'gmail,calendar'). Leave empty if none." },
+        agent_id: { type: Type.STRING, description: "Agent scope: 'company' (shared) or a specific agent ID. Defaults to 'company'." },
+      },
+      required: ["name", "instruction"],
+    },
+  },
+  {
+    name: "list_my_tools",
+    description: "List all custom Tools the user has created. Returns id, name, description, and instruction for each.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "edit_tool",
+    description: "Edit an existing custom Tool. Call list_my_tools first to get the tool ID.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tool_id: { type: Type.STRING, description: "The tool ID to edit (from list_my_tools)" },
+        name: { type: Type.STRING, description: "New name (leave blank to keep unchanged)" },
+        description: { type: Type.STRING, description: "New description (leave blank to keep unchanged)" },
+        instruction: { type: Type.STRING, description: "New instruction prompt (leave blank to keep unchanged)" },
+        required_connections: { type: Type.STRING, description: "New comma-separated connections. Leave blank to keep unchanged." },
+      },
+      required: ["tool_id"],
+    },
+  },
+  {
+    name: "delete_tool",
+    description: "Delete a custom Tool by ID. Call list_my_tools first to find the ID.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tool_id: { type: Type.STRING, description: "The tool ID to delete (from list_my_tools)" },
+      },
+      required: ["tool_id"],
+    },
+  },
+];
+
+export const SKILL_TOOLS = [
+  {
+    name: "create_skill",
+    description: "Create a new custom Skill — an ordered collection of Tools that represents a named reusable capability. Skills are the middle tier: they group Tools into a meaningful unit, and are composed into Workflows.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING, description: "Short name for the skill (e.g., 'Lead Research')" },
+        description: { type: Type.STRING, description: "One-line description of what this skill does" },
+        tool_ids: { type: Type.STRING, description: "Comma-separated ordered list of tool IDs that make up this skill (from list_my_tools). E.g., 'toolId1,toolId2,toolId3'" },
+        agent_id: { type: Type.STRING, description: "Agent scope: 'company' (shared) or a specific agent ID. Defaults to 'company'." },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "list_my_skills",
+    description: "List all custom Skills the user has created. Returns id, name, description, and toolIds for each.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "edit_skill",
+    description: "Edit an existing custom Skill. Call list_my_skills first to get the skill ID.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        skill_id: { type: Type.STRING, description: "The skill ID to edit (from list_my_skills)" },
+        name: { type: Type.STRING, description: "New name (leave blank to keep unchanged)" },
+        description: { type: Type.STRING, description: "New description (leave blank to keep unchanged)" },
+        tool_ids: { type: Type.STRING, description: "New comma-separated ordered tool IDs. Leave blank to keep unchanged." },
+      },
+      required: ["skill_id"],
+    },
+  },
+  {
+    name: "delete_skill",
+    description: "Delete a custom Skill by ID. Call list_my_skills first to find the ID.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        skill_id: { type: Type.STRING, description: "The skill ID to delete (from list_my_skills)" },
+      },
+      required: ["skill_id"],
+    },
+  },
+];
+
 export const WORKFLOW_TOOLS = [
   {
     name: "create_workflow",
@@ -372,11 +468,27 @@ export const WORKFLOW_TOOLS = [
   },
   {
     name: "delete_workflow",
-    description: "Delete a custom workflow by its ID",
+    description: "Delete a custom workflow by its ID. Call list_my_workflows first to find the correct workflow ID.",
     parameters: {
       type: Type.OBJECT,
       properties: {
-        workflow_id: { type: Type.STRING, description: "The workflow ID to delete" },
+        workflow_id: { type: Type.STRING, description: "The workflow ID to delete (get this from list_my_workflows)" },
+      },
+      required: ["workflow_id"],
+    },
+  },
+  {
+    name: "edit_workflow",
+    description: "Edit/update an existing custom workflow. Call list_my_workflows first to get the workflow ID. You can update the name, description, goal prompt, schedule, or required connections.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        workflow_id: { type: Type.STRING, description: "The workflow ID to edit (get this from list_my_workflows)" },
+        name: { type: Type.STRING, description: "New name for the workflow (leave blank to keep unchanged)" },
+        description: { type: Type.STRING, description: "New description (leave blank to keep unchanged)" },
+        goal: { type: Type.STRING, description: "New goal prompt / detailed step-by-step instructions (leave blank to keep unchanged)" },
+        schedule: { type: Type.STRING, description: "New cron schedule (e.g. '0 9 * * *'). Pass empty string to clear the schedule." },
+        required_connections: { type: Type.STRING, description: "Comma-separated new required connections (e.g. 'gmail,calendar'). Leave blank to keep unchanged." },
       },
       required: ["workflow_id"],
     },
