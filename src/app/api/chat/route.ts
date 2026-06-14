@@ -40,6 +40,8 @@ import {
   listCustomWorkflows,
   deleteCustomWorkflow,
 } from "@/lib/customWorkflows";
+import { listCustomSkills } from "@/lib/customSkills";
+import { listCustomTools } from "@/lib/customTools";
 import {
   listFiles,
   getFile,

@@ -7,5 +7,13 @@ const nextConfig = {
   experimental: {
     workerThreads: false,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/__/auth/:path*",
+        destination: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "employee-zero-production"}.firebaseapp.com/__/auth/:path*`,
+      },
+    ];
+  },
 };
 export default nextConfig;
