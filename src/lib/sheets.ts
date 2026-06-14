@@ -181,3 +181,211 @@ export async function createSpreadsheet(
     sheets: (res.data.sheets || []).map((s) => s.properties?.title),
   };
 }
+
+/** Get spreadsheet metadata — title, all tab names, their IDs and row/col counts */
+export async function getSpreadsheetInfo(
+  userId: string,
+  spreadsheetIdOrUrl: string
+): Promise<any> {
+  const { sheets } = await getAuthenticatedSheets(userId);
+  const spreadsheetId = extractSpreadsheetId(spreadsheetIdOrUrl);
+
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "spreadsheetId,properties.title,spreadsheetUrl,sheets.properties",
+  });
+
+  return {
+    id: res.data.spreadsheetId,
+    title: res.data.properties?.title,
+    link: res.data.spreadsheetUrl,
+    sheets: (res.data.sheets || []).map((s) => ({
+      id: s.properties?.sheetId,
+      title: s.properties?.title,
+      index: s.properties?.index,
+      rowCount: s.properties?.gridProperties?.rowCount,
+      columnCount: s.properties?.gridProperties?.columnCount,
+    })),
+  };
+}
+
+/** Add a new tab (sheet) to an existing spreadsheet */
+export async function addSheet(
+  userId: string,
+  spreadsheetIdOrUrl: string,
+  sheetTitle: string,
+  index?: number
+): Promise<any> {
+  const { sheets } = await getAuthenticatedSheets(userId);
+  const spreadsheetId = extractSpreadsheetId(spreadsheetIdOrUrl);
+
+  const addSheetRequest: any = {
+    properties: { title: sheetTitle },
+  };
+  if (index !== undefined) addSheetRequest.properties.index = index;
+
+  const res = await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [{ addSheet: addSheetRequest }],
+    },
+  });
+
+  const newSheet = res.data.replies?.[0]?.addSheet?.properties;
+  return {
+    spreadsheetId,
+    sheetId: newSheet?.sheetId,
+    title: newSheet?.title,
+    index: newSheet?.index,
+    message: `Tab "${sheetTitle}" added successfully.`,
+  };
+}
+
+/** Delete a tab (sheet) from a spreadsheet by tab name */
+export async function deleteSheet(
+  userId: string,
+  spreadsheetIdOrUrl: string,
+  sheetTitle: string
+): Promise<any> {
+  const { sheets } = await getAuthenticatedSheets(userId);
+  const spreadsheetId = extractSpreadsheetId(spreadsheetIdOrUrl);
+
+  // First get the sheetId from the tab title
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties",
+  });
+  const tab = (meta.data.sheets || []).find(
+    (s) => s.properties?.title?.toLowerCase() === sheetTitle.toLowerCase()
+  );
+  if (!tab?.properties?.sheetId === undefined) {
+    throw new Error(`Tab "${sheetTitle}" not found in this spreadsheet.`);
+  }
+  const sheetId = tab!.properties!.sheetId;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [{ deleteSheet: { sheetId } }],
+    },
+  });
+
+  return {
+    spreadsheetId,
+    message: `Tab "${sheetTitle}" deleted successfully.`,
+  };
+}
+
+/** Rename an existing tab in a spreadsheet */
+export async function renameSheet(
+  userId: string,
+  spreadsheetIdOrUrl: string,
+  currentTitle: string,
+  newTitle: string
+): Promise<any> {
+  const { sheets } = await getAuthenticatedSheets(userId);
+  const spreadsheetId = extractSpreadsheetId(spreadsheetIdOrUrl);
+
+  // Resolve sheetId from current title
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties",
+  });
+  const tab = (meta.data.sheets || []).find(
+    (s) => s.properties?.title?.toLowerCase() === currentTitle.toLowerCase()
+  );
+  if (!tab?.properties?.sheetId === undefined) {
+    throw new Error(`Tab "${currentTitle}" not found in this spreadsheet.`);
+  }
+  const sheetId = tab!.properties!.sheetId;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: { sheetId, title: newTitle },
+            fields: "title",
+          },
+        },
+      ],
+    },
+  });
+
+  return {
+    spreadsheetId,
+    message: `Tab renamed from "${currentTitle}" to "${newTitle}" successfully.`,
+  };
+}
+
+/** Clear all values from a sheet tab without deleting the tab itself */
+export async function clearSheet(
+  userId: string,
+  spreadsheetIdOrUrl: string,
+  sheetTitle: string
+): Promise<any> {
+  const { sheets } = await getAuthenticatedSheets(userId);
+  const spreadsheetId = extractSpreadsheetId(spreadsheetIdOrUrl);
+
+  const res = await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: sheetTitle,
+  });
+
+  return {
+    spreadsheetId,
+    clearedRange: res.data.clearedRange,
+    message: `All data in tab "${sheetTitle}" cleared successfully.`,
+  };
+}
+
+/** Duplicate an existing tab within the same spreadsheet */
+export async function duplicateSheet(
+  userId: string,
+  spreadsheetIdOrUrl: string,
+  sourceTitle: string,
+  newTitle: string,
+  insertIndex?: number
+): Promise<any> {
+  const { sheets } = await getAuthenticatedSheets(userId);
+  const spreadsheetId = extractSpreadsheetId(spreadsheetIdOrUrl);
+
+  // Resolve sheetId from title
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties",
+  });
+  const tab = (meta.data.sheets || []).find(
+    (s) => s.properties?.title?.toLowerCase() === sourceTitle.toLowerCase()
+  );
+  if (!tab?.properties?.sheetId === undefined) {
+    throw new Error(`Tab "${sourceTitle}" not found in this spreadsheet.`);
+  }
+  const sheetId = tab!.properties!.sheetId;
+  const tabCount = meta.data.sheets?.length || 1;
+
+  const res = await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          duplicateSheet: {
+            sourceSheetId: sheetId,
+            insertSheetIndex: insertIndex ?? tabCount,
+            newSheetName: newTitle,
+          },
+        },
+      ],
+    },
+  });
+
+  const newSheet = res.data.replies?.[0]?.duplicateSheet?.properties;
+  return {
+    spreadsheetId,
+    sheetId: newSheet?.sheetId,
+    title: newSheet?.title,
+    message: `Tab "${sourceTitle}" duplicated as "${newTitle}" successfully.`,
+  };
+}
+

@@ -54,6 +54,12 @@ import {
   writeSheet,
   appendRows,
   createSpreadsheet,
+  getSpreadsheetInfo,
+  addSheet,
+  deleteSheet,
+  renameSheet,
+  clearSheet,
+  duplicateSheet,
 } from "@/lib/sheets";
 import {
   listChannels,
@@ -326,6 +332,18 @@ export async function executeTool(
       const sheetNames = args.sheet_names ? args.sheet_names.split(",").map((s: string) => s.trim()) : undefined;
       return await createSpreadsheet(userId, args.title, sheetNames);
     }
+    case "get_spreadsheet_info":
+      return await getSpreadsheetInfo(userId, args.spreadsheet_id);
+    case "add_sheet_tab":
+      return await addSheet(userId, args.spreadsheet_id, args.sheet_title, args.index);
+    case "delete_sheet_tab":
+      return await deleteSheet(userId, args.spreadsheet_id, args.sheet_title);
+    case "rename_sheet_tab":
+      return await renameSheet(userId, args.spreadsheet_id, args.current_title, args.new_title);
+    case "clear_sheet_tab":
+      return await clearSheet(userId, args.spreadsheet_id, args.sheet_title);
+    case "duplicate_sheet_tab":
+      return await duplicateSheet(userId, args.spreadsheet_id, args.source_title, args.new_title, args.insert_index);
     // YouTube tools
     case "list_youtube_channels":
       return await listChannels(userId);

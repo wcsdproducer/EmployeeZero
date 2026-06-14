@@ -475,11 +475,17 @@ const DRIVE_TOOLS = [
 ];
 
 const SHEETS_TOOLS = [
-  { name: "list_spreadsheets", description: "List spreadsheets.", parameters: { type: Type.OBJECT, properties: { max_results: { type: Type.NUMBER } } } },
-  { name: "read_sheet", description: "Read sheet data (A1 notation).", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, range: { type: Type.STRING } }, required: ["spreadsheet_id", "range"] } },
-  { name: "write_sheet", description: "Write to cells.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, range: { type: Type.STRING }, values: { type: Type.STRING, description: "JSON array of arrays" } }, required: ["spreadsheet_id", "range", "values"] } },
-  { name: "append_to_sheet", description: "Append rows.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, range: { type: Type.STRING }, values: { type: Type.STRING, description: "JSON array of arrays" } }, required: ["spreadsheet_id", "range", "values"] } },
-  { name: "create_spreadsheet", description: "Create a new spreadsheet.", parameters: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, sheet_names: { type: Type.STRING, description: "Comma-separated sheet names" } }, required: ["title"] } },
+  { name: "list_spreadsheets", description: "List spreadsheets (files). Each spreadsheet can have multiple tabs.", parameters: { type: Type.OBJECT, properties: { max_results: { type: Type.NUMBER } } } },
+  { name: "get_spreadsheet_info", description: "Get a spreadsheet's title and list of all tabs (with their IDs). Use FIRST to discover existing tabs before modifying.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING } }, required: ["spreadsheet_id"] } },
+  { name: "read_sheet", description: "Read data from a tab. Always include tab name in range (e.g. 'Sheet1!A1:D10' or 'Sheet1').", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, range: { type: Type.STRING } }, required: ["spreadsheet_id", "range"] } },
+  { name: "write_sheet", description: "Write/overwrite data to a specific range in a tab (e.g. 'Sheet1!A1'). WARNING: overwrites. Use append_to_sheet to add rows.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, range: { type: Type.STRING }, values: { type: Type.STRING, description: "JSON array of arrays" } }, required: ["spreadsheet_id", "range", "values"] } },
+  { name: "append_to_sheet", description: "Append rows to the END of a tab's existing data without overwriting.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, range: { type: Type.STRING }, values: { type: Type.STRING, description: "JSON array of arrays" } }, required: ["spreadsheet_id", "range", "values"] } },
+  { name: "add_sheet_tab", description: "Add a NEW tab to an EXISTING spreadsheet. Do NOT create a new spreadsheet — add a tab to the existing one.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, sheet_title: { type: Type.STRING }, index: { type: Type.NUMBER, description: "Optional 0-based position" } }, required: ["spreadsheet_id", "sheet_title"] } },
+  { name: "delete_sheet_tab", description: "Permanently delete a tab from a spreadsheet.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, sheet_title: { type: Type.STRING } }, required: ["spreadsheet_id", "sheet_title"] } },
+  { name: "rename_sheet_tab", description: "Rename an existing tab.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, current_title: { type: Type.STRING }, new_title: { type: Type.STRING } }, required: ["spreadsheet_id", "current_title", "new_title"] } },
+  { name: "clear_sheet_tab", description: "Clear all data from a tab without deleting it.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, sheet_title: { type: Type.STRING } }, required: ["spreadsheet_id", "sheet_title"] } },
+  { name: "duplicate_sheet_tab", description: "Copy an existing tab to a new tab in the same spreadsheet.", parameters: { type: Type.OBJECT, properties: { spreadsheet_id: { type: Type.STRING }, source_title: { type: Type.STRING }, new_title: { type: Type.STRING }, insert_index: { type: Type.NUMBER } }, required: ["spreadsheet_id", "source_title", "new_title"] } },
+  { name: "create_spreadsheet", description: "Create a brand NEW spreadsheet file. Only use when explicitly asked for a new spreadsheet — not when adding a tab to an existing one.", parameters: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, sheet_names: { type: Type.STRING, description: "Comma-separated tab names" } }, required: ["title"] } },
 ];
 
 const YOUTUBE_TOOLS = [
@@ -686,7 +692,32 @@ async function executeTool(
     }
     case "create_spreadsheet": {
       const sheetNames = args.sheet_names ? args.sheet_names.split(",").map((s: string) => s.trim()) : undefined;
+      const { createSpreadsheet } = await import("@/lib/sheets");
       return await createSpreadsheet(userId, args.title, sheetNames);
+    }
+    case "get_spreadsheet_info": {
+      const { getSpreadsheetInfo } = await import("@/lib/sheets");
+      return await getSpreadsheetInfo(userId, args.spreadsheet_id);
+    }
+    case "add_sheet_tab": {
+      const { addSheet } = await import("@/lib/sheets");
+      return await addSheet(userId, args.spreadsheet_id, args.sheet_title, args.index);
+    }
+    case "delete_sheet_tab": {
+      const { deleteSheet } = await import("@/lib/sheets");
+      return await deleteSheet(userId, args.spreadsheet_id, args.sheet_title);
+    }
+    case "rename_sheet_tab": {
+      const { renameSheet } = await import("@/lib/sheets");
+      return await renameSheet(userId, args.spreadsheet_id, args.current_title, args.new_title);
+    }
+    case "clear_sheet_tab": {
+      const { clearSheet } = await import("@/lib/sheets");
+      return await clearSheet(userId, args.spreadsheet_id, args.sheet_title);
+    }
+    case "duplicate_sheet_tab": {
+      const { duplicateSheet } = await import("@/lib/sheets");
+      return await duplicateSheet(userId, args.spreadsheet_id, args.source_title, args.new_title, args.insert_index);
     }
     // YouTube
     case "list_youtube_channels":

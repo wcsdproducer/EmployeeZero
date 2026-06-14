@@ -562,7 +562,7 @@ export const DRIVE_TOOLS = [
 export const SHEETS_TOOLS = [
   {
     name: "list_spreadsheets",
-    description: "List recent Google Sheets spreadsheets",
+    description: "List recent Google Sheets spreadsheets (files). Each spreadsheet can contain multiple tabs/sheets.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -571,25 +571,36 @@ export const SHEETS_TOOLS = [
     },
   },
   {
-    name: "read_sheet",
-    description: "Read data from a Google Sheets spreadsheet. Accepts a spreadsheet ID or a full Google Sheets URL. Range is optional — omit it to read the entire first sheet.",
+    name: "get_spreadsheet_info",
+    description: "Get metadata for a spreadsheet: its title, all tab names, tab IDs, and row/column counts. Use this FIRST before writing or adding tabs to understand what already exists.",
     parameters: {
       type: Type.OBJECT,
       properties: {
-        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL (e.g. https://docs.google.com/spreadsheets/d/abc123/edit)" },
-        range: { type: Type.STRING, description: "Optional A1 notation range (e.g. 'Sheet1!A1:D10'). Omit to read the entire first sheet." },
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL" },
+      },
+      required: ["spreadsheet_id"],
+    },
+  },
+  {
+    name: "read_sheet",
+    description: "Read data from a specific tab in a Google Sheets spreadsheet. A spreadsheet can have many tabs — always specify the tab name in the range (e.g. 'MyTab!A1:Z100'). Accepts a spreadsheet ID or full URL.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL" },
+        range: { type: Type.STRING, description: "A1 notation range including tab name (e.g. 'Sheet1!A1:D10' or just 'Sheet1' for all data). Omit to read the entire first tab." },
       },
       required: ["spreadsheet_id"],
     },
   },
   {
     name: "write_sheet",
-    description: "Write data to a range in a Google Sheets spreadsheet",
+    description: "Write (overwrite) data to a specific range in a Google Sheets tab. Always include the tab name in the range (e.g. 'Sheet1!A1'). WARNING: This overwrites existing data. Use append_to_sheet to add rows without overwriting.",
     parameters: {
       type: Type.OBJECT,
       properties: {
-        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID" },
-        range: { type: Type.STRING, description: "A1 notation range (e.g. 'Sheet1!A1')" },
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL" },
+        range: { type: Type.STRING, description: "A1 notation range with tab name (e.g. 'Sheet1!A1' or 'MyTab!B2:D5')" },
         values: { type: Type.STRING, description: "JSON array of arrays, e.g. [[\"Name\",\"Age\"],[\"Jack\",\"30\"]]" },
       },
       required: ["spreadsheet_id", "range", "values"],
@@ -597,30 +608,95 @@ export const SHEETS_TOOLS = [
   },
   {
     name: "append_to_sheet",
-    description: "Append rows to the end of a Google Sheets spreadsheet",
+    description: "Append rows to the END of existing data in a Google Sheets tab. Does NOT overwrite — finds the first empty row after existing data and writes there.",
     parameters: {
       type: Type.OBJECT,
       properties: {
-        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID" },
-        range: { type: Type.STRING, description: "Sheet name or range to append to (e.g. 'Sheet1')" },
-        values: { type: Type.STRING, description: "JSON array of arrays to append" },
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL" },
+        range: { type: Type.STRING, description: "Tab name or range to append to (e.g. 'Sheet1' or 'Sheet1!A:Z'). Use tab name only for simplicity." },
+        values: { type: Type.STRING, description: "JSON array of arrays to append, e.g. [[\"Name\",\"Value\"],[\"Alice\",\"100\"]]" },
       },
       required: ["spreadsheet_id", "range", "values"],
     },
   },
   {
-    name: "create_spreadsheet",
-    description: "Create a new Google Sheets spreadsheet",
+    name: "add_sheet_tab",
+    description: "Add a new tab to an EXISTING spreadsheet. Use this when the user asks to add a sheet or tab — do NOT create a new spreadsheet. The tab will be empty after creation; use write_sheet to populate it.",
     parameters: {
       type: Type.OBJECT,
       properties: {
-        title: { type: Type.STRING, description: "Spreadsheet title" },
-        sheet_names: { type: Type.STRING, description: "Comma-separated sheet tab names (default 'Sheet1')" },
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL to add the tab to" },
+        sheet_title: { type: Type.STRING, description: "Name for the new tab (e.g. 'Christian Hernandez', 'Q1 Data')" },
+        index: { type: Type.NUMBER, description: "Optional position index (0-based). Omit to add at the end." },
+      },
+      required: ["spreadsheet_id", "sheet_title"],
+    },
+  },
+  {
+    name: "delete_sheet_tab",
+    description: "Delete a tab from an existing spreadsheet by its tab name. WARNING: This permanently deletes the tab and all its data.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL" },
+        sheet_title: { type: Type.STRING, description: "Exact name of the tab to delete" },
+      },
+      required: ["spreadsheet_id", "sheet_title"],
+    },
+  },
+  {
+    name: "rename_sheet_tab",
+    description: "Rename an existing tab in a spreadsheet. Does not affect the tab's data.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL" },
+        current_title: { type: Type.STRING, description: "Current name of the tab to rename" },
+        new_title: { type: Type.STRING, description: "New name for the tab" },
+      },
+      required: ["spreadsheet_id", "current_title", "new_title"],
+    },
+  },
+  {
+    name: "clear_sheet_tab",
+    description: "Clear all data from a tab without deleting the tab itself. The tab remains but is empty after this operation.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL" },
+        sheet_title: { type: Type.STRING, description: "Name of the tab to clear" },
+      },
+      required: ["spreadsheet_id", "sheet_title"],
+    },
+  },
+  {
+    name: "duplicate_sheet_tab",
+    description: "Duplicate (copy) an existing tab within the same spreadsheet, creating a new tab with the same data and formatting.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        spreadsheet_id: { type: Type.STRING, description: "The spreadsheet ID or full Google Sheets URL" },
+        source_title: { type: Type.STRING, description: "Name of the tab to duplicate" },
+        new_title: { type: Type.STRING, description: "Name for the duplicated tab" },
+        insert_index: { type: Type.NUMBER, description: "Optional 0-based position to insert the duplicate. Omit to add at the end." },
+      },
+      required: ["spreadsheet_id", "source_title", "new_title"],
+    },
+  },
+  {
+    name: "create_spreadsheet",
+    description: "Create a brand NEW Google Sheets spreadsheet (a new file). Only use this when the user explicitly wants to create a new spreadsheet. If they want to add a tab to an existing one, use add_sheet_tab instead.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING, description: "Title for the new spreadsheet file" },
+        sheet_names: { type: Type.STRING, description: "Comma-separated tab names to create (default 'Sheet1')" },
       },
       required: ["title"],
     },
   },
 ];
+
 
 export const YOUTUBE_TOOLS = [
   {
