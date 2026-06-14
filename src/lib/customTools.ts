@@ -42,7 +42,8 @@ export async function createCustomTool(
     description: data.description,
     instruction: data.instruction,
     requiredConnections: data.requiredConnections || [],
-    category: data.category,
+    // Only include optional fields if they have a value — Firestore rejects undefined
+    ...(data.category !== undefined && { category: data.category }),
     agentId: data.agentId || "company",
     createdAt: now,
     updatedAt: now,
@@ -50,6 +51,7 @@ export async function createCustomTool(
 
   await ref.set(tool);
   return tool;
+
 }
 
 /**
