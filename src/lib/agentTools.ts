@@ -1813,3 +1813,67 @@ Supports line charts (trends over time), bar charts (comparisons), and area char
     required: ["type", "data"],
   },
 };
+export const MAPS_TOOLS = [
+  {
+    name: "lookup_place",
+    description: "Search for a business, restaurant, landmark, or any place by name and optional location. Returns address, rating, reviews, phone, website, and hours.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: { type: Type.STRING, description: "Business or place name to search (e.g. 'Starbucks', 'dentist', 'Empire State Building')" },
+        location: { type: Type.STRING, description: "Optional location context (e.g. 'New York, NY')" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "find_nearby_places",
+    description: "Find places of a specific type near an address (e.g. 'restaurants near 123 Main St'). Returns up to 8 results with name, address, rating.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        address: { type: Type.STRING, description: "Starting address or location to search from" },
+        type: { type: Type.STRING, description: "Type of place (e.g. restaurant, gas_station, pharmacy, hospital, hotel, bank, grocery_or_supermarket, gym, school)" },
+        radius_meters: { type: Type.NUMBER, description: "Search radius in meters (default 1500 = ~1 mile, max 50000)" },
+      },
+      required: ["address", "type"],
+    },
+  },
+  {
+    name: "get_directions",
+    description: "Get turn-by-turn directions between two places. Returns route steps, total distance, estimated travel time, and a Google Maps link.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        origin: { type: Type.STRING, description: "Starting address or place name" },
+        destination: { type: Type.STRING, description: "Destination address or place name" },
+        mode: { type: Type.STRING, description: "Travel mode: driving (default), walking, transit, bicycling" },
+      },
+      required: ["origin", "destination"],
+    },
+  },
+  {
+    name: "calculate_distance",
+    description: "Calculate driving distance and travel time between locations. Pass multiple origins/destinations as pipe-separated strings.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        origins: { type: Type.STRING, description: "Pipe-separated origin addresses (e.g. 'New York, NY|Boston, MA')" },
+        destinations: { type: Type.STRING, description: "Pipe-separated destination addresses" },
+        mode: { type: Type.STRING, description: "Travel mode: driving (default), walking, transit, bicycling" },
+      },
+      required: ["origins", "destinations"],
+    },
+  },
+  {
+    name: "geocode_address",
+    description: "Convert a street address to geographic coordinates (latitude/longitude) and get a Google Maps link. Also validates that an address is real.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        address: { type: Type.STRING, description: "Address to geocode (e.g. '1600 Amphitheatre Pkwy, Mountain View, CA')" },
+      },
+      required: ["address"],
+    },
+  },
+];

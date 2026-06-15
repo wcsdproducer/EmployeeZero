@@ -61,3 +61,5 @@ env:
     secret: STRIPE_REGULAR_PRICE_ID
   - variable: STRIPE_RETENTION_COUPON_ID
     secret: STRIPE_RETENTION_COUPON_ID
+  - variable: GOOGLE_MAPS_API_KEY
+    secret: GOOGLE_MAPS_API_KEY

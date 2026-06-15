@@ -27,7 +27,8 @@ export type Intent =
   | "forms"
   | "slides"
   | "analytics"
-  | "business";
+  | "business"
+  | "maps";
 
 export interface IntentResult {
   intents: Intent[];
@@ -123,6 +124,13 @@ const INTENT_KEYWORDS: Record<Intent, string[]> = {
     "review", "reviews", "business profile", "google business", "yelp",
     "reputation", "customer feedback",
   ],
+  maps: [
+    "directions", "directions to", "how do i get to", "navigate to", "navigation",
+    "nearby", "near me", "closest", "find a restaurant", "find a hotel", "find a",
+    "maps", "google maps", "street address", "geocode", "coordinates", "latitude",
+    "how far", "distance from", "drive from", "commute", "travel time", "miles from",
+    "look up address", "verify address", "is this a real address",
+  ],
   chat: [], // Default fallback — no keywords needed
 };
 
@@ -148,6 +156,7 @@ const THINKING_BUDGETS: Record<Intent, number> = {
   analytics: 2048,
   business: 1024,
   skills: 1024,
+  maps: 1024,
 };
 
 /**
@@ -203,6 +212,7 @@ export interface ToolLoadConfig {
   loadForms: boolean;
   loadAnalytics: boolean;
   loadBusiness: boolean;
+  loadMaps: boolean;
   loadWorkflow: boolean;
   loadNotes: boolean;
   loadMemory: boolean;
@@ -229,6 +239,7 @@ const INTENT_TO_TOOLS: Record<Intent, (keyof ToolLoadConfig)[]> = {
   slides: ["loadSlides", "loadMemory"],
   analytics: ["loadAnalytics", "loadMemory"],
   business: ["loadBusiness", "loadMemory"],
+  maps: ["loadMaps", "loadMemory"],
 };
 
 export function getToolLoadConfig(intents: Intent[]): ToolLoadConfig {
@@ -252,6 +263,7 @@ export function getToolLoadConfig(intents: Intent[]): ToolLoadConfig {
     loadForms: false,
     loadAnalytics: false,
     loadBusiness: false,
+    loadMaps: false,
     loadWorkflow: false,
     loadNotes: false,
     loadMemory: true, // Always load memory tools
@@ -302,6 +314,7 @@ export function getPromptSections(intents: Intent[]): Set<string> {
     slides: ["slides"],
     analytics: ["analytics"],
     business: ["business"],
+    maps: ["maps"],
   };
 
   for (const intent of intents) {

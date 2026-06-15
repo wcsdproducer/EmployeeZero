@@ -338,7 +338,7 @@ async function summarizeOldMessages(
 import { executeTool } from "@/lib/executeTool";
 import { loadUserSOUL, loadTeamContext } from "@/lib/soulAdmin";
 import { buildSOULPrompt } from "@/lib/soul";
-import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS, TOOL_TOOLS, SKILL_TOOLS } from "@/lib/agentTools";
+import { BROWSER_TOOLS, GMAIL_TOOLS, CALENDAR_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, YOUTUBE_TOOLS, STRIPE_TOOLS, LINKEDIN_TOOLS, TWITTER_TOOLS, INSTAGRAM_TOOLS, FACEBOOK_TOOLS, TIKTOK_TOOLS, CONTACTS_TOOLS, TASKS_TOOLS, DOCS_TOOLS, BUSINESS_PROFILE_TOOLS, ANALYTICS_TOOLS, FORMS_TOOLS, SLIDES_TOOLS, MAPS_TOOLS, NOTES_TOOLS, MEMORY_TOOLS, WORKFLOW_TOOLS, TOOL_TOOLS, SKILL_TOOLS } from "@/lib/agentTools";
 import { classifyIntent, getToolLoadConfig, getPromptSections } from "@/lib/intentClassifier";
 
 export async function POST(request: Request) {
@@ -987,6 +987,30 @@ You are a Google Contacts expert. You can search, create, and manage contacts in
 - Don't delete contacts without explicit confirmation — it's irreversible`;
         }
 
+        // Google Maps (always available — server-side API key, no user connection needed)
+        if (promptSections.has("maps")) {
+          systemPrompt += `\n\n### Google Maps — Expert Mode
+You are a Google Maps expert. You can find places, get directions, calculate distances, and look up locations.
+
+**TOOLS:** lookup_place, find_nearby_places, get_directions, calculate_distance, geocode_address
+
+**WORKFLOW:**
+1. To find a business or place: lookup_place with a query and optional location context
+2. To find places nearby an address: find_nearby_places with address, place type (restaurant, pharmacy, etc.), and optional radius
+3. For directions: get_directions with origin and destination (returns turn-by-turn steps, distance, time, and a Google Maps link)
+4. To compare distances: calculate_distance with pipe-separated origins and destinations
+5. To validate or look up coordinates: geocode_address
+
+**PLACE TYPES for find_nearby_places:** restaurant, cafe, bar, gas_station, pharmacy, hospital, hotel, bank, grocery_or_supermarket, gym, school, airport, parking, convenience_store, department_store, shopping_mall
+
+**RULES:**
+- Always include the Google Maps link so the user can open it directly
+- For directions: show total distance + time prominently, then list key steps (not every tiny turn)
+- Format places as: **[Name]** | ⭐ [rating] ([reviews] reviews) | [address] | [open/closed if known]
+- For nearby search: show results sorted by rating (best first)
+- Distance/time format: '12.3 mi · 24 mins'`;
+        }
+
         // Web browsing (loaded for search/research/pdf intents)
         if (promptSections.has("web_browsing")) {
           systemPrompt += `\n\n### Web & Research
@@ -1181,6 +1205,7 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
             if (toolConfig.loadAnalytics && connections.analytics?.connected) allTools.push(...ANALYTICS_TOOLS);
             if (toolConfig.loadForms && connections.forms?.connected) allTools.push(...FORMS_TOOLS);
             if (toolConfig.loadSlides && connections.slides?.connected) allTools.push(...SLIDES_TOOLS);
+            if (toolConfig.loadMaps) allTools.push(...MAPS_TOOLS);
             // Notes & memory — always loaded (lightweight, cross-cutting)
             if (toolConfig.loadNotes) allTools.push(...NOTES_TOOLS);
             allTools.push(...MEMORY_TOOLS); // Always load — ensures model always has tools

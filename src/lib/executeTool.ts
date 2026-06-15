@@ -196,6 +196,13 @@ import {
   replaceUnderlinedText,
 } from "@/lib/docs";
 import {
+  lookupPlace,
+  findNearbyPlaces,
+  getDirections,
+  calculateDistance,
+  geocodeAddress,
+} from "@/lib/maps";
+import {
   listAccounts as listBusinessAccounts,
   listLocations,
   getReviews,
@@ -1062,6 +1069,21 @@ export async function executeTool(
       return await addSlide(userId, args.presentation_id, args.layout || "TITLE_AND_BODY");
     case "insert_slide_text":
       return await insertSlideText(userId, args.presentation_id, args.slide_id, args.text);
+
+    // Google Maps tools
+    case "lookup_place":
+      return await lookupPlace(args.query, args.location);
+    case "find_nearby_places":
+      return await findNearbyPlaces(args.address, args.type, args.radius_meters || 1500);
+    case "get_directions":
+      return await getDirections(args.origin, args.destination, (args.mode as any) || "driving");
+    case "calculate_distance": {
+      const origins = (args.origins as string).split("|").map((s: string) => s.trim());
+      const dests = (args.destinations as string).split("|").map((s: string) => s.trim());
+      return await calculateDistance(origins, dests, (args.mode as any) || "driving");
+    }
+    case "geocode_address":
+      return await geocodeAddress(args.address);
 
     case "create_chart": {
       try {
