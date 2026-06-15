@@ -65,6 +65,10 @@ interface ConnectionEntry {
   connected: boolean;
   tokenType?: "oauth" | "api_key";
   connectedAt?: string;
+  // WhatsApp-specific fields
+  accessToken?: string;
+  phoneNumberId?: string;
+  wabaId?: string;
 }
 
 type ConnectionsMap = Record<string, ConnectionEntry>;
