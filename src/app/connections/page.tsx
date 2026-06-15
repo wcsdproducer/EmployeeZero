@@ -171,6 +171,7 @@ function ConnectionsPageInner() {
     brain: true,
     google: false,
     social: false,
+    whatsapp: false,
     mcp: false,
     voice: false,
   });
@@ -1139,6 +1140,55 @@ function ConnectionsPageInner() {
                         disabled={!editValue.trim()}
                         className="w-full py-2.5 rounded-xl bg-white text-black text-sm font-bold hover:bg-neutral-200 transition-all disabled:opacity-30"
                       >
+                        Save Connection
+                      </button>
+                      {SOCIAL_GUIDES[svc.id] && (
+                        <SetupGuide platformName={svc.name} steps={SOCIAL_GUIDES[svc.id]} />
+                      )}
+                    </motion.div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          </div>
+          </motion.div>
+          )}
+          </AnimatePresence>
+        </section>
+        
+        {/* ═══ WHATSAPP BUSINESS ═══ */}
+        <section className="rounded-2xl border border-white/5 bg-white/[0.015] overflow-hidden">
+          <button
+            onClick={() => toggleSection('whatsapp')}
+            className="w-full flex items-center gap-3 p-5 hover:bg-white/[0.02] transition-colors"
+          >
+            <div className="p-2 rounded-xl bg-green-500/10 border border-green-500/20">
+              <MessageSquare size={18} className="text-green-400" />
+            </div>
+            <div className="flex-1 text-left">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold tracking-tight">WhatsApp Business</h2>
+                {connections.whatsapp?.connected && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">Connected</span>
+                )}
+              </div>
+              <p className="text-xs text-neutral-500">Send messages, templates &amp; media via WhatsApp Business API</p>
+            </div>
+            <motion.div animate={{ rotate: openSections.whatsapp ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown size={18} className="text-neutral-500" />
+            </motion.div>
+          </button>
+          <AnimatePresence initial={false}>
+          {openSections.whatsapp && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+          <div className="px-5 pb-5">
             <div className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
               <div className="flex items-center gap-4 p-4">
                 <div className="p-2.5 rounded-xl bg-green-500/10 border border-green-500/20">
@@ -1182,7 +1232,6 @@ function ConnectionsPageInner() {
                 </div>
               </div>
 
-              {/* Credential entry form */}
               {waEditing && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
@@ -1191,9 +1240,9 @@ function ConnectionsPageInner() {
                 >
                   <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/15 text-xs text-green-400/80 space-y-1">
                     <p className="font-semibold">How to get your credentials:</p>
-                    <p>1. Go to <a href="https://developers.facebook.com" target="_blank" className="underline">developers.facebook.com</a> → Your App → WhatsApp → API Setup</p>
-                    <p>2. Copy your <strong>Phone Number ID</strong> and <strong>Access Token</strong> (or create a permanent System User token)</p>
-                    <p>3. Copy your <strong>WhatsApp Business Account ID</strong> (WABA ID) — optional, needed for templates</p>
+                    <p>1. Go to <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="underline">developers.facebook.com</a> &#x2192; Your App &#x2192; WhatsApp &#x2192; API Setup</p>
+                    <p>2. Copy your <strong>Phone Number ID</strong> and <strong>Access Token</strong> (create a permanent System User token for production)</p>
+                    <p>3. Copy your <strong>WABA ID</strong> &#x2014; optional, needed for listing templates</p>
                   </div>
                   <input
                     type="password"
@@ -1214,7 +1263,7 @@ function ConnectionsPageInner() {
                     type="text"
                     value={waEditWabaId}
                     onChange={(e) => setWaEditWabaId(e.target.value)}
-                    placeholder="WABA ID — optional, needed for templates"
+                    placeholder="WABA ID (optional, needed for templates)"
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-green-500/30 font-mono"
                   />
                   <button
@@ -1228,7 +1277,6 @@ function ConnectionsPageInner() {
                 </motion.div>
               )}
 
-              {/* Tool chips */}
               {TOOL_MAP.whatsapp && (
                 <div className="px-4 pb-3">
                   <div className="flex flex-wrap gap-1.5">
