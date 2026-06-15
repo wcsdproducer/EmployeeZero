@@ -1228,9 +1228,24 @@ Save: names, birthdays, preferences, business info, corrections, goals. Be speci
         console.error("Async Chat API error:", err);
         try {
           // Add a visible error message so the user sees feedback
-          const errorMsg = (err.message?.includes("model output") || err.message?.includes("both be empty"))
-            ? "I had a brief processing hiccup. Could you try sending that again?"
-            : `Sorry, I encountered an issue: ${err.message || "Unknown error"}. Please try again.`;
+          // Map known error types to friendly user-facing messages
+          const errMsg: string = err.message || "";
+          const errStr = typeof err === "object" ? JSON.stringify(err) : String(err);
+          let errorMsg: string;
+
+          if (err.message?.includes("model output") || err.message?.includes("both be empty")) {
+            errorMsg = "I had a brief processing hiccup. Could you try sending that again?";
+          } else if (errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit")) {
+            errorMsg = "I'm a bit overwhelmed right now — the AI is handling a lot of requests. Give me 30 seconds and try again.";
+          } else if (errStr.includes("UNAVAILABLE") || errStr.includes("503") || errStr.includes("Service Unavailable")) {
+            errorMsg = "The AI service is temporarily unavailable. Please try again in a moment.";
+          } else if (errMsg.includes("UNAUTHENTICATED") || errMsg.includes("API key") || errMsg.includes("permission")) {
+            errorMsg = "I'm having trouble authenticating with the AI service. Please contact support if this persists.";
+          } else if (errMsg.includes("network") || errMsg.includes("fetch") || errMsg.includes("ECONNREFUSED")) {
+            errorMsg = "I lost my connection mid-response. Could you try again?";
+          } else {
+            errorMsg = "Something went wrong on my end. Could you try that again?";
+          }
           await convRef.update({
             status: "idle",
             lastError: err.message || "Unknown error",

@@ -1196,7 +1196,8 @@ function ChatPageInner() {
                     )}
                     <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
                       <p className="text-sm font-semibold text-neutral-400">{msg.role === "user" ? "You" : selectedAgent.name}</p>
-                      <div className={cn("text-[16px] leading-relaxed", msg.role === "user" ? "text-neutral-200 whitespace-pre-wrap" : "text-neutral-100 prose prose-invert max-w-none prose-a:text-blue-400 prose-a:underline prose-a:hover:text-blue-300")}>
+                      <div className={cn("text-[16px] leading-relaxed break-words", msg.role === "user" ? "text-neutral-200 whitespace-pre-wrap" : "text-neutral-100 prose prose-invert max-w-none prose-a:text-blue-400 prose-a:underline prose-a:hover:text-blue-300")}>
+
                         {msg.role === "user" ? (
                           msg.content
                         ) : msg.content.startsWith("__chart::") ? (
