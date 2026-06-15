@@ -212,6 +212,7 @@ export interface ToolLoadConfig {
   loadInstagram: boolean;
   loadFacebook: boolean;
   loadTiktok: boolean;
+  loadWhatsapp: boolean;
   loadContacts: boolean;
   loadTasks: boolean;
   loadDocs: boolean;
