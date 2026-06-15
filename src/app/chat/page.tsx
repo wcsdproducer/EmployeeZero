@@ -1181,9 +1181,9 @@ function ChatPageInner() {
             </div>
         </header>
 
-        {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto" ref={scrollRef}>
-          <div className="max-w-3xl mx-auto px-6 py-10">
+        {/* Chat Area — overflow-x-hidden prevents any wide content from causing horizontal scrolling */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden" ref={scrollRef}>
+          <div className="max-w-3xl mx-auto px-6 py-10 min-w-0">
             {activeConvId && activeConv ? (
               <div className="space-y-8">
                 {/* Render all messages in the conversation */}
@@ -1194,7 +1194,7 @@ function ChatPageInner() {
                     ) : (
                       <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1 overflow-hidden", selectedAgent.color, "bg-white/5 border border-white/5")}>{selectedAgent.icon}</div>
                     )}
-                    <div className="space-y-2 flex-1">
+                    <div className="space-y-2 flex-1 min-w-0 overflow-hidden">
                       <p className="text-sm font-semibold text-neutral-400">{msg.role === "user" ? "You" : selectedAgent.name}</p>
                       <div className={cn("text-[16px] leading-relaxed", msg.role === "user" ? "text-neutral-200 whitespace-pre-wrap" : "text-neutral-100 prose prose-invert max-w-none prose-a:text-blue-400 prose-a:underline prose-a:hover:text-blue-300")}>
                         {msg.role === "user" ? (
