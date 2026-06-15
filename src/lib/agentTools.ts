@@ -1743,6 +1743,18 @@ export const DOCS_TOOLS = [
   { name: "clear_document", description: "Clear ALL content from a Google Doc (keeps the document, empties the body)", parameters: { type: Type.OBJECT, properties: { document_id: { type: Type.STRING, description: "Document ID" } }, required: ["document_id"] } },
   { name: "write_document", description: "Replace the entire content of a Google Doc with new text (clears then writes)", parameters: { type: Type.OBJECT, properties: { document_id: { type: Type.STRING, description: "Document ID" }, content: { type: Type.STRING, description: "New content to write" } }, required: ["document_id", "content"] } },
   { name: "update_doc_title", description: "Update/rename the title of a Google Doc", parameters: { type: Type.OBJECT, properties: { document_id: { type: Type.STRING, description: "Document ID" }, title: { type: Type.STRING, description: "New title" } }, required: ["document_id", "title"] } },
+  {
+    name: "replace_underlined_text",
+    description: "Replace ALL underlined text runs in a Google Doc with named placeholder fields (e.g. {{FIELD_1}}, {{FIELD_2}}). USE THIS instead of replace_doc_text when the document has underlined blanks (template fill-in areas). Works by position — finds underlined text even if it's spaces or underscores. Returns the list of placeholder field names inserted.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        document_id: { type: Type.STRING, description: "Document ID" },
+        placeholder_prefix: { type: Type.STRING, description: "Prefix for placeholder names (default: FIELD). E.g. 'FIELD' produces {{FIELD_1}}, {{FIELD_2}}, etc." },
+      },
+      required: ["document_id"],
+    },
+  },
 ];
 
 export const BUSINESS_PROFILE_TOOLS = [

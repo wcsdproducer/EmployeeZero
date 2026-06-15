@@ -66,11 +66,23 @@ export async function getDocument(userId: string, documentId: string) {
   const res = await docs.documents.get({ documentId });
   const body = res.data.body;
   let text = "";
+  const underlinedRuns: Array<{ text: string; startIndex: number; endIndex: number }> = [];
+
   if (body?.content) {
     for (const element of body.content) {
       if (element.paragraph?.elements) {
         for (const el of element.paragraph.elements) {
-          if (el.textRun?.content) text += el.textRun.content;
+          if (el.textRun?.content) {
+            text += el.textRun.content;
+            // Track underlined runs — these are the "fill-in" fields in templates
+            if (el.textRun.textStyle?.underline && el.textRun.content.trim()) {
+              underlinedRuns.push({
+                text: el.textRun.content,
+                startIndex: el.startIndex ?? 0,
+                endIndex: el.endIndex ?? 0,
+              });
+            }
+          }
         }
       }
     }
@@ -78,8 +90,14 @@ export async function getDocument(userId: string, documentId: string) {
   return {
     documentId: res.data.documentId,
     title: res.data.title,
-    text: text.slice(0, 5000), // Cap to avoid token overflow
+    text: text.slice(0, 8000),
+    // Underlined runs returned separately so agent can target them precisely
+    underlinedText: underlinedRuns.slice(0, 60).map((r) => ({ text: r.text.trim(), startIndex: r.startIndex, endIndex: r.endIndex })),
+    underlinedCount: underlinedRuns.length,
     url: `https://docs.google.com/document/d/${documentId}/edit`,
+    instruction: underlinedRuns.length > 0
+      ? `This document has ${underlinedRuns.length} underlined text run(s). Use replace_underlined_text to replace them all with placeholder fields in one step.`
+      : undefined,
   };
 }
 
@@ -240,4 +258,81 @@ export async function writeDocument(userId: string, documentId: string, content:
     },
   });
   return { success: true, documentId, action: "document_written" };
+}
+
+/**
+ * Replace ALL underlined text runs in a document with named placeholder fields.
+ * This is the correct tool for template documents where underlined text = fill-in areas.
+ * Uses position-based replacement (startIndex/endIndex) rather than string matching,
+ * so it works even when underlined content is spaces or generic underscores.
+ */
+export async function replaceUnderlinedText(
+  userId: string,
+  documentId: string,
+  placeholderPrefix: string = "FIELD"
+): Promise<{ success: boolean; documentId: string; replaced: number; fields: string[] }> {
+  const docs = await getAuthenticatedDocs(userId);
+  const res = await docs.documents.get({ documentId });
+  const body = res.data.body;
+
+  // Collect all underlined runs with their positions
+  type Run = { text: string; startIndex: number; endIndex: number };
+  const underlinedRuns: Run[] = [];
+
+  if (body?.content) {
+    for (const element of body.content) {
+      if (element.paragraph?.elements) {
+        for (const el of element.paragraph.elements) {
+          if (
+            el.textRun?.textStyle?.underline &&
+            el.textRun?.content &&
+            el.textRun.content.trim() &&
+            el.startIndex !== undefined &&
+            el.endIndex !== undefined
+          ) {
+            underlinedRuns.push({
+              text: el.textRun.content,
+              startIndex: el.startIndex,
+              endIndex: el.endIndex,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  if (underlinedRuns.length === 0) {
+    return { success: true, documentId, replaced: 0, fields: [] };
+  }
+
+  // Process in REVERSE order so that earlier indices don't shift after replacements
+  const sorted = [...underlinedRuns].sort((a, b) => b.startIndex - a.startIndex);
+  const fields: string[] = [];
+  const requests: any[] = [];
+
+  sorted.forEach((run, i) => {
+    const fieldName = `{{${placeholderPrefix}_${sorted.length - i}}}`;
+    fields.unshift(fieldName);
+
+    // Delete the existing underlined content
+    requests.push({
+      deleteContentRange: {
+        range: { startIndex: run.startIndex, endIndex: run.endIndex },
+      },
+    });
+    // Insert the placeholder at the same position (no underline formatting)
+    requests.push({
+      insertText: {
+        location: { index: run.startIndex },
+        text: fieldName,
+      },
+    });
+  });
+
+  await docs.documents.batchUpdate({
+    documentId,
+    requestBody: { requests },
+  });
+
+  return { success: true, documentId, replaced: underlinedRuns.length, fields };
 }

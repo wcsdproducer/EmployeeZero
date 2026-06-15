@@ -745,7 +745,28 @@ List, create, complete, delete tasks with due dates.`;
 
         if (promptSections.has("docs") && connections.docs?.connected) {
           systemPrompt += `\n\n### Google Docs
-Create docs, append text, read metadata.`;
+You can read, create, and edit Google Docs. Follow this workflow exactly:
+
+**MEMORY RULE:** When you open a document to work on it, IMMEDIATELY call save_memory with key "working_doc" and value "{documentId}|{title}". This prevents you losing the document ID in a long conversation.
+
+**READING A DOCUMENT:**
+- Always call get_document first before making any edits.
+- The response includes: title, text (plain text), url, underlinedText (array of underlined runs with their exact text, startIndex, endIndex), underlinedCount.
+- underlinedText tells you EXACTLY which text is underlined (template fill-in blanks).
+
+**EDITING UNDERLINED TEMPLATE FIELDS:**
+- If the document has underlinedCount > 0, use replace_underlined_text — NOT replace_doc_text.
+- replace_underlined_text works by position (startIndex/endIndex), so it correctly replaces underlined blanks even if they're spaces or generic underscores.
+- replace_doc_text only works for known literal text strings and will FAIL on formatting-based blanks.
+
+**EDITING KNOWN TEXT:**
+- Use replace_doc_text to find and replace a specific known phrase you saw in get_document's text.
+- Text matching is case-sensitive.
+
+**WRITING:**
+- append_doc_text: Add to end.
+- prepend_doc_text: Add to beginning.
+- write_document: Replace entire content.`;
         }
 
         if (promptSections.has("slides") && connections.slides?.connected) {

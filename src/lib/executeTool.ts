@@ -193,6 +193,7 @@ import {
   clearDocument,
   writeDocument,
   updateDocTitle,
+  replaceUnderlinedText,
 } from "@/lib/docs";
 import {
   listAccounts as listBusinessAccounts,
@@ -1006,6 +1007,8 @@ export async function executeTool(
       return await replaceText(userId, args.document_id, args.find_text, args.replace_with);
     case "delete_doc_text":
       return await deleteText(userId, args.document_id, args.find_text);
+    case "replace_underlined_text":
+      return await replaceUnderlinedText(userId, args.document_id, args.placeholder_prefix || "FIELD");
     case "clear_document":
       return await clearDocument(userId, args.document_id);
     case "write_document":
