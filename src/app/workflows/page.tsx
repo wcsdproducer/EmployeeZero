@@ -1143,7 +1143,7 @@ export default function WorkflowsPage() {
                         </div>
                       </div>
                       <button
-                        onClick={() => router.push(`/chat?runWorkflow=${wf.workflowDefinitionId}&workflowName=${encodeURIComponent(wf.name)}`)}
+                        onClick={() => router.push(`/chat?workflow=${wf.workflowDefinitionId}&workflowName=${encodeURIComponent(wf.name)}`)}
                         className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/[0.08] hover:bg-white/10 text-neutral-400 hover:text-white transition-all"
                       >Run</button>
                     </div>

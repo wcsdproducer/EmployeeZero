@@ -1185,6 +1185,155 @@ Be concise. Use bullet points. Do NOT browse the web. Just build the deck and re
 8. Save as a note titled "Feedback Analysis [date]".`,
     requiredConnections: ["forms"],
   },
+
+  "contract-prep": {
+    id: "contract-prep",
+    goal: `You are running the Contract Preparation workflow. Do the following steps:
+
+1. Ask the user: which contract template should we use, and what are the party details (names, addresses, dates, amounts)?
+2. Search Google Drive for the template document. Use the filename or type the user specifies.
+3. Open the document with get_document to read its contents and find all underlined placeholder fields (template blanks).
+4. Replace each underlined field with the correct value from the party details using replace_underlined_text.
+5. Review the filled document by calling get_document again to confirm all fields are filled correctly.
+6. Share the link to the completed document with the user.
+7. Ask: "Shall I email this to the relevant parties for review?" If yes, draft and send the email with the document link.
+
+Be careful and thorough — this is a legal document. Confirm all values before proceeding.`,
+    requiredConnections: ["drive", "docs", "gmail"],
+  },
+
+  "document-review": {
+    id: "document-review",
+    goal: `You are running the Document Review workflow. Do the following steps:
+
+1. Ask the user which document to review (they should provide a link or name).
+2. Open the document with get_document and read its full contents.
+3. Analyze the document for:
+   - Clarity and readability issues
+   - Grammar and spelling errors
+   - Missing sections or incomplete content
+   - Inconsistencies or contradictions
+   - Tone and professionalism
+4. Provide structured feedback with specific line-by-line suggestions.
+5. For each major issue, suggest improved wording.
+6. Ask: "Shall I apply these edits directly to the document?" If yes, make the approved edits using replace_doc_text.
+7. Share the updated document link.
+8. Ask: "Shall I email the revised document to anyone for final approval?"
+
+Format the review as: ✅ Strengths | ⚠️ Issues Found | 📝 Suggested Edits`,
+    requiredConnections: ["docs", "gmail"],
+  },
+
+  "report-generator": {
+    id: "report-generator",
+    goal: `You are running the Report Generator workflow. Do the following steps:
+
+1. Ask the user: what is the report topic, who is the audience, and what data sources should be used (Google Sheet, Analytics, or manual input)?
+2. If a Google Sheet is referenced: read the sheet with read_sheet and extract the key data.
+3. If Google Analytics is referenced: list properties and run a report for the relevant date range.
+4. Structure the report with these sections:
+   - Executive Summary (3-5 sentences)
+   - Key Findings (top 5 insights with supporting data)
+   - Detailed Analysis (data tables and narrative)
+   - Recommendations (3-5 actionable next steps)
+   - Conclusion
+5. Create a new Google Doc with write_document, formatted with headers and the full report content.
+6. Share the document link.
+7. Ask: "Shall I email this report to the stakeholders?" If yes, compose and send the email.`,
+    requiredConnections: ["docs", "gmail"],
+  },
+
+  "analytics-report": {
+    id: "analytics-report",
+    goal: `You are running the Analytics Weekly Report workflow. Do the following steps:
+
+1. List all available Google Analytics 4 properties with list_analytics_properties.
+2. Run a report for the last 7 days with these metrics: sessions, activeUsers, screenPageViews, bounceRate, averageSessionDuration.
+3. Run a top pages report: pagePath dimension + screenPageViews metric, top 10 pages.
+4. Run a traffic source report: sessionSource dimension + sessions metric.
+5. Get real-time data: how many users are active right now.
+6. Create a Google Sheet named "Analytics Report [date]" with this structure:
+   - Tab 1 "Overview": KPIs (sessions, users, pageviews, bounce rate)
+   - Tab 2 "Top Pages": page path + views
+   - Tab 3 "Traffic Sources": source + sessions
+7. Format the headers with bold and a blue background color. Freeze the header row.
+8. Compose a summary email with the top 5 insights from the data.
+9. Ask: "Shall I send this analytics report?"
+
+Present key highlights: biggest traffic source, best-performing page, week-over-week comparison if prior data is available.`,
+    requiredConnections: ["analytics", "sheets", "gmail"],
+  },
+
+  "new-employee-setup": {
+    id: "new-employee-setup",
+    goal: `You are running the New Employee Setup workflow. Do the following steps:
+
+1. Ask for the new employee's: full name, email address, job title, start date, and manager's name.
+2. Create a Google Drive folder named "[First Name] [Last Name] — Onboarding" in the main team folder.
+3. Create subfolders inside: "Resources", "Documents", "Notes".
+4. Create a welcome document named "[Name] Welcome Guide" in the Documents subfolder with sections:
+   - Welcome message
+   - First week schedule outline
+   - Key contacts (ask user to provide or leave as placeholder)
+   - Useful links and resources
+5. Share the folder with the new employee's email (if provided).
+6. Create a welcome email draft with:
+   - Subject: "Welcome to the team, [Name]! 🎉"
+   - Body: warm welcome, link to their folder, first-day instructions
+7. Show the draft and ask: "Shall I send this welcome email?"
+8. Schedule a 30-minute "Welcome/Intro" calendar event on their start date.
+9. Show a summary of everything created.`,
+    requiredConnections: ["drive", "docs", "gmail", "calendar"],
+  },
+
+  "project-kickoff": {
+    id: "project-kickoff",
+    goal: `You are running the Project Kickoff workflow. Do the following steps:
+
+1. Ask for: project name, description, team members (names + emails), project deadline, and kickoff meeting time.
+2. Create a Google Drive project folder named "[Project Name]" with subfolders: "Brief", "Assets", "Deliverables", "Meeting Notes".
+3. Create a project brief document in the Brief subfolder with:
+   - Project Overview
+   - Goals & Objectives
+   - Team & Roles (from the team member list)
+   - Timeline & Milestones
+   - Next Steps
+4. Create a kickoff meeting calendar event with:
+   - Title: "[Project Name] Kickoff"
+   - Time: the specified kickoff date/time
+   - Attendees: all team member emails
+   - Description: link to project brief + agenda
+5. Send a project kickoff email to all team members with:
+   - Project overview
+   - Link to the Drive folder
+   - Link to the project brief
+   - Meeting invitation details
+6. Ask: "Shall I send the kickoff email and create the calendar invite?"
+7. Show a summary: folder link, brief link, meeting details.`,
+    requiredConnections: ["drive", "docs", "gmail", "calendar"],
+  },
+
+  "data-collection-report": {
+    id: "data-collection-report",
+    goal: `You are running the Data Collection & Report workflow. Do the following steps:
+
+1. Ask the user: which Google Form should we pull data from? (They can provide the form ID or URL.)
+2. Read the form structure with get_google_form to understand the questions.
+3. Fetch all responses with get_form_responses.
+4. Analyze the responses:
+   - Count total submissions
+   - For multiple choice questions: tally each option's frequency
+   - For text responses: identify common themes
+   - Calculate any numeric averages (ratings, scales)
+5. Create a Google Sheet named "Form Responses — [form title] — [date]" with:
+   - Tab 1 "Summary": key stats (total responses, completion date range, top answers)
+   - Tab 2 "Raw Data": all individual responses in rows
+6. Format the Summary tab with headers, bold text, and auto-sized columns.
+7. Compose a summary email report with the key findings.
+8. Ask: "Shall I email this report to the stakeholders?"
+9. Provide the spreadsheet link and a brief summary of the most important findings.`,
+    requiredConnections: ["forms", "sheets", "gmail"],
+  },
 };
 
 /**
