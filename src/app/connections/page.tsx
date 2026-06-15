@@ -389,9 +389,9 @@ function ConnectionsPageInner() {
     if (!user?.uid || !waEditToken.trim() || !waEditPhoneId.trim()) return;
     setSavingConnection("whatsapp");
     try {
-      const entry = {
+      const entry: ConnectionEntry = {
         connected: true,
-        tokenType: "api_key",
+        tokenType: "api_key" as const,
         accessToken: waEditToken.trim(),
         phoneNumberId: waEditPhoneId.trim(),
         wabaId: waEditWabaId.trim(),
@@ -425,7 +425,7 @@ function ConnectionsPageInner() {
         { whatsapp: { connected: false } },
         { merge: true }
       );
-      setConnections((prev) => ({ ...prev, whatsapp: { connected: false } }));
+      setConnections((prev) => ({ ...prev, whatsapp: { connected: false } }) as ConnectionsMap);
     } catch (err) {
       console.error("Failed to disconnect WhatsApp:", err);
     } finally {
