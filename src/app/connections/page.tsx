@@ -43,6 +43,7 @@ import {
   Plus,
   Trash2,
   ChevronDown,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -149,6 +150,7 @@ const TOOL_MAP: Record<string, string[]> = {
   facebook: ["Profile", "Pages", "Page Posts", "Create Post", "Insights", "Comments", "Reply", "Delete Post", "Photo Post", "Schedule Post", "Video Upload", "Create Reel", "Scheduled Posts", "Cancel Scheduled"],
   tiktok: ["Profile"],
   linkedin: ["Profile", "Create Post", "Post with Link", "Get Posts", "Delete Post", "Image Post", "Comment", "React"],
+  whatsapp: ["Send Message", "Send Template", "Send Media", "List Templates"],
 };
 
 /* ─── Component ─── */
@@ -194,6 +196,12 @@ function ConnectionsPageInner() {
   const [editValue, setEditValue] = useState("");
   const [editSecret, setEditSecret] = useState("");
   const [savingConnection, setSavingConnection] = useState<string | null>(null);
+
+  // WhatsApp credential state
+  const [waEditToken, setWaEditToken] = useState("");
+  const [waEditPhoneId, setWaEditPhoneId] = useState("");
+  const [waEditWabaId, setWaEditWabaId] = useState("");
+  const [waEditing, setWaEditing] = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -370,6 +378,54 @@ function ConnectionsPageInner() {
   const connectSocialOAuth = (platformId: string) => {
     if (!user?.uid) return;
     window.location.href = `/api/auth/social?platform=${platformId}&userId=${user.uid}`;
+  };
+
+  const saveWhatsAppConnection = async () => {
+    if (!user?.uid || !waEditToken.trim() || !waEditPhoneId.trim()) return;
+    setSavingConnection("whatsapp");
+    try {
+      const entry = {
+        connected: true,
+        tokenType: "api_key",
+        accessToken: waEditToken.trim(),
+        phoneNumberId: waEditPhoneId.trim(),
+        wabaId: waEditWabaId.trim(),
+        connectedAt: new Date().toISOString(),
+      };
+      await setDoc(
+        doc(db, "users", user.uid, "settings", "connections"),
+        { whatsapp: entry },
+        { merge: true }
+      );
+      setConnections((prev) => ({ ...prev, whatsapp: entry }));
+      setWaEditing(false);
+      setWaEditToken("");
+      setWaEditPhoneId("");
+      setWaEditWabaId("");
+      setToast({ message: "WhatsApp Business connected!", type: "success" });
+    } catch (err) {
+      console.error("Failed to save WhatsApp connection:", err);
+      setToast({ message: "Failed to save WhatsApp credentials.", type: "error" });
+    } finally {
+      setSavingConnection(null);
+    }
+  };
+
+  const disconnectWhatsApp = async () => {
+    if (!user?.uid) return;
+    setSavingConnection("whatsapp");
+    try {
+      await setDoc(
+        doc(db, "users", user.uid, "settings", "connections"),
+        { whatsapp: { connected: false } },
+        { merge: true }
+      );
+      setConnections((prev) => ({ ...prev, whatsapp: { connected: false } }));
+    } catch (err) {
+      console.error("Failed to disconnect WhatsApp:", err);
+    } finally {
+      setSavingConnection(null);
+    }
   };
 
   const disconnectSocialOAuth = async (platformId: string) => {
@@ -1083,24 +1139,121 @@ function ConnectionsPageInner() {
                         disabled={!editValue.trim()}
                         className="w-full py-2.5 rounded-xl bg-white text-black text-sm font-bold hover:bg-neutral-200 transition-all disabled:opacity-30"
                       >
-                        Save Connection
-                      </button>
-                      {SOCIAL_GUIDES[svc.id] && (
-                        <SetupGuide platformName={svc.name} steps={SOCIAL_GUIDES[svc.id]} />
-                      )}
-                    </motion.div>
+            <div className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+              <div className="flex items-center gap-4 p-4">
+                <div className="p-2.5 rounded-xl bg-green-500/10 border border-green-500/20">
+                  <MessageSquare size={18} className="text-green-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">WhatsApp Business Cloud API</p>
+                  <p className="text-xs text-neutral-500">Send messages, templates &amp; media to any WhatsApp number</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {connections.whatsapp?.connected && !waEditing && (
+                    <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                      <Check size={12} /> Connected
+                    </span>
+                  )}
+                  {savingConnection === "whatsapp" ? (
+                    <Loader2 size={16} className="animate-spin text-neutral-500" />
+                  ) : waEditing ? (
+                    <button
+                      onClick={() => { setWaEditing(false); setWaEditToken(""); setWaEditPhoneId(""); setWaEditWabaId(""); }}
+                      className="p-1.5 rounded-lg hover:bg-white/5 text-neutral-500"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : connections.whatsapp?.connected ? (
+                    <button
+                      onClick={disconnectWhatsApp}
+                      className="text-[11px] text-red-400/70 hover:text-red-400 font-medium transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setWaEditing(true)}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-white transition-all flex items-center gap-1.5"
+                    >
+                      <Plug size={12} className="opacity-60" />
+                      Connect
+                    </button>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+
+              {/* Credential entry form */}
+              {waEditing && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  className="px-4 pb-4 space-y-3"
+                >
+                  <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/15 text-xs text-green-400/80 space-y-1">
+                    <p className="font-semibold">How to get your credentials:</p>
+                    <p>1. Go to <a href="https://developers.facebook.com" target="_blank" className="underline">developers.facebook.com</a> → Your App → WhatsApp → API Setup</p>
+                    <p>2. Copy your <strong>Phone Number ID</strong> and <strong>Access Token</strong> (or create a permanent System User token)</p>
+                    <p>3. Copy your <strong>WhatsApp Business Account ID</strong> (WABA ID) — optional, needed for templates</p>
+                  </div>
+                  <input
+                    type="password"
+                    value={waEditToken}
+                    onChange={(e) => setWaEditToken(e.target.value)}
+                    placeholder="Access Token (from Meta App Dashboard)"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-green-500/30 font-mono"
+                    autoFocus
+                  />
+                  <input
+                    type="text"
+                    value={waEditPhoneId}
+                    onChange={(e) => setWaEditPhoneId(e.target.value)}
+                    placeholder="Phone Number ID (e.g. 123456789012345)"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-green-500/30 font-mono"
+                  />
+                  <input
+                    type="text"
+                    value={waEditWabaId}
+                    onChange={(e) => setWaEditWabaId(e.target.value)}
+                    placeholder="WABA ID — optional, needed for templates"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-green-500/30 font-mono"
+                  />
+                  <button
+                    onClick={saveWhatsAppConnection}
+                    disabled={!waEditToken.trim() || !waEditPhoneId.trim() || savingConnection === "whatsapp"}
+                    className="w-full py-2.5 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-400 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                  >
+                    {savingConnection === "whatsapp" ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    Save WhatsApp Connection
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Tool chips */}
+              {TOOL_MAP.whatsapp && (
+                <div className="px-4 pb-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {TOOL_MAP.whatsapp.map((tool) => (
+                      <span
+                        key={tool}
+                        className={cn(
+                          "text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                          connections.whatsapp?.connected
+                            ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400/70"
+                            : "bg-white/[0.02] border-white/5 text-neutral-600"
+                        )}
+                      >
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           </motion.div>
           )}
           </AnimatePresence>
         </section>
-        
-
 
         {/* ═══ UNIVERSAL MCP CONNECTOR ═══ */}
 

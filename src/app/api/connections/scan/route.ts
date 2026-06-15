@@ -169,6 +169,20 @@ const SERVICE_CAPABILITIES: Record<string, { capabilities: string[]; examples: s
       "Post an update about our holiday hours",
     ],
   },
+  whatsapp: {
+    capabilities: [
+      "💬 Send WhatsApp messages to any number",
+      "📋 Send pre-approved template messages",
+      "📎 Send images, PDFs, and videos via WhatsApp",
+      "📄 List all your approved message templates",
+    ],
+    examples: [
+      "Send a WhatsApp message to +1234567890 saying hello",
+      "Send my invoice PDF to the client on WhatsApp",
+      "What WhatsApp templates do I have available?",
+      "Send the appointment reminder template to John",
+    ],
+  },
 };
 
 const SERVICE_NAMES: Record<string, string> = {
@@ -184,6 +198,7 @@ const SERVICE_NAMES: Record<string, string> = {
   slides: "Google Slides",
   analytics: "Google Analytics",
   business: "Business Profile",
+  whatsapp: "WhatsApp Business",
 };
 
 /* ─── Scan Functions ─── */

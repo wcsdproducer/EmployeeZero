@@ -203,6 +203,12 @@ import {
   geocodeAddress,
 } from "@/lib/maps";
 import {
+  sendWhatsAppMessage,
+  sendWhatsAppTemplate,
+  sendWhatsAppMedia,
+  listWhatsAppTemplates,
+} from "@/lib/whatsapp";
+import {
   listAccounts as listBusinessAccounts,
   listLocations,
   getReviews,
@@ -1084,6 +1090,24 @@ export async function executeTool(
     }
     case "geocode_address":
       return await geocodeAddress(args.address);
+
+    // WhatsApp tools
+    case "send_whatsapp_message":
+      return await sendWhatsAppMessage(userId, args.to, args.body);
+    case "send_whatsapp_template": {
+      const bodyParams = args.body_params
+        ? (args.body_params as string).split(",").map((s: string) => s.trim())
+        : [];
+      return await sendWhatsAppTemplate(userId, args.to, args.template_name, args.language_code || "en_US", bodyParams);
+    }
+    case "send_whatsapp_media":
+      return await sendWhatsAppMedia(
+        userId, args.to, args.media_url,
+        (args.media_type as any) || "image",
+        args.caption, args.filename
+      );
+    case "list_whatsapp_templates":
+      return await listWhatsAppTemplates(userId);
 
     case "create_chart": {
       try {

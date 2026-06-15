@@ -28,7 +28,8 @@ export type Intent =
   | "slides"
   | "analytics"
   | "business"
-  | "maps";
+  | "maps"
+  | "whatsapp";
 
 export interface IntentResult {
   intents: Intent[];
@@ -131,6 +132,11 @@ const INTENT_KEYWORDS: Record<Intent, string[]> = {
     "how far", "distance from", "drive from", "commute", "travel time", "miles from",
     "look up address", "verify address", "is this a real address",
   ],
+  whatsapp: [
+    "whatsapp", "whats app", "send a whatsapp", "whatsapp message", "text via whatsapp",
+    "message on whatsapp", "send to whatsapp", "whatsapp template", "whatsapp media",
+    "wa message", "send whatsapp", "whatsapp number",
+  ],
   chat: [], // Default fallback — no keywords needed
 };
 
@@ -157,6 +163,7 @@ const THINKING_BUDGETS: Record<Intent, number> = {
   business: 1024,
   skills: 1024,
   maps: 1024,
+  whatsapp: 1024,
 };
 
 /**
@@ -240,6 +247,7 @@ const INTENT_TO_TOOLS: Record<Intent, (keyof ToolLoadConfig)[]> = {
   analytics: ["loadAnalytics", "loadMemory"],
   business: ["loadBusiness", "loadMemory"],
   maps: ["loadMaps", "loadMemory"],
+  whatsapp: ["loadWhatsapp", "loadMemory"],
 };
 
 export function getToolLoadConfig(intents: Intent[]): ToolLoadConfig {
@@ -256,6 +264,7 @@ export function getToolLoadConfig(intents: Intent[]): ToolLoadConfig {
     loadInstagram: false,
     loadFacebook: false,
     loadTiktok: false,
+    loadWhatsapp: false,
     loadContacts: false,
     loadTasks: false,
     loadDocs: false,
@@ -315,6 +324,7 @@ export function getPromptSections(intents: Intent[]): Set<string> {
     analytics: ["analytics"],
     business: ["business"],
     maps: ["maps"],
+    whatsapp: ["whatsapp"],
   };
 
   for (const intent of intents) {

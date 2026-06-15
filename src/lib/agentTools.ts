@@ -1877,3 +1877,56 @@ export const MAPS_TOOLS = [
     },
   },
 ];
+
+export const WHATSAPP_TOOLS = [
+  {
+    name: "send_whatsapp_message",
+    description: "Send a WhatsApp text message to any phone number. Use this whenever the user asks to send a WhatsApp message, text someone on WhatsApp, or message a contact via WhatsApp.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        to: { type: Type.STRING, description: "Recipient phone number in international format (e.g. +12125551234 or 12125551234). Country code required." },
+        body: { type: Type.STRING, description: "The text message to send. Max 4096 characters." },
+      },
+      required: ["to", "body"],
+    },
+  },
+  {
+    name: "send_whatsapp_template",
+    description: "Send an approved WhatsApp template message. Templates are pre-approved message formats used to initiate conversations outside the 24-hour window. Use list_whatsapp_templates first to see available templates.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        to: { type: Type.STRING, description: "Recipient phone number in international format" },
+        template_name: { type: Type.STRING, description: "Name of the approved WhatsApp template (e.g. 'hello_world', 'appointment_reminder')" },
+        language_code: { type: Type.STRING, description: "Language code for the template (default: en_US)" },
+        body_params: { type: Type.STRING, description: "Optional comma-separated values to fill template body placeholders (e.g. 'John Doe,Tuesday 3pm')" },
+      },
+      required: ["to", "template_name"],
+    },
+  },
+  {
+    name: "send_whatsapp_media",
+    description: "Send an image, PDF document, video, or audio file via WhatsApp. The media must be at a publicly accessible URL.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        to: { type: Type.STRING, description: "Recipient phone number in international format" },
+        media_url: { type: Type.STRING, description: "Publicly accessible URL of the media file to send" },
+        media_type: { type: Type.STRING, description: "Type of media: image, document, video, or audio" },
+        caption: { type: Type.STRING, description: "Optional caption or message to accompany the media" },
+        filename: { type: Type.STRING, description: "Optional filename for documents (e.g. 'report.pdf')" },
+      },
+      required: ["to", "media_url", "media_type"],
+    },
+  },
+  {
+    name: "list_whatsapp_templates",
+    description: "List all approved WhatsApp message templates available on the connected WhatsApp Business Account. Returns template names, categories, and body text.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {},
+      required: [],
+    },
+  },
+];
